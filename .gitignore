@@ -1,0 +1,80 @@
+# ==========================================
+# Dependencies
+# ==========================================
+/node_modules
+/.pnp
+.pnp.js
+
+# ==========================================
+# Next.js Build Outputs & Cache
+# ==========================================
+/.next/
+/out/
+next-env.d.ts
+
+# ==========================================
+# NestJS Build Outputs
+# ==========================================
+/dist/
+*.tsbuildinfo
+
+# ==========================================
+# Testing & Coverage
+# ==========================================
+/coverage
+/.nyc_output
+/e2e
+/test-results/
+
+# ==========================================
+# Environment Variables & Secrets (CRITICAL)
+# ==========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# ==========================================
+# Package Manager Specifics
+# ==========================================
+.npm
+/pnpm-debug.log*
+/yarn-debug.log*
+/yarn-error.log*
+/.pnpm-debug.log*
+
+# ==========================================
+# Vercel (Next.js Deployment)
+# ==========================================
+/.vercel
+
+# ==========================================
+# Operating System & IDE Files
+# ==========================================
+# OS X
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDEs / Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+node_modules/
+docs/
+plans/
+
+.github/

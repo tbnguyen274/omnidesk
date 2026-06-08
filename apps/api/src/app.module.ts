@@ -1,0 +1,41 @@
+import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { ChannelsModule } from './modules/channels/channels.module';
+import { ConversationsModule } from './modules/conversations/conversations.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { EventsModule } from './modules/events/events.module';
+import { HealthModule } from './modules/health/health.module';
+import { MessagesModule } from './modules/messages/messages.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { OutboundModule } from './modules/outbound/outbound.module';
+import { SlaModule } from './modules/sla/sla.module';
+import { TicketsModule } from './modules/tickets/tickets.module';
+import { UsersModule } from './modules/users/users.module';
+import { DatabaseModule } from './common/database/database.module';
+import { RedisModule } from './common/redis/redis.module';
+
+@Module({
+  imports: [
+    DatabaseModule,
+    RedisModule,
+    HealthModule,
+    AuthModule,
+    UsersModule,
+    CustomersModule,
+    ConversationsModule,
+    MessagesModule,
+    TicketsModule,
+    ChannelsModule,
+    OutboundModule,
+    NotificationsModule,
+    SlaModule,
+    AnalyticsModule,
+    EventsModule,
+  ],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}

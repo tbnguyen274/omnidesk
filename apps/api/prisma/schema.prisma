@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  AGENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ChannelAccountType {
+  FACEBOOK
+  EMAIL
+}
+
+enum ChannelAccountStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+enum ChannelType {
+  FACEBOOK_MESSAGE
+  FACEBOOK_COMMENT
+  EMAIL
+}
+
+enum ConversationStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageSenderType {
+  CUSTOMER
+  AGENT
+  SYSTEM
+}
+
+enum MessageContentType {
+  TEXT
+  HTML
+  ATTACHMENT
+  SYSTEM
+}
+
+enum MessageDeliveryStatus {
+  RECEIVED
+  PENDING
+  SENT
+  FAILED
+}
+
+enum InboundProvider {
+  FACEBOOK
+  EMAIL
+}
+
+enum InboundEventType {
+  MESSAGE
+  COMMENT
+  EMAIL_RECEIVED
+}
+
+enum InboundEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  DUPLICATED
+}
+
+enum OutboundProvider {
+  FACEBOOK
+  EMAIL
+}
+
+enum OutboundMessageStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  RETRYING
+}
+
+enum EmailSyncStatus {
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  role          UserRole
+  status        UserStatus     @default(ACTIVE)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  assignedConversations Conversation[] @relation("ConversationAssignedAgent")
+  assignedTickets       Ticket[]       @relation("TicketAssignedAgent")
+  sentMessages          Message[]      @relation("MessageSender")
+  outboundMessages      OutboundMessage[]
+  auditLogs             AuditLog[]
+
+  @@map("users")
+}
+
+model Customer {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String?
+  email              String?
+  phone              String?
+  avatarUrl          String?  @map("avatar_url")
+  externalFacebookId String?  @map("external_facebook_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  conversations Conversation[]
+
+  @@index([email])
+  @@index([externalFacebookId])
+  @@map("customers")
+}
+
+model ChannelAccount {
+  id                    String               @id @default(uuid()) @db.Uuid
+  type                  ChannelAccountType
+  displayName           String               @map("display_name")
+  externalId            String               @map("external_id")
+  accessTokenEncrypted  String?              @map("access_token_encrypted")
+  refreshTokenEncrypted String?              @map("refresh_token_encrypted")
+  configJson            Json                 @default("{}") @map("config_json")
+  status                ChannelAccountStatus @default(ACTIVE)
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+
+  conversations Conversation[]
+  emailSyncLogs EmailSyncLog[]
+
+  @@map("channel_accounts")
+}
+
+model Conversation {
+  id                     String             @id @default(uuid()) @db.Uuid
+  channelType            ChannelType        @map("channel_type")
+  channelAccountId       String             @map("channel_account_id") @db.Uuid
+  customerId             String             @map("customer_id") @db.Uuid
+  externalConversationId String?            @map("external_conversation_id")
+  subject                String?
+  status                 ConversationStatus @default(NEW)
+  priority               Priority           @default(MEDIUM)
+  assignedAgentId        String?            @map("assigned_agent_id") @db.Uuid
+  lastMessageAt          DateTime           @default(now()) @map("last_message_at")
+  firstResponseAt        DateTime?          @map("first_response_at")
+  resolvedAt             DateTime?          @map("resolved_at")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id])
+  customer         Customer       @relation(fields: [customerId], references: [id])
+  assignedAgent    User?          @relation("ConversationAssignedAgent", fields: [assignedAgentId], references: [id])
+  messages         Message[]
+  ticket           Ticket?
+  conversationTags ConversationTag[]
+  outboundMessages OutboundMessage[]
+
+  @@index([status, lastMessageAt])
+  @@index([channelType, lastMessageAt])
+  @@index([assignedAgentId])
+  @@index([customerId])
+  @@index([externalConversationId])
+  @@map("conversations")
+}
+
+model Message {
+  id                 String                @id @default(uuid()) @db.Uuid
+  conversationId     String                @map("conversation_id") @db.Uuid
+  inboundEventId     String?               @map("inbound_event_id") @db.Uuid
+  direction          MessageDirection
+  senderType         MessageSenderType     @map("sender_type")
+  senderId           String?               @map("sender_id") @db.Uuid
+  content            String
+  contentType        MessageContentType    @default(TEXT) @map("content_type")
+  externalMessageId  String?               @map("external_message_id")
+  rawPayload         Json?                 @map("raw_payload")
+  deliveryStatus     MessageDeliveryStatus @default(RECEIVED) @map("delivery_status")
+  sentAt             DateTime?             @map("sent_at")
+  createdAt          DateTime              @default(now()) @map("created_at")
+
+  conversation Conversation  @relation(fields: [conversationId], references: [id])
+  inboundEvent InboundEvent? @relation(fields: [inboundEventId], references: [id])
+  sender       User?         @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@unique([conversationId, externalMessageId])
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model Ticket {
+  id                 String       @id @default(uuid()) @db.Uuid
+  conversationId     String       @unique @map("conversation_id") @db.Uuid
+  status             TicketStatus @default(NEW)
+  priority           Priority     @default(MEDIUM)
+  assignedAgentId    String?      @map("assigned_agent_id") @db.Uuid
+  slaDueAt           DateTime?    @map("sla_due_at")
+  firstResponseDueAt DateTime?    @map("first_response_due_at")
+  resolvedAt         DateTime?    @map("resolved_at")
+  closedAt           DateTime?    @map("closed_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  conversation  Conversation @relation(fields: [conversationId], references: [id])
+  assignedAgent User?        @relation("TicketAssignedAgent", fields: [assignedAgentId], references: [id])
+
+  @@index([status, priority])
+  @@index([assignedAgentId])
+  @@index([slaDueAt])
+  @@map("tickets")
+}
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  color     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  conversationTags ConversationTag[]
+
+  @@map("tags")
+}
+
+model ConversationTag {
+  conversationId String   @map("conversation_id") @db.Uuid
+  tagId          String   @map("tag_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  tag          Tag          @relation(fields: [tagId], references: [id])
+
+  @@id([conversationId, tagId])
+  @@map("conversation_tags")
+}
+
+model InboundEvent {
+  id               String             @id @default(uuid()) @db.Uuid
+  provider         InboundProvider
+  eventType        InboundEventType    @map("event_type")
+  externalEventId  String?            @map("external_event_id")
+  dedupKey         String             @unique @map("dedup_key")
+  rawPayload       Json               @map("raw_payload")
+  normalizedStatus InboundEventStatus @default(PENDING) @map("normalized_status")
+  errorMessage     String?            @map("error_message")
+  receivedAt       DateTime           @default(now()) @map("received_at")
+  processedAt      DateTime?          @map("processed_at")
+
+  messages Message[]
+
+  @@index([provider, eventType, receivedAt])
+  @@index([normalizedStatus])
+  @@map("inbound_events")
+}
+
+model OutboundMessage {
+  id                  String                @id @default(uuid()) @db.Uuid
+  conversationId      String                @map("conversation_id") @db.Uuid
+  channelType         ChannelType           @map("channel_type")
+  provider            OutboundProvider
+  recipientExternalId String?               @map("recipient_external_id")
+  content             String
+  status              OutboundMessageStatus @default(PENDING)
+  retryCount          Int                   @default(0) @map("retry_count")
+  maxRetries          Int                   @default(3) @map("max_retries")
+  lastError           String?               @map("last_error")
+  externalMessageId   String?               @map("external_message_id")
+  createdBy           String                @map("created_by") @db.Uuid
+  createdAt           DateTime              @default(now()) @map("created_at")
+  sentAt              DateTime?             @map("sent_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  creator      User         @relation(fields: [createdBy], references: [id])
+
+  @@index([status, createdAt])
+  @@index([conversationId])
+  @@index([provider])
+  @@map("outbound_messages")
+}
+
+model EmailSyncLog {
+  id                String          @id @default(uuid()) @db.Uuid
+  channelAccountId  String          @map("channel_account_id") @db.Uuid
+  syncStartedAt     DateTime        @default(now()) @map("sync_started_at")
+  syncFinishedAt    DateTime?       @map("sync_finished_at")
+  status            EmailSyncStatus
+  fetchedCount      Int             @default(0) @map("fetched_count")
+  processedCount    Int             @default(0) @map("processed_count")
+  errorMessage      String?         @map("error_message")
+
+  channelAccount ChannelAccount @relation(fields: [channelAccountId], references: [id])
+
+  @@map("email_sync_logs")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  targetType String   @map("target_type")
+  targetId   String   @map("target_id") @db.Uuid
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
+}
