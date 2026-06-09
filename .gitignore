@@ -76,5 +76,6 @@ desktop.ini
 node_modules/
 docs/
 plans/
+utils/
 
 .github/
