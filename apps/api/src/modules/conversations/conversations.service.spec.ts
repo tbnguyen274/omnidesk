@@ -1,0 +1,56 @@
+import { ConversationsService } from './conversations.service';
+
+describe('ConversationsService', () => {
+  it('returns paginated conversations', async () => {
+    const conversation = {
+      id: 'conversation-id',
+      channelType: 'EMAIL',
+      subject: 'Billing issue',
+      status: 'NEW',
+      priority: 'HIGH',
+      assignedAgent: null,
+      ticket: null,
+      lastMessageAt: new Date(),
+      customer: {
+        id: 'customer-id',
+        name: 'Customer',
+        email: 'customer@example.com',
+        avatarUrl: null,
+      },
+      messages: [
+        {
+          id: 'message-id',
+          content: 'I need help',
+          direction: 'INBOUND',
+          createdAt: new Date(),
+        },
+      ],
+    };
+    const prisma = {
+      $transaction: jest.fn().mockResolvedValue([[conversation], 1]),
+      conversation: {
+        findMany: jest.fn(),
+        count: jest.fn(),
+      },
+    };
+
+    const service = new ConversationsService(prisma as never);
+
+    await expect(service.list({ page: 1, limit: 20 })).resolves.toMatchObject({
+      items: [
+        {
+          id: 'conversation-id',
+          customer: {
+            email: 'customer@example.com',
+          },
+          lastMessage: {
+            content: 'I need help',
+          },
+        },
+      ],
+      page: 1,
+      limit: 20,
+      total: 1,
+    });
+  });
+});
