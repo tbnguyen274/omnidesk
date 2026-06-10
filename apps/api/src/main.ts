@@ -9,6 +9,10 @@ async function bootstrap() {
     type: VersioningType.URI,
     defaultVersion: '1',
   });
+  app.enableCors({
+    origin: process.env.WEB_ORIGIN ?? 'http://localhost:3002',
+    credentials: true,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
