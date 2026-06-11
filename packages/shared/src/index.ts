@@ -91,6 +91,7 @@ export type OutboundMessageJobPayload = {
 
 export type EmailSyncJobPayload = {
   channelAccountId?: string;
+  syncLogId?: string;
   requestedBy?: string;
 };
 
@@ -108,6 +109,48 @@ export type QueuePayloadByName = {
   [QUEUE_NAMES.EMAIL_SYNC]: EmailSyncJobPayload;
   [QUEUE_NAMES.SLA_CHECK]: SlaCheckJobPayload;
   [QUEUE_NAMES.ANALYTICS_AGGREGATION]: AnalyticsAggregationJobPayload;
+};
+
+export type MockInboundEmailPayload = {
+  mailbox: string;
+  messageId: string;
+  fromEmail: string;
+  fromName?: string;
+  toEmail?: string;
+  subject: string;
+  text?: string;
+  html?: string;
+  contentType?: Extract<MessageContentType, 'TEXT' | 'HTML'>;
+  receivedAt?: string;
+  threadId?: string;
+  inReplyTo?: string;
+  channelAccountId?: string;
+};
+
+export type NormalizedEmailMessage = {
+  provider: Extract<ChannelProvider, 'EMAIL'>;
+  channelType: Extract<ChannelType, 'EMAIL'>;
+  externalMessageId: string;
+  externalConversationId: string;
+  customer: {
+    name?: string;
+    email: string;
+  };
+  message: {
+    subject: string;
+    content: string;
+    contentType: Extract<MessageContentType, 'TEXT' | 'HTML'>;
+    receivedAt: string;
+  };
+  source: {
+    mailbox: string;
+    channelAccountId?: string;
+    toEmail?: string;
+    threadId?: string;
+    inReplyTo?: string;
+  };
+  rawPayload: MockInboundEmailPayload;
+  dedupKey: string;
 };
 
 export type NormalizedMessage = {
