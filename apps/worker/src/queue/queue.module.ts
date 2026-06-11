@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { EmailInboundService } from '../email/email-inbound.service';
 import { EmailOutboundService } from '../email/email-outbound.service';
+import { FacebookInboundService } from '../facebook/facebook-inbound.service';
 import { EmailSyncProcessor } from '../processors/email-sync.processor';
 import { InboundEventsProcessor } from '../processors/inbound-events.processor';
 import { OutboundMessagesProcessor } from '../processors/outbound-messages.processor';
@@ -12,6 +13,7 @@ import { QueueService } from './queue.service';
     PrismaService,
     EmailInboundService,
     EmailOutboundService,
+    FacebookInboundService,
     InboundEventsProcessor,
     OutboundMessagesProcessor,
     EmailSyncProcessor,
