@@ -4,25 +4,24 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  ChannelAccountType,
+  ChannelType,
   InboundEventType,
   InboundProvider,
-  ChannelType,
   Prisma,
-  EmailSyncStatus,
-  ChannelAccountType,
 } from '@prisma/client';
 import { MockInboundEmailPayload, QUEUE_NAMES } from '@omnidesk/shared';
-import { PrismaService } from '../../common/database/prisma.service';
 import { QueuesService } from '../../common/queues/queues.service';
 import { EventsService } from '../events/events.service';
 import { CreateEmailSyncDto } from './dto/create-email-sync.dto';
 import { ListEmailSyncLogsDto } from './dto/list-email-sync-logs.dto';
 import { MockInboundEmailDto } from './dto/mock-inbound-email.dto';
+import { EmailRepository } from './email.repository';
 
 @Injectable()
 export class EmailService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly emailRepository: EmailRepository,
     private readonly queues: QueuesService,
     private readonly events: EventsService,
   ) {}
@@ -61,12 +60,7 @@ export class EmailService {
       dto.channelAccountId,
     );
 
-    const syncLog = await this.prisma.emailSyncLog.create({
-      data: {
-        channelAccountId: channelAccount.id,
-        status: EmailSyncStatus.PARTIAL,
-      },
-    });
+    const syncLog = await this.emailRepository.createSyncLog(channelAccount.id);
 
     const job = await this.queues.add(QUEUE_NAMES.EMAIL_SYNC, 'sync-email', {
       channelAccountId: channelAccount.id,
@@ -89,25 +83,11 @@ export class EmailService {
       status: query.status,
     };
 
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.emailSyncLog.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { syncStartedAt: 'desc' },
-        include: {
-          channelAccount: {
-            select: {
-              id: true,
-              displayName: true,
-              externalId: true,
-              status: true,
-            },
-          },
-        },
-      }),
-      this.prisma.emailSyncLog.count({ where }),
-    ]);
+    const [items, total] = await this.emailRepository.listSyncLogs({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
     return {
       items,
@@ -123,9 +103,8 @@ export class EmailService {
 
   private async resolveEmailChannelAccount(channelAccountId?: string) {
     if (channelAccountId) {
-      const channelAccount = await this.prisma.channelAccount.findUnique({
-        where: { id: channelAccountId },
-      });
+      const channelAccount =
+        await this.emailRepository.findChannelAccountById(channelAccountId);
 
       if (!channelAccount) {
         throw new NotFoundException('Email channel account not found');
@@ -138,10 +117,8 @@ export class EmailService {
       return channelAccount;
     }
 
-    const channelAccount = await this.prisma.channelAccount.findFirst({
-      where: { type: ChannelAccountType.EMAIL },
-      orderBy: { createdAt: 'asc' },
-    });
+    const channelAccount =
+      await this.emailRepository.findFirstEmailChannelAccount();
 
     if (!channelAccount) {
       throw new NotFoundException('No email channel account is configured');

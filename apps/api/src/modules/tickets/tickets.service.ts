@@ -4,12 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, TicketStatus, UserRole, UserStatus } from '@prisma/client';
-import { PrismaService } from '../../common/database/prisma.service';
 import { ListTicketsDto } from './dto/list-tickets.dto';
+import { TicketsRepository } from './tickets.repository';
 
 @Injectable()
 export class TicketsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly ticketsRepository: TicketsRepository) {}
 
   async list(query: ListTicketsDto) {
     const page = query.page ?? 1;
@@ -29,30 +29,11 @@ export class TicketsService {
       };
     }
 
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.ticket.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          assignedAgent: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-            },
-          },
-          conversation: {
-            include: {
-              customer: true,
-            },
-          },
-        },
-      }),
-      this.prisma.ticket.count({ where }),
-    ]);
+    const [items, total] = await this.ticketsRepository.list({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
     return {
       items: items.map((ticket) => ({
@@ -87,27 +68,7 @@ export class TicketsService {
   }
 
   async findById(id: string) {
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id },
-      include: {
-        assignedAgent: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-        conversation: {
-          include: {
-            customer: true,
-            messages: {
-              orderBy: { createdAt: 'asc' },
-            },
-          },
-        },
-      },
-    });
+    const ticket = await this.ticketsRepository.findById(id);
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
@@ -119,41 +80,18 @@ export class TicketsService {
   async updateStatus(id: string, status: TicketStatus) {
     await this.ensureTicketExists(id);
 
-    return this.prisma.ticket.update({
-      where: { id },
-      data: {
-        status,
-        resolvedAt: status === TicketStatus.RESOLVED ? new Date() : undefined,
-        closedAt: status === TicketStatus.CLOSED ? new Date() : undefined,
-      },
-    });
+    return this.ticketsRepository.updateStatus(id, status);
   }
 
   async updateAssignment(id: string, assignedAgentId: string) {
     await this.ensureTicketExists(id);
     await this.ensureAssignableAgent(assignedAgentId);
 
-    return this.prisma.ticket.update({
-      where: { id },
-      data: { assignedAgentId },
-      include: {
-        assignedAgent: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
-    });
+    return this.ticketsRepository.updateAssignment(id, assignedAgentId);
   }
 
   private async ensureTicketExists(id: string) {
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+    const ticket = await this.ticketsRepository.findExistingById(id);
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
@@ -161,13 +99,7 @@ export class TicketsService {
   }
 
   private async ensureAssignableAgent(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: {
-        role: true,
-        status: true,
-      },
-    });
+    const user = await this.ticketsRepository.findAssignableUser(id);
 
     if (!user) {
       throw new NotFoundException('Assigned agent not found');

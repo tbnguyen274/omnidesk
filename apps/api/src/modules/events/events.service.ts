@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { QUEUE_NAMES } from '@omnidesk/shared';
-import { InboundEventStatus, Prisma } from '@prisma/client';
-import { PrismaService } from '../../common/database/prisma.service';
+import { Prisma } from '@prisma/client';
 import { QueuesService } from '../../common/queues/queues.service';
 import { CreateInboundEventDto } from './dto/create-inbound-event.dto';
 import { ListInboundEventsDto } from './dto/list-inbound-events.dto';
 import { ListOutboundEventsDto } from './dto/list-outbound-events.dto';
+import { EventsRepository } from './events.repository';
 
 @Injectable()
 export class EventsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly eventsRepository: EventsRepository,
     private readonly queues: QueuesService,
   ) {}
 
@@ -23,27 +23,11 @@ export class EventsService {
       normalizedStatus: query.status,
     };
 
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.inboundEvent.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { receivedAt: 'desc' },
-        select: {
-          id: true,
-          provider: true,
-          eventType: true,
-          externalEventId: true,
-          dedupKey: true,
-          rawPayload: true,
-          normalizedStatus: true,
-          errorMessage: true,
-          receivedAt: true,
-          processedAt: true,
-        },
-      }),
-      this.prisma.inboundEvent.count({ where }),
-    ]);
+    const [items, total] = await this.eventsRepository.listInbound({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
     return {
       items,
@@ -61,32 +45,11 @@ export class EventsService {
       status: query.status,
     };
 
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.outboundMessage.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          conversationId: true,
-          channelType: true,
-          provider: true,
-          recipientExternalId: true,
-          content: true,
-          status: true,
-          retryCount: true,
-          maxRetries: true,
-          lastError: true,
-          externalMessageId: true,
-          createdBy: true,
-          createdAt: true,
-          sentAt: true,
-          updatedAt: true,
-        },
-      }),
-      this.prisma.outboundMessage.count({ where }),
-    ]);
+    const [items, total] = await this.eventsRepository.listOutbound({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
     return {
       items,
@@ -97,9 +60,9 @@ export class EventsService {
   }
 
   async createInbound(dto: CreateInboundEventDto) {
-    const existing = await this.prisma.inboundEvent.findUnique({
-      where: { dedupKey: dto.dedupKey },
-    });
+    const existing = await this.eventsRepository.findInboundByDedupKey(
+      dto.dedupKey,
+    );
 
     if (existing) {
       return {
@@ -109,16 +72,7 @@ export class EventsService {
       };
     }
 
-    const inboundEvent = await this.prisma.inboundEvent.create({
-      data: {
-        provider: dto.provider,
-        eventType: dto.eventType,
-        externalEventId: dto.externalEventId,
-        dedupKey: dto.dedupKey,
-        rawPayload: dto.rawPayload,
-        normalizedStatus: InboundEventStatus.PENDING,
-      },
-    });
+    const inboundEvent = await this.eventsRepository.createInbound(dto);
 
     await this.queues.add(QUEUE_NAMES.INBOUND_EVENTS, 'process-inbound-event', {
       inboundEventId: inboundEvent.id,
