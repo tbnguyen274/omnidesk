@@ -4,6 +4,7 @@ import { OutboundMessageJobPayload } from '@omnidesk/shared';
 import { OutboundMessageStatus, OutboundProvider } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { EmailOutboundService } from '../email/email-outbound.service';
+import { FacebookOutboundService } from '../facebook/services/facebook-outbound.service';
 
 @Injectable()
 export class OutboundMessagesProcessor {
@@ -12,6 +13,7 @@ export class OutboundMessagesProcessor {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailOutbound: EmailOutboundService,
+    private readonly facebookOutbound: FacebookOutboundService,
   ) {}
 
   async process(job: Job<OutboundMessageJobPayload>) {
@@ -51,6 +53,10 @@ export class OutboundMessagesProcessor {
 
       if (outboundMessage.provider === OutboundProvider.EMAIL) {
         await this.emailOutbound.createTimelineMessage(outboundMessage.id);
+      }
+
+      if (outboundMessage.provider === OutboundProvider.FACEBOOK) {
+        await this.facebookOutbound.createTimelineMessage(outboundMessage.id);
       }
     } catch (error) {
       const attempts = Number(job.opts.attempts ?? 1);

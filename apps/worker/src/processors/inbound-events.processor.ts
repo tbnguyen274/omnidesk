@@ -8,7 +8,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { EmailInboundService } from '../email/email-inbound.service';
-import { FacebookInboundService } from '../facebook/facebook-inbound.service';
+import { FacebookInboundService } from '../facebook/services/facebook-inbound.service';
 
 @Injectable()
 export class InboundEventsProcessor {

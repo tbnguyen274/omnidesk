@@ -13,7 +13,7 @@ import {
   Prisma,
   TicketStatus,
 } from '@prisma/client';
-import { PrismaService } from '../database/prisma.service';
+import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class FacebookInboundRepository {

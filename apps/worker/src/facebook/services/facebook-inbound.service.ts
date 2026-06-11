@@ -5,7 +5,7 @@ import {
   NormalizedFacebookMessage,
 } from '@omnidesk/shared';
 import { InboundEvent, MessageContentType, Prisma } from '@prisma/client';
-import { FacebookInboundRepository } from './facebook-inbound.repository';
+import { FacebookInboundRepository } from '../repositories/facebook-inbound.repository';
 
 @Injectable()
 export class FacebookInboundService {
