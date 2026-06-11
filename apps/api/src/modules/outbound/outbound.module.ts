@@ -1,4 +1,10 @@
 import { Module } from '@nestjs/common';
+import { OutboundController } from './outbound.controller';
+import { OutboundService } from './outbound.service';
 
-@Module({})
+@Module({
+  controllers: [OutboundController],
+  providers: [OutboundService],
+  exports: [OutboundService],
+})
 export class OutboundModule {}

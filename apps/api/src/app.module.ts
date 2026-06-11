@@ -7,6 +7,7 @@ import { ChannelsModule } from './modules/channels/channels.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { EventsModule } from './modules/events/events.module';
+import { DevModule } from './modules/dev/dev.module';
 import { HealthModule } from './modules/health/health.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -15,12 +16,14 @@ import { SlaModule } from './modules/sla/sla.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { UsersModule } from './modules/users/users.module';
 import { DatabaseModule } from './common/database/database.module';
+import { QueuesModule } from './common/queues/queues.module';
 import { RedisModule } from './common/redis/redis.module';
 
 @Module({
   imports: [
     DatabaseModule,
     RedisModule,
+    QueuesModule,
     HealthModule,
     AuthModule,
     UsersModule,
@@ -34,6 +37,7 @@ import { RedisModule } from './common/redis/redis.module';
     SlaModule,
     AnalyticsModule,
     EventsModule,
+    DevModule,
   ],
   controllers: [AppController],
   providers: [AppService],

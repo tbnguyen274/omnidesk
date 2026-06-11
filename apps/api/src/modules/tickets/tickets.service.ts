@@ -3,12 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  Prisma,
-  TicketStatus,
-  UserRole,
-  UserStatus,
-} from '@prisma/client';
+import { Prisma, TicketStatus, UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { ListTicketsDto } from './dto/list-tickets.dto';
 

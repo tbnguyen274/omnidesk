@@ -76,6 +76,40 @@ export type EventEnvelope<TPayload> = {
   payload: TPayload;
 };
 
+export type InboundEventJobPayload = {
+  inboundEventId: string;
+  dedupKey: string;
+  provider: ChannelProvider;
+  eventType: 'MESSAGE' | 'COMMENT' | 'EMAIL_RECEIVED';
+};
+
+export type OutboundMessageJobPayload = {
+  outboundMessageId: string;
+  conversationId: string;
+  provider: ChannelProvider;
+};
+
+export type EmailSyncJobPayload = {
+  channelAccountId?: string;
+  requestedBy?: string;
+};
+
+export type SlaCheckJobPayload = {
+  requestedAt: string;
+};
+
+export type AnalyticsAggregationJobPayload = {
+  requestedAt: string;
+};
+
+export type QueuePayloadByName = {
+  [QUEUE_NAMES.INBOUND_EVENTS]: InboundEventJobPayload;
+  [QUEUE_NAMES.OUTBOUND_MESSAGES]: OutboundMessageJobPayload;
+  [QUEUE_NAMES.EMAIL_SYNC]: EmailSyncJobPayload;
+  [QUEUE_NAMES.SLA_CHECK]: SlaCheckJobPayload;
+  [QUEUE_NAMES.ANALYTICS_AGGREGATION]: AnalyticsAggregationJobPayload;
+};
+
 export type NormalizedMessage = {
   provider: ChannelProvider;
   channelType: ChannelType;

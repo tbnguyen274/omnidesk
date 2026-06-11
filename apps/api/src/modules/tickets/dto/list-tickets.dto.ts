@@ -24,7 +24,7 @@ export class ListTicketsDto {
   assignedAgentId?: string;
 
   @IsOptional()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === 'true' || value === true) {
       return true;
     }

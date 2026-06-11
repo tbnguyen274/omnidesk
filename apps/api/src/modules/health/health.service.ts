@@ -40,7 +40,8 @@ export class HealthService {
     } catch (error) {
       return {
         status: 'error' as const,
-        message: error instanceof Error ? error.message : 'Database check failed',
+        message:
+          error instanceof Error ? error.message : 'Database check failed',
       };
     }
   }
