@@ -80,3 +80,5 @@ plans/
 utils/
 
 .github/
+.postman/
+postman/

@@ -7,16 +7,15 @@ import {
 import { Job, Queue, Worker as BullWorker } from 'bullmq';
 import Redis from 'ioredis';
 import {
+  EmailSyncJobPayload,
   InboundEventJobPayload,
   OutboundMessageJobPayload,
   QUEUE_NAMES,
   QueueName,
 } from '@omnidesk/shared';
-import {
-  InboundEventStatus,
-  OutboundMessageStatus,
-  PrismaClient,
-} from '@prisma/client';
+import { EmailSyncProcessor } from '../processors/email-sync.processor';
+import { InboundEventsProcessor } from '../processors/inbound-events.processor';
+import { OutboundMessagesProcessor } from '../processors/outbound-messages.processor';
 
 type RedisConnectionOptions = {
   host: string;
@@ -32,7 +31,12 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   private connectionOptions: RedisConnectionOptions | null = null;
   private readonly queues = new Map<QueueName, Queue>();
   private readonly workers = new Map<QueueName, BullWorker>();
-  private readonly prisma = new PrismaClient();
+
+  constructor(
+    private readonly inboundEventsProcessor: InboundEventsProcessor,
+    private readonly outboundMessagesProcessor: OutboundMessagesProcessor,
+    private readonly emailSyncProcessor: EmailSyncProcessor,
+  ) {}
 
   async onModuleInit() {
     this.connectionOptions = {
@@ -67,7 +71,6 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       [...this.workers.values()].map((worker) => worker.close()),
     );
     await Promise.all([...this.queues.values()].map((queue) => queue.close()));
-    await this.prisma.$disconnect();
     await this.connection?.quit();
   }
 
@@ -92,7 +95,8 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       QUEUE_NAMES.INBOUND_EVENTS,
       new BullWorker(
         QUEUE_NAMES.INBOUND_EVENTS,
-        (job: Job<InboundEventJobPayload>) => this.processInboundEvent(job),
+        (job: Job<InboundEventJobPayload>) =>
+          this.inboundEventsProcessor.process(job),
         { connection: this.connectionOptions },
       ),
     );
@@ -102,7 +106,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       new BullWorker(
         QUEUE_NAMES.OUTBOUND_MESSAGES,
         (job: Job<OutboundMessageJobPayload>) =>
-          this.processOutboundMessage(job),
+          this.outboundMessagesProcessor.process(job),
         { connection: this.connectionOptions },
       ),
     );
@@ -111,10 +115,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       QUEUE_NAMES.EMAIL_SYNC,
       new BullWorker(
         QUEUE_NAMES.EMAIL_SYNC,
-        (job) => {
-          this.logger.log(`Email sync placeholder processed job ${job.id}`);
-          return Promise.resolve();
-        },
+        (job: Job<EmailSyncJobPayload>) => this.emailSyncProcessor.process(job),
         { connection: this.connectionOptions },
       ),
     );
@@ -152,96 +153,6 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
           `${queueName} failed job ${job?.id ?? 'unknown'}: ${error.message}`,
         );
       });
-    }
-  }
-
-  private async processInboundEvent(job: Job<InboundEventJobPayload>) {
-    const inboundEvent = await this.prisma.inboundEvent.findUnique({
-      where: { id: job.data.inboundEventId },
-    });
-
-    if (!inboundEvent) {
-      this.logger.warn(`Inbound event ${job.data.inboundEventId} not found`);
-      return;
-    }
-
-    try {
-      await this.prisma.inboundEvent.update({
-        where: { id: inboundEvent.id },
-        data: {
-          normalizedStatus: InboundEventStatus.PROCESSED,
-          processedAt: new Date(),
-          errorMessage: null,
-        },
-      });
-    } catch (error) {
-      await this.prisma.inboundEvent.update({
-        where: { id: inboundEvent.id },
-        data: {
-          normalizedStatus: InboundEventStatus.FAILED,
-          errorMessage:
-            error instanceof Error
-              ? error.message
-              : 'Inbound processing failed',
-        },
-      });
-      throw error;
-    }
-  }
-
-  private async processOutboundMessage(job: Job<OutboundMessageJobPayload>) {
-    const outboundMessage = await this.prisma.outboundMessage.findUnique({
-      where: { id: job.data.outboundMessageId },
-    });
-
-    if (!outboundMessage) {
-      this.logger.warn(
-        `Outbound message ${job.data.outboundMessageId} not found`,
-      );
-      return;
-    }
-
-    try {
-      await this.prisma.outboundMessage.update({
-        where: { id: outboundMessage.id },
-        data: {
-          status: OutboundMessageStatus.SENDING,
-          lastError: null,
-        },
-      });
-
-      if (outboundMessage.content.toLowerCase().includes('mock_fail')) {
-        throw new Error('Mock outbound provider failure');
-      }
-
-      await this.prisma.outboundMessage.update({
-        where: { id: outboundMessage.id },
-        data: {
-          status: OutboundMessageStatus.SENT,
-          externalMessageId: `mock_${outboundMessage.id}`,
-          sentAt: new Date(),
-          lastError: null,
-        },
-      });
-    } catch (error) {
-      const attempts = Number(job.opts.attempts ?? 1);
-      const finalAttempt = job.attemptsMade + 1 >= attempts;
-
-      await this.prisma.outboundMessage.update({
-        where: { id: outboundMessage.id },
-        data: {
-          status: finalAttempt
-            ? OutboundMessageStatus.FAILED
-            : OutboundMessageStatus.RETRYING,
-          retryCount: { increment: 1 },
-          lastError:
-            error instanceof Error
-              ? error.message
-              : 'Outbound processing failed',
-        },
-      });
-
-      throw error;
     }
   }
 }

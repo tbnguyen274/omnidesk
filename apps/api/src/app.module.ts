@@ -8,6 +8,7 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
 import { CustomersModule } from './modules/customers/customers.module';
 import { EventsModule } from './modules/events/events.module';
 import { DevModule } from './modules/dev/dev.module';
+import { EmailModule } from './modules/email/email.module';
 import { HealthModule } from './modules/health/health.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -38,6 +39,7 @@ import { RedisModule } from './common/redis/redis.module';
     AnalyticsModule,
     EventsModule,
     DevModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
