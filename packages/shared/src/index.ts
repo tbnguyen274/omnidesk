@@ -56,6 +56,81 @@ export const EVENT_NAMES = {
 } as const;
 export type EventName = (typeof EVENT_NAMES)[keyof typeof EVENT_NAMES];
 
+export const REALTIME_EVENT_TYPES = {
+  CONVERSATION_CREATED: 'conversation.created',
+  CONVERSATION_UPDATED: 'conversation.updated',
+  MESSAGE_CREATED: 'message.created',
+  TICKET_UPDATED: 'ticket.updated',
+  OUTBOUND_MESSAGE_UPDATED: 'outbound_message.updated',
+  SLA_OVERDUE: 'sla.overdue',
+} as const;
+export type RealtimeEventType =
+  (typeof REALTIME_EVENT_TYPES)[keyof typeof REALTIME_EVENT_TYPES];
+
+export const OUTBOUND_MESSAGE_STATUSES = [
+  'PENDING',
+  'SENT',
+  'FAILED',
+  'RETRYING',
+] as const;
+export type OutboundMessageStatus =
+  (typeof OUTBOUND_MESSAGE_STATUSES)[number];
+
+export type RealtimeRoom =
+  | `agent:${string}`
+  | `conversation:${string}`
+  | `team:${string}`
+  | `tenant:${string}`
+  | `supervisor:${string}`;
+
+export type BaseRealtimeEvent<TType extends RealtimeEventType> = {
+  type: TType;
+  occurredAt: string;
+};
+
+export type ConversationRealtimeEvent = BaseRealtimeEvent<
+  | typeof REALTIME_EVENT_TYPES.CONVERSATION_CREATED
+  | typeof REALTIME_EVENT_TYPES.CONVERSATION_UPDATED
+> & {
+  conversationId: string;
+};
+
+export type MessageCreatedRealtimeEvent = BaseRealtimeEvent<
+  typeof REALTIME_EVENT_TYPES.MESSAGE_CREATED
+> & {
+  conversationId: string;
+  messageId: string;
+};
+
+export type TicketUpdatedRealtimeEvent = BaseRealtimeEvent<
+  typeof REALTIME_EVENT_TYPES.TICKET_UPDATED
+> & {
+  ticketId: string;
+  conversationId: string;
+};
+
+export type OutboundMessageUpdatedRealtimeEvent = BaseRealtimeEvent<
+  typeof REALTIME_EVENT_TYPES.OUTBOUND_MESSAGE_UPDATED
+> & {
+  outboundMessageId: string;
+  conversationId: string;
+  status: OutboundMessageStatus;
+};
+
+export type SlaOverdueRealtimeEvent = BaseRealtimeEvent<
+  typeof REALTIME_EVENT_TYPES.SLA_OVERDUE
+> & {
+  ticketId: string;
+  conversationId: string;
+};
+
+export type RealtimeEvent =
+  | ConversationRealtimeEvent
+  | MessageCreatedRealtimeEvent
+  | TicketUpdatedRealtimeEvent
+  | OutboundMessageUpdatedRealtimeEvent
+  | SlaOverdueRealtimeEvent;
+
 export const QUEUE_NAMES = {
   INBOUND_EVENTS: 'inbound-events',
   OUTBOUND_MESSAGES: 'outbound-messages',
