@@ -10,12 +10,14 @@ import {
   UserRole,
   UserStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../common/database/prisma.service';
+import { ConversationsRepository } from './conversations.repository';
 import { ListConversationsDto } from './dto/list-conversations.dto';
 
 @Injectable()
 export class ConversationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly conversationsRepository: ConversationsRepository,
+  ) {}
 
   async list(query: ListConversationsDto) {
     const page = query.page ?? 1;
@@ -50,31 +52,11 @@ export class ConversationsService {
       ];
     }
 
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.conversation.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { lastMessageAt: 'desc' },
-        include: {
-          customer: true,
-          assignedAgent: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-            },
-          },
-          messages: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-          ticket: true,
-        },
-      }),
-      this.prisma.conversation.count({ where }),
-    ]);
+    const [items, total] = await this.conversationsRepository.list({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
     return {
       items: items.map((conversation) => ({
@@ -115,29 +97,7 @@ export class ConversationsService {
   }
 
   async findById(id: string) {
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id },
-      include: {
-        customer: true,
-        assignedAgent: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-        messages: {
-          orderBy: { createdAt: 'asc' },
-        },
-        ticket: true,
-        conversationTags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
-    });
+    const conversation = await this.conversationsRepository.findById(id);
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -182,50 +142,25 @@ export class ConversationsService {
   async updateStatus(id: string, status: ConversationStatus) {
     await this.ensureConversationExists(id);
 
-    return this.prisma.conversation.update({
-      where: { id },
-      data: {
-        status,
-        resolvedAt:
-          status === ConversationStatus.RESOLVED ? new Date() : undefined,
-      },
-    });
+    return this.conversationsRepository.updateStatus(id, status);
   }
 
   async updatePriority(id: string, priority: Priority) {
     await this.ensureConversationExists(id);
 
-    return this.prisma.conversation.update({
-      where: { id },
-      data: { priority },
-    });
+    return this.conversationsRepository.updatePriority(id, priority);
   }
 
   async updateAssignment(id: string, assignedAgentId: string) {
     await this.ensureConversationExists(id);
     await this.ensureAssignableAgent(assignedAgentId);
 
-    return this.prisma.conversation.update({
-      where: { id },
-      data: { assignedAgentId },
-      include: {
-        assignedAgent: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
-    });
+    return this.conversationsRepository.updateAssignment(id, assignedAgentId);
   }
 
   private async ensureConversationExists(id: string) {
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+    const conversation =
+      await this.conversationsRepository.findExistingById(id);
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -233,13 +168,7 @@ export class ConversationsService {
   }
 
   private async ensureAssignableAgent(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: {
-        role: true,
-        status: true,
-      },
-    });
+    const user = await this.conversationsRepository.findAssignableUser(id);
 
     if (!user) {
       throw new NotFoundException('Assigned agent not found');

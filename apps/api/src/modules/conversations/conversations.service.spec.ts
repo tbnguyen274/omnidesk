@@ -26,15 +26,11 @@ describe('ConversationsService', () => {
         },
       ],
     };
-    const prisma = {
-      $transaction: jest.fn().mockResolvedValue([[conversation], 1]),
-      conversation: {
-        findMany: jest.fn(),
-        count: jest.fn(),
-      },
+    const conversationsRepository = {
+      list: jest.fn().mockResolvedValue([[conversation], 1]),
     };
 
-    const service = new ConversationsService(prisma as never);
+    const service = new ConversationsService(conversationsRepository as never);
 
     await expect(service.list({ page: 1, limit: 20 })).resolves.toMatchObject({
       items: [

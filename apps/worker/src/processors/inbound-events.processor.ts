@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { EmailInboundService } from '../email/email-inbound.service';
+import { FacebookInboundService } from '../facebook/services/facebook-inbound.service';
 
 @Injectable()
 export class InboundEventsProcessor {
@@ -16,6 +17,7 @@ export class InboundEventsProcessor {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInbound: EmailInboundService,
+    private readonly facebookInbound: FacebookInboundService,
   ) {}
 
   async process(job: Job<InboundEventJobPayload>) {
@@ -34,6 +36,15 @@ export class InboundEventsProcessor {
         inboundEvent.eventType === InboundEventType.EMAIL_RECEIVED
       ) {
         await this.emailInbound.process(inboundEvent);
+        return;
+      }
+
+      if (
+        inboundEvent.provider === InboundProvider.FACEBOOK &&
+        (inboundEvent.eventType === InboundEventType.MESSAGE ||
+          inboundEvent.eventType === InboundEventType.COMMENT)
+      ) {
+        await this.facebookInbound.process(inboundEvent);
         return;
       }
 

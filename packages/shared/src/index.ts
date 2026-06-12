@@ -153,6 +153,75 @@ export type NormalizedEmailMessage = {
   dedupKey: string;
 };
 
+// FACEBOOK_MESSAGE:{pageId}:{messageId}
+export type FacebookMessageDedupKey =
+  `FACEBOOK_MESSAGE:${string}:${string}`;
+
+// FACEBOOK_COMMENT:{pageId}:{commentId}
+export type FacebookCommentDedupKey =
+  `FACEBOOK_COMMENT:${string}:${string}`;
+
+// FACEBOOK_MESSAGE:{pageId}:{senderId}
+export type FacebookMessageConversationId = `FB_MSG:${string}:${string}`;
+
+// FACEBOOK_COMMENT:{pageId}:{postId}:{commentId}
+export type FacebookCommentConversationId =
+  `FB_COMMENT:${string}:${string}:${string}`;
+
+export type MockFacebookMessagePayload = {
+  pageId: string;
+  senderId: string;
+  senderName?: string;
+  messageId: string;
+  text: string;
+  sentAt?: string;
+  threadId?: string;
+  channelAccountId?: string;
+};
+
+export type MockFacebookCommentPayload = {
+  pageId: string;
+  postId: string;
+  commentId: string;
+  commenterId: string;
+  commenterName?: string;
+  text: string;
+  sentAt?: string;
+  parentCommentId?: string;
+  channelAccountId?: string;
+};
+
+export type NormalizedFacebookMessage = {
+  provider: Extract<ChannelProvider, 'FACEBOOK'>;
+  channelType: Extract<
+    ChannelType,
+    'FACEBOOK_MESSAGE' | 'FACEBOOK_COMMENT'
+  >;
+  externalMessageId: string;
+  externalConversationId:
+    | FacebookMessageConversationId
+    | FacebookCommentConversationId;
+  customer: {
+    externalId: string;
+    name?: string;
+  };
+  message: {
+    content: string;
+    contentType: Extract<MessageContentType, 'TEXT'>;
+    receivedAt: string;
+  };
+  source: {
+    pageId: string;
+    channelAccountId?: string;
+    threadId?: string;
+    postId?: string;
+    commentId?: string;
+    parentCommentId?: string;
+  };
+  rawPayload: MockFacebookMessagePayload | MockFacebookCommentPayload;
+  dedupKey: FacebookMessageDedupKey | FacebookCommentDedupKey;
+};
+
 export type NormalizedMessage = {
   provider: ChannelProvider;
   channelType: ChannelType;
