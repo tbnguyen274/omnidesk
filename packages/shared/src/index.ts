@@ -69,6 +69,7 @@ export type RealtimeEventType =
 
 export const OUTBOUND_MESSAGE_STATUSES = [
   'PENDING',
+  'SENDING',
   'SENT',
   'FAILED',
   'RETRYING',
