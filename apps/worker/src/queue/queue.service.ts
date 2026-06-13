@@ -12,10 +12,12 @@ import {
   OutboundMessageJobPayload,
   QUEUE_NAMES,
   QueueName,
+  SlaCheckJobPayload,
 } from '@omnidesk/shared';
 import { EmailSyncProcessor } from '../processors/email-sync.processor';
 import { InboundEventsProcessor } from '../processors/inbound-events.processor';
 import { OutboundMessagesProcessor } from '../processors/outbound-messages.processor';
+import { SlaCheckProcessor } from '../processors/sla-check.processor';
 
 type RedisConnectionOptions = {
   host: string;
@@ -36,6 +38,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     private readonly inboundEventsProcessor: InboundEventsProcessor,
     private readonly outboundMessagesProcessor: OutboundMessagesProcessor,
     private readonly emailSyncProcessor: EmailSyncProcessor,
+    private readonly slaCheckProcessor: SlaCheckProcessor,
   ) {}
 
   async onModuleInit() {
@@ -124,10 +127,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       QUEUE_NAMES.SLA_CHECK,
       new BullWorker(
         QUEUE_NAMES.SLA_CHECK,
-        (job) => {
-          this.logger.log(`SLA check placeholder processed job ${job.id}`);
-          return Promise.resolve();
-        },
+        (job: Job<SlaCheckJobPayload>) => this.slaCheckProcessor.process(job),
         { connection: this.connectionOptions },
       ),
     );
