@@ -4,12 +4,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, TicketStatus, UserRole, UserStatus } from '@prisma/client';
+import { REALTIME_EVENT_TYPES } from '@omnidesk/shared';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ListTicketsDto } from './dto/list-tickets.dto';
 import { TicketsRepository } from './tickets.repository';
 
 @Injectable()
 export class TicketsService {
-  constructor(private readonly ticketsRepository: TicketsRepository) {}
+  constructor(
+    private readonly ticketsRepository: TicketsRepository,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async list(query: ListTicketsDto) {
     const page = query.page ?? 1;
@@ -78,16 +83,34 @@ export class TicketsService {
   }
 
   async updateStatus(id: string, status: TicketStatus) {
-    await this.ensureTicketExists(id);
+    const existingTicket = await this.ensureTicketExists(id);
 
-    return this.ticketsRepository.updateStatus(id, status);
+    const ticket = await this.ticketsRepository.updateStatus(id, status);
+
+    this.publishTicketUpdated(ticket.id, existingTicket.conversationId);
+
+    return ticket;
   }
 
   async updateAssignment(id: string, assignedAgentId: string) {
-    await this.ensureTicketExists(id);
+    const existingTicket = await this.ensureTicketExists(id);
     await this.ensureAssignableAgent(assignedAgentId);
 
-    return this.ticketsRepository.updateAssignment(id, assignedAgentId);
+    const ticket = await this.ticketsRepository.updateAssignment(
+      id,
+      assignedAgentId,
+    );
+
+    this.publishTicketUpdated(ticket.id, existingTicket.conversationId);
+
+    this.notificationsService.publishToAgent(assignedAgentId, {
+      type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
+      ticketId: ticket.id,
+      conversationId: existingTicket.conversationId,
+      occurredAt: new Date().toISOString(),
+    });
+
+    return ticket;
   }
 
   private async ensureTicketExists(id: string) {
@@ -96,6 +119,17 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
+
+    return ticket;
+  }
+
+  private publishTicketUpdated(ticketId: string, conversationId: string) {
+    this.notificationsService.publishToConversation(conversationId, {
+      type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
+      ticketId,
+      conversationId,
+      occurredAt: new Date().toISOString(),
+    });
   }
 
   private async ensureAssignableAgent(id: string) {

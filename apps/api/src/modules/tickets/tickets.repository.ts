@@ -60,7 +60,7 @@ export class TicketsRepository {
   findExistingById(id: string) {
     return this.prisma.ticket.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, conversationId: true },
     });
   }
 

@@ -12,5 +12,8 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
   }
 }
