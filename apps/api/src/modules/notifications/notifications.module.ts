@@ -1,15 +1,24 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { appConfig } from '../../config/app.config';
+import { UsersModule } from '../users/users.module';
+import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsService } from './notifications.service';
 import { NOTIFICATIONS_PUBLISHER } from './ports/notifications-publisher.port';
-import { NoopNotificationsPublisher } from './publishers/noop-notifications.publisher';
 
 @Module({
+  imports: [
+    UsersModule,
+    JwtModule.register({
+      secret: appConfig.jwtSecret,
+    }),
+  ],
   providers: [
     NotificationsService,
-    NoopNotificationsPublisher,
+    NotificationsGateway,
     {
       provide: NOTIFICATIONS_PUBLISHER,
-      useExisting: NoopNotificationsPublisher,
+      useExisting: NotificationsGateway,
     },
   ],
   exports: [NotificationsService],

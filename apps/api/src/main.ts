@@ -1,6 +1,7 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { appConfig } from './config/app.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,7 +11,7 @@ async function bootstrap() {
     defaultVersion: '1',
   });
   app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? 'http://localhost:3002',
+    origin: appConfig.webOrigin,
     credentials: true,
   });
   app.useGlobalPipes(
@@ -20,6 +21,6 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  await app.listen(process.env.API_PORT ?? process.env.PORT ?? 3000);
+  await app.listen(appConfig.apiPort);
 }
 void bootstrap();
