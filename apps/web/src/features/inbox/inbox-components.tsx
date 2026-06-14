@@ -343,9 +343,13 @@ export function ConversationList({
 export function ConversationDetailPanel({
   conversation,
   loading,
+  onSendReply,
+  replyDisabledReason,
 }: {
   conversation: ConversationDetail | null;
   loading: boolean;
+  onSendReply?: (content: string) => Promise<void>;
+  replyDisabledReason?: string | null;
 }) {
   const sortedMessages = useMemo(
     () => conversation?.messages ?? [],
@@ -386,7 +390,10 @@ export function ConversationDetailPanel({
         </div>
       </div>
 
-      <ReplyComposer />
+      <ReplyComposer
+        disabledReason={replyDisabledReason}
+        onSendReply={onSendReply}
+      />
     </div>
   );
 }
@@ -422,24 +429,67 @@ function MessageBubble({
   );
 }
 
-function ReplyComposer() {
+function ReplyComposer({
+  disabledReason,
+  onSendReply,
+}: {
+  disabledReason?: string | null;
+  onSendReply?: (content: string) => Promise<void>;
+}) {
+  const [content, setContent] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const trimmedContent = content.trim();
+  const disabled =
+    submitting || !onSendReply || Boolean(disabledReason) || !trimmedContent;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (disabled || !onSendReply) {
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      await onSendReply(trimmedContent);
+      setContent("");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <div className="border-t border-slate-200 bg-white p-4">
+    <form
+      className="border-t border-slate-200 bg-white p-4"
+      onSubmit={handleSubmit}
+    >
       <div className="flex gap-2">
         <textarea
           className="min-h-20 flex-1 resize-none rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-slate-950"
+          disabled={submitting}
+          onChange={(event) => setContent(event.target.value)}
           placeholder="Write a reply"
+          value={content}
         />
         <button
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-300 text-slate-600"
-          disabled
-          title="Send reply"
-          type="button"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+          disabled={disabled}
+          title={disabledReason ?? "Send reply"}
+          type="submit"
         >
           <Send size={17} aria-hidden="true" />
         </button>
       </div>
-    </div>
+      {disabledReason ? (
+        <p className="mt-2 text-xs text-slate-500">{disabledReason}</p>
+      ) : null}
+      {error ? <p className="mt-2 text-xs text-rose-600">{error}</p> : null}
+    </form>
   );
 }
 
@@ -655,4 +705,12 @@ function getInitials(value: string | null) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function getErrorMessage(caught: unknown) {
+  if (caught instanceof Error) {
+    return caught.message;
+  }
+
+  return "Unable to send reply";
 }
