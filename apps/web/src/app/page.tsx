@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiClient, ApiError } from "@/lib/api-client";
+import { useRealtime } from "@/lib/use-realtime";
 import type {
   ConversationDetail,
   ConversationFilters,
@@ -39,6 +40,12 @@ export default function Home() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useRealtime({
+    conversationId: selectedId,
+    onEvents: () => undefined,
+    token,
+  });
 
   useEffect(() => {
     const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);

@@ -8,9 +8,7 @@ import type {
   LoginResponse,
   Priority,
 } from "./api-types";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api/v1";
+import { API_BASE_URL } from "./app-config";
 
 type RequestOptions = {
   token?: string;
