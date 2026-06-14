@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { REALTIME_EVENT_TYPES, type RealtimeEvent } from "@omnidesk/shared";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useRealtime } from "@/lib/use-realtime";
 import type {
@@ -43,7 +44,7 @@ export default function Home() {
 
   useRealtime({
     conversationId: selectedId,
-    onEvents: () => undefined,
+    onEvents: handleRealtimeEvents,
     token,
   });
 
@@ -146,6 +147,26 @@ export default function Home() {
     } finally {
       setDetailLoading(false);
     }
+  }
+
+  async function handleRealtimeEvents(events: RealtimeEvent[]) {
+    if (!token || events.length === 0) {
+      return;
+    }
+
+    const shouldRefreshList = events.some(shouldRefreshConversationList);
+    const shouldRefreshDetail =
+      selectedId !== null &&
+      events.some((event) => event.conversationId === selectedId);
+
+    await Promise.all([
+      shouldRefreshList
+        ? loadConversations(token, filters)
+        : Promise.resolve(),
+      shouldRefreshDetail
+        ? loadConversation(token, selectedId)
+        : Promise.resolve(),
+    ]);
   }
 
   async function handleSearchSubmit(search: string) {
@@ -279,6 +300,17 @@ export default function Home() {
         </section>
       </div>
     </main>
+  );
+}
+
+function shouldRefreshConversationList(event: RealtimeEvent) {
+  return (
+    event.type === REALTIME_EVENT_TYPES.CONVERSATION_CREATED ||
+    event.type === REALTIME_EVENT_TYPES.CONVERSATION_UPDATED ||
+    event.type === REALTIME_EVENT_TYPES.MESSAGE_CREATED ||
+    event.type === REALTIME_EVENT_TYPES.TICKET_UPDATED ||
+    event.type === REALTIME_EVENT_TYPES.OUTBOUND_MESSAGE_UPDATED ||
+    event.type === REALTIME_EVENT_TYPES.SLA_OVERDUE
   );
 }
 
