@@ -4,6 +4,8 @@ import type {
   ConversationFilters,
   ConversationListResponse,
   ConversationStatus,
+  CreateOutboundMessagePayload,
+  CreateOutboundMessageResponse,
   CurrentUser,
   LoginResponse,
   Priority,
@@ -130,5 +132,15 @@ export const apiClient = {
         body: { assignedAgentId },
       },
     );
+  },
+
+  createOutboundMessage(
+    token: string,
+    payload: CreateOutboundMessagePayload,
+  ) {
+    return request<CreateOutboundMessageResponse>("/outbound/messages", "POST", {
+      token,
+      body: payload,
+    });
   },
 };

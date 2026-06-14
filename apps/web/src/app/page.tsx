@@ -9,6 +9,7 @@ import type {
   ConversationFilters,
   ConversationListItem,
   ConversationStatus,
+  CreateOutboundMessagePayload,
   CurrentUser,
   Priority,
 } from "@/lib/api-types";
@@ -41,6 +42,9 @@ export default function Home() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const replyDisabledReason = selectedConversation
+    ? getReplyDisabledReason(selectedConversation)
+    : null;
 
   const { connectionState } = useRealtime({
     conversationId: selectedId,
@@ -254,6 +258,20 @@ export default function Home() {
     });
   }
 
+  async function handleSendReply(content: string) {
+    if (!token || !selectedConversation) {
+      return;
+    }
+
+    const payload = createOutboundMessagePayload(selectedConversation, content);
+
+    await apiClient.createOutboundMessage(token, payload);
+    await Promise.all([
+      loadConversations(token, filters),
+      loadConversation(token, selectedConversation.id),
+    ]);
+  }
+
   async function runConversationAction(action: () => Promise<void>) {
     if (!token || !selectedConversation) {
       return;
@@ -314,6 +332,8 @@ export default function Home() {
             <ConversationDetailPanel
               conversation={selectedConversation}
               loading={detailLoading}
+              onSendReply={handleSendReply}
+              replyDisabledReason={replyDisabledReason}
             />
           </section>
 
@@ -361,6 +381,62 @@ function dedupeById<T extends { id: string }>(items: T[]) {
   }
 
   return Array.from(byId.values());
+}
+
+function createOutboundMessagePayload(
+  conversation: ConversationDetail,
+  content: string,
+): CreateOutboundMessagePayload {
+  const disabledReason = getReplyDisabledReason(conversation);
+
+  if (disabledReason) {
+    throw new Error(disabledReason);
+  }
+
+  if (conversation.channelType === "EMAIL") {
+    return {
+      conversationId: conversation.id,
+      channelType: conversation.channelType,
+      provider: "EMAIL",
+      recipientExternalId: conversation.customer.email ?? undefined,
+      content,
+    };
+  }
+
+  if (conversation.channelType === "FACEBOOK_MESSAGE") {
+    return {
+      conversationId: conversation.id,
+      channelType: conversation.channelType,
+      provider: "FACEBOOK",
+      recipientExternalId:
+        conversation.customer.externalFacebookId ?? undefined,
+      content,
+    };
+  }
+
+  return {
+    conversationId: conversation.id,
+    channelType: conversation.channelType,
+    provider: "FACEBOOK",
+    recipientExternalId: conversation.customer.externalFacebookId ?? undefined,
+    content,
+  };
+}
+
+function getReplyDisabledReason(conversation: ConversationDetail) {
+  if (conversation.channelType === "EMAIL" && !conversation.customer.email) {
+    return "Customer email is missing.";
+  }
+
+  if (
+    (conversation.channelType === "FACEBOOK_MESSAGE" ||
+      conversation.channelType === "FACEBOOK_COMMENT") &&
+    !conversation.customer.externalFacebookId
+  ) {
+    return "Customer Facebook id is missing.";
+  }
+
+  return null;
 }
 
 function getErrorMessage(caught: unknown) {

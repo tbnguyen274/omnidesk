@@ -91,7 +91,7 @@ export class NotificationsGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: ConversationRoomPayload,
   ) {
-    this.assertAuthenticated(client);
+    await this.ensureAuthenticated(client);
 
     const conversationId = this.requireConversationId(payload);
     const room = this.conversationRoom(conversationId);
@@ -109,7 +109,7 @@ export class NotificationsGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: ConversationRoomPayload,
   ) {
-    this.assertAuthenticated(client);
+    await this.ensureAuthenticated(client);
 
     const conversationId = this.requireConversationId(payload);
     const room = this.conversationRoom(conversationId);
@@ -161,10 +161,16 @@ export class NotificationsGateway
     return undefined;
   }
 
-  private assertAuthenticated(client: AuthenticatedSocket) {
-    if (!client.data.user) {
-      throw new Error('Unauthenticated socket');
+  private async ensureAuthenticated(client: AuthenticatedSocket) {
+    if (client.data.user) {
+      return client.data.user;
     }
+
+    const user = await this.authenticate(client);
+    client.data.user = user;
+    await client.join(this.agentRoom(user.id));
+
+    return user;
   }
 
   private requireConversationId(payload: ConversationRoomPayload) {

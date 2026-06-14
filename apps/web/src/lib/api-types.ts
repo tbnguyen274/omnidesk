@@ -18,6 +18,13 @@ export type MessageDirection = "INBOUND" | "OUTBOUND";
 export type MessageSenderType = "CUSTOMER" | "AGENT" | "SYSTEM";
 export type MessageContentType = "TEXT" | "HTML" | "ATTACHMENT" | "SYSTEM";
 export type DeliveryStatus = "RECEIVED" | "PENDING" | "SENT" | "FAILED";
+export type OutboundProvider = "FACEBOOK" | "EMAIL";
+export type OutboundMessageStatus =
+  | "PENDING"
+  | "SENDING"
+  | "SENT"
+  | "FAILED"
+  | "RETRYING";
 
 export type ApiResponse<T> = {
   success: boolean;
@@ -124,4 +131,36 @@ export type ConversationFilters = {
   status?: ConversationStatus;
   priority?: Priority;
   search?: string;
+};
+
+export type CreateOutboundMessagePayload = {
+  conversationId: string;
+  channelType: ChannelType;
+  provider: OutboundProvider;
+  recipientExternalId?: string;
+  content: string;
+};
+
+export type OutboundMessage = {
+  id: string;
+  conversationId: string;
+  channelType: ChannelType;
+  provider: OutboundProvider;
+  recipientExternalId: string | null;
+  content: string;
+  status: OutboundMessageStatus;
+  retryCount: number;
+  maxRetries: number;
+  lastError: string | null;
+  externalMessageId: string | null;
+  createdBy: string;
+  createdAt: string;
+  sentAt: string | null;
+  updatedAt: string;
+};
+
+export type CreateOutboundMessageResponse = {
+  outboundMessage: OutboundMessage;
+  jobId: string | number | null;
+  queued: boolean;
 };
