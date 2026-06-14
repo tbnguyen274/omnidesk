@@ -1,3 +1,5 @@
+import './env-file';
+
 type ProviderMode = 'mock' | 'live' | 'hybrid';
 
 const DEFAULT_EMAIL_IMAP_PORT = 993;

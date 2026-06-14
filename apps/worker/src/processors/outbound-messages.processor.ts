@@ -51,12 +51,23 @@ export class OutboundMessagesProcessor {
         throw new Error('Mock outbound provider failure');
       }
 
+      let sentAt = new Date();
+      let externalMessageId = `mock_${outboundMessage.id}`;
+
+      if (outboundMessage.provider === OutboundProvider.EMAIL) {
+        const sentEmail = await this.emailOutbound.sendOutboundMessage(
+          outboundMessage.id,
+        );
+        externalMessageId = sentEmail.externalMessageId;
+        sentAt = sentEmail.sentAt;
+      }
+
       const sentMessage = await this.prisma.outboundMessage.update({
         where: { id: outboundMessage.id },
         data: {
           status: OutboundMessageStatus.SENT,
-          externalMessageId: `mock_${outboundMessage.id}`,
-          sentAt: new Date(),
+          externalMessageId,
+          sentAt,
           lastError: null,
         },
       });

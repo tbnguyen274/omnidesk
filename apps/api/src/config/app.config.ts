@@ -1,3 +1,5 @@
+import './env-file';
+
 const DEFAULT_API_PORT = 3000;
 const DEFAULT_JWT_SECRET = 'change-me-in-local-env';
 const DEFAULT_WEB_ORIGIN = 'http://localhost:3002';
