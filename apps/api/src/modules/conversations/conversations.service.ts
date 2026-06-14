@@ -10,6 +10,8 @@ import {
   UserRole,
   UserStatus,
 } from '@prisma/client';
+import { REALTIME_EVENT_TYPES } from '@omnidesk/shared';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ConversationsRepository } from './conversations.repository';
 import { ListConversationsDto } from './dto/list-conversations.dto';
 
@@ -17,6 +19,7 @@ import { ListConversationsDto } from './dto/list-conversations.dto';
 export class ConversationsService {
   constructor(
     private readonly conversationsRepository: ConversationsRepository,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async list(query: ListConversationsDto) {
@@ -142,20 +145,54 @@ export class ConversationsService {
   async updateStatus(id: string, status: ConversationStatus) {
     await this.ensureConversationExists(id);
 
-    return this.conversationsRepository.updateStatus(id, status);
+    const conversation = await this.conversationsRepository.updateStatus(
+      id,
+      status,
+    );
+
+    this.publishConversationUpdated(conversation.id);
+
+    return conversation;
   }
 
   async updatePriority(id: string, priority: Priority) {
     await this.ensureConversationExists(id);
 
-    return this.conversationsRepository.updatePriority(id, priority);
+    const conversation = await this.conversationsRepository.updatePriority(
+      id,
+      priority,
+    );
+
+    this.publishConversationUpdated(conversation.id);
+
+    return conversation;
   }
 
   async updateAssignment(id: string, assignedAgentId: string) {
     await this.ensureConversationExists(id);
     await this.ensureAssignableAgent(assignedAgentId);
 
-    return this.conversationsRepository.updateAssignment(id, assignedAgentId);
+    const conversation = await this.conversationsRepository.updateAssignment(
+      id,
+      assignedAgentId,
+    );
+
+    this.publishConversationUpdated(conversation.id);
+    this.notificationsService.publishToAgent(assignedAgentId, {
+      type: REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
+      conversationId: conversation.id,
+      occurredAt: new Date().toISOString(),
+    });
+
+    return conversation;
+  }
+
+  private publishConversationUpdated(conversationId: string) {
+    this.notificationsService.publishToConversation(conversationId, {
+      type: REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
+      conversationId,
+      occurredAt: new Date().toISOString(),
+    });
   }
 
   private async ensureConversationExists(id: string) {

@@ -9,11 +9,14 @@ import { FacebookOutboundService } from '../facebook/services/facebook-outbound.
 import { EmailSyncProcessor } from '../processors/email-sync.processor';
 import { InboundEventsProcessor } from '../processors/inbound-events.processor';
 import { OutboundMessagesProcessor } from '../processors/outbound-messages.processor';
+import { SlaCheckProcessor } from '../processors/sla-check.processor';
+import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
 import { QueueService } from './queue.service';
 
 @Module({
   providers: [
     PrismaService,
+    RealtimeEventsPublisher,
     EmailInboundService,
     EmailOutboundService,
     FacebookInboundRepository,
@@ -23,6 +26,7 @@ import { QueueService } from './queue.service';
     InboundEventsProcessor,
     OutboundMessagesProcessor,
     EmailSyncProcessor,
+    SlaCheckProcessor,
     QueueService,
   ],
   exports: [QueueService],

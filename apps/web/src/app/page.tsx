@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { REALTIME_EVENT_TYPES, type RealtimeEvent } from "@omnidesk/shared";
 import { apiClient, ApiError } from "@/lib/api-client";
+import { useRealtime } from "@/lib/use-realtime";
 import type {
   ConversationDetail,
   ConversationFilters,
@@ -40,6 +42,14 @@ export default function Home() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { connectionState } = useRealtime({
+    conversationId: selectedId,
+    onEvents: handleRealtimeEvents,
+    token,
+  });
+  const realtimeFallbackActive =
+    connectionState === "disconnected" || connectionState === "error";
+
   useEffect(() => {
     const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
 
@@ -77,6 +87,32 @@ export default function Home() {
     void loadConversation(token, selectedId);
   }, [token, selectedId]);
 
+  useEffect(() => {
+    if (!token || !currentUser || !realtimeFallbackActive) {
+      return;
+    }
+
+    const pollInterval = window.setInterval(() => {
+      void loadConversations(token, filters);
+
+      if (selectedId) {
+        void loadConversation(token, selectedId);
+      }
+    }, 10000);
+
+    return () => window.clearInterval(pollInterval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    token,
+    currentUser,
+    realtimeFallbackActive,
+    filters.channelType,
+    filters.status,
+    filters.priority,
+    filters.search,
+    selectedId,
+  ]);
+
   async function handleLogin(email: string, password: string) {
     setAuthError(null);
     setAuthLoading(true);
@@ -111,11 +147,12 @@ export default function Home() {
 
     try {
       const data = await apiClient.conversations(accessToken, nextFilters);
-      setConversations(data.items);
+      const nextItems = dedupeById(data.items);
+      setConversations(nextItems);
       const nextSelectedId =
-        selectedId && data.items.some((item) => item.id === selectedId)
+        selectedId && nextItems.some((item) => item.id === selectedId)
           ? selectedId
-          : data.items[0]?.id ?? null;
+          : nextItems[0]?.id ?? null;
       setSelectedId(nextSelectedId);
 
       if (!nextSelectedId) {
@@ -133,12 +170,33 @@ export default function Home() {
     setError(null);
 
     try {
-      setSelectedConversation(await apiClient.conversation(accessToken, id));
+      const conversation = await apiClient.conversation(accessToken, id);
+      setSelectedConversation(normalizeConversationDetail(conversation));
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
       setDetailLoading(false);
     }
+  }
+
+  async function handleRealtimeEvents(events: RealtimeEvent[]) {
+    if (!token || events.length === 0) {
+      return;
+    }
+
+    const shouldRefreshList = events.some(shouldRefreshConversationList);
+    const shouldRefreshDetail =
+      selectedId !== null &&
+      events.some((event) => event.conversationId === selectedId);
+
+    await Promise.all([
+      shouldRefreshList
+        ? loadConversations(token, filters)
+        : Promise.resolve(),
+      shouldRefreshDetail
+        ? loadConversation(token, selectedId)
+        : Promise.resolve(),
+    ]);
   }
 
   async function handleSearchSubmit(search: string) {
@@ -273,6 +331,36 @@ export default function Home() {
       </div>
     </main>
   );
+}
+
+function shouldRefreshConversationList(event: RealtimeEvent) {
+  return (
+    event.type === REALTIME_EVENT_TYPES.CONVERSATION_CREATED ||
+    event.type === REALTIME_EVENT_TYPES.CONVERSATION_UPDATED ||
+    event.type === REALTIME_EVENT_TYPES.MESSAGE_CREATED ||
+    event.type === REALTIME_EVENT_TYPES.TICKET_UPDATED ||
+    event.type === REALTIME_EVENT_TYPES.OUTBOUND_MESSAGE_UPDATED ||
+    event.type === REALTIME_EVENT_TYPES.SLA_OVERDUE
+  );
+}
+
+function normalizeConversationDetail(
+  conversation: ConversationDetail,
+): ConversationDetail {
+  return {
+    ...conversation,
+    messages: dedupeById(conversation.messages),
+  };
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  const byId = new Map<string, T>();
+
+  for (const item of items) {
+    byId.set(item.id, item);
+  }
+
+  return Array.from(byId.values());
 }
 
 function getErrorMessage(caught: unknown) {

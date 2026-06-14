@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { NormalizedFacebookMessage } from '@omnidesk/shared';
+import {
+  NormalizedFacebookMessage,
+  REALTIME_EVENT_TYPES,
+} from '@omnidesk/shared';
 import {
   ChannelAccountType,
   ChannelType,
@@ -14,10 +17,14 @@ import {
   TicketStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { RealtimeEventsPublisher } from '../../realtime/realtime-events.publisher';
 
 @Injectable()
 export class FacebookInboundRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtimeEventsPublisher: RealtimeEventsPublisher,
+  ) {}
 
   async persistInboundEvent(
     inboundEvent: InboundEvent,
@@ -29,7 +36,11 @@ export class FacebookInboundRepository {
         : ChannelType.FACEBOOK_COMMENT;
     const receivedAt = new Date(normalized.message.receivedAt);
 
-    await this.prisma.$transaction(async (tx) => {
+    const publishPlan = await this.prisma.$transaction(async (tx) => {
+      let conversationCreated = false;
+      let messageId: string | null = null;
+      let ticketId: string | null = null;
+
       const channelAccount = await this.findOrCreateChannelAccount(
         tx,
         normalized,
@@ -50,6 +61,7 @@ export class FacebookInboundRepository {
       });
 
       if (!conversation) {
+        conversationCreated = true;
         conversation = await tx.conversation.create({
           data: {
             channelType,
@@ -87,7 +99,7 @@ export class FacebookInboundRepository {
       });
 
       if (!existingMessage) {
-        await tx.message.create({
+        const message = await tx.message.create({
           data: {
             conversationId: conversation.id,
             inboundEventId: inboundEvent.id,
@@ -101,15 +113,17 @@ export class FacebookInboundRepository {
             createdAt: receivedAt,
           },
         });
+        messageId = message.id;
       }
 
       if (!conversation.ticket) {
-        await tx.ticket.create({
+        const ticket = await tx.ticket.create({
           data: {
             conversationId: conversation.id,
             status: TicketStatus.NEW,
           },
         });
+        ticketId = ticket.id;
       }
 
       await tx.inboundEvent.update({
@@ -120,7 +134,63 @@ export class FacebookInboundRepository {
           errorMessage: null,
         },
       });
+
+      return {
+        conversationId: conversation.id,
+        conversationCreated,
+        messageId,
+        ticketId,
+      };
     });
+
+    await this.publishRealtimeEvents(publishPlan);
+  }
+
+  private async publishRealtimeEvents(plan: {
+    conversationId: string;
+    conversationCreated: boolean;
+    messageId: string | null;
+    ticketId: string | null;
+  }) {
+    const conversationRoom = this.realtimeEventsPublisher.conversationRoom(
+      plan.conversationId,
+    );
+    const occurredAt = new Date().toISOString();
+
+    await this.realtimeEventsPublisher.publish(
+      {
+        type: plan.conversationCreated
+          ? REALTIME_EVENT_TYPES.CONVERSATION_CREATED
+          : REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
+        conversationId: plan.conversationId,
+        occurredAt,
+      },
+      [conversationRoom],
+    );
+
+    if (plan.messageId) {
+      await this.realtimeEventsPublisher.publish(
+        {
+          type: REALTIME_EVENT_TYPES.MESSAGE_CREATED,
+          conversationId: plan.conversationId,
+          messageId: plan.messageId,
+          occurredAt,
+        },
+        [conversationRoom],
+      );
+    }
+
+    if (plan.ticketId) {
+      await this.realtimeEventsPublisher.publish(
+        {
+          type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
+          ticketId: plan.ticketId,
+          conversationId: plan.conversationId,
+          occurredAt,
+        },
+        [conversationRoom],
+      );
+    }
   }
 
   private async findOrCreateChannelAccount(

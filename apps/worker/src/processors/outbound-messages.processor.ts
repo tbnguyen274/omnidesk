@@ -1,10 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { OutboundMessageJobPayload } from '@omnidesk/shared';
+import {
+  OutboundMessageJobPayload,
+  REALTIME_EVENT_TYPES,
+} from '@omnidesk/shared';
 import { OutboundMessageStatus, OutboundProvider } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { EmailOutboundService } from '../email/email-outbound.service';
 import { FacebookOutboundService } from '../facebook/services/facebook-outbound.service';
+import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
 
 @Injectable()
 export class OutboundMessagesProcessor {
@@ -14,6 +18,7 @@ export class OutboundMessagesProcessor {
     private readonly prisma: PrismaService,
     private readonly emailOutbound: EmailOutboundService,
     private readonly facebookOutbound: FacebookOutboundService,
+    private readonly realtimeEventsPublisher: RealtimeEventsPublisher,
   ) {}
 
   async process(job: Job<OutboundMessageJobPayload>) {
@@ -29,19 +34,24 @@ export class OutboundMessagesProcessor {
     }
 
     try {
-      await this.prisma.outboundMessage.update({
+      const sendingMessage = await this.prisma.outboundMessage.update({
         where: { id: outboundMessage.id },
         data: {
           status: OutboundMessageStatus.SENDING,
           lastError: null,
         },
       });
+      await this.publishOutboundMessageUpdated(
+        sendingMessage.id,
+        sendingMessage.conversationId,
+        sendingMessage.status,
+      );
 
       if (outboundMessage.content.toLowerCase().includes('mock_fail')) {
         throw new Error('Mock outbound provider failure');
       }
 
-      await this.prisma.outboundMessage.update({
+      const sentMessage = await this.prisma.outboundMessage.update({
         where: { id: outboundMessage.id },
         data: {
           status: OutboundMessageStatus.SENT,
@@ -50,6 +60,11 @@ export class OutboundMessagesProcessor {
           lastError: null,
         },
       });
+      await this.publishOutboundMessageUpdated(
+        sentMessage.id,
+        sentMessage.conversationId,
+        sentMessage.status,
+      );
 
       if (outboundMessage.provider === OutboundProvider.EMAIL) {
         await this.emailOutbound.createTimelineMessage(outboundMessage.id);
@@ -62,7 +77,7 @@ export class OutboundMessagesProcessor {
       const attempts = Number(job.opts.attempts ?? 1);
       const finalAttempt = job.attemptsMade + 1 >= attempts;
 
-      await this.prisma.outboundMessage.update({
+      const failedMessage = await this.prisma.outboundMessage.update({
         where: { id: outboundMessage.id },
         data: {
           status: finalAttempt
@@ -75,8 +90,30 @@ export class OutboundMessagesProcessor {
               : 'Outbound processing failed',
         },
       });
+      await this.publishOutboundMessageUpdated(
+        failedMessage.id,
+        failedMessage.conversationId,
+        failedMessage.status,
+      );
 
       throw error;
     }
+  }
+
+  private async publishOutboundMessageUpdated(
+    outboundMessageId: string,
+    conversationId: string,
+    status: OutboundMessageStatus,
+  ) {
+    await this.realtimeEventsPublisher.publish(
+      {
+        type: REALTIME_EVENT_TYPES.OUTBOUND_MESSAGE_UPDATED,
+        outboundMessageId,
+        conversationId,
+        status: status,
+        occurredAt: new Date().toISOString(),
+      },
+      [this.realtimeEventsPublisher.conversationRoom(conversationId)],
+    );
   }
 }
