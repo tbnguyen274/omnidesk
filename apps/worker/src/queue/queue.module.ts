@@ -3,6 +3,7 @@ import { PrismaService } from '../database/prisma.service';
 import { EmailInboundService } from '../email/email-inbound.service';
 import { EmailLiveInboundService } from '../email/email-live-inbound.service';
 import { EmailOutboundService } from '../email/email-outbound.service';
+import { EmailSyncScheduler } from '../email/email-sync.scheduler';
 import { FacebookInboundRepository } from '../facebook/repositories/facebook-inbound.repository';
 import { FacebookOutboundRepository } from '../facebook/repositories/facebook-outbound.repository';
 import { FacebookInboundService } from '../facebook/services/facebook-inbound.service';
@@ -21,6 +22,7 @@ import { QueueService } from './queue.service';
     EmailInboundService,
     EmailLiveInboundService,
     EmailOutboundService,
+    EmailSyncScheduler,
     FacebookInboundRepository,
     FacebookInboundService,
     FacebookOutboundRepository,
