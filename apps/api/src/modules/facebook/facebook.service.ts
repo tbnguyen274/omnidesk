@@ -4,6 +4,7 @@ import {
   MockFacebookCommentPayload,
   MockFacebookMessagePayload,
 } from '@omnidesk/shared';
+import { providerConfig } from '../../config/provider.config';
 import { EventsService } from '../events/events.service';
 import { MockFacebookCommentDto } from './dto/mock-facebook-comment.dto';
 import { MockFacebookMessageDto } from './dto/mock-facebook-message.dto';
@@ -24,8 +25,7 @@ export class FacebookService {
 
   verifyWebhook(params: VerifyWebhookParams) {
     const expectedToken =
-      process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN ??
-      'omnidesk-facebook-verify-token';
+      providerConfig.facebook.verifyToken ?? 'omnidesk-facebook-verify-token';
 
     if (
       params.mode !== 'subscribe' ||

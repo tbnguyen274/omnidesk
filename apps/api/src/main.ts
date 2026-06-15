@@ -7,7 +7,9 @@ import { validateProviderConfig } from './config/provider.config';
 async function bootstrap() {
   validateProviderConfig();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
   app.setGlobalPrefix('api');
   app.enableVersioning({
     type: VersioningType.URI,
