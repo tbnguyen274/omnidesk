@@ -19,6 +19,20 @@ export class EmailRepository {
     });
   }
 
+  createEmailChannelAccount(mailbox: string) {
+    return this.prisma.channelAccount.create({
+      data: {
+        type: ChannelAccountType.EMAIL,
+        displayName: `Email - ${mailbox}`,
+        externalId: mailbox,
+        configJson: {
+          mailbox,
+          mode: 'live',
+        },
+      },
+    });
+  }
+
   createSyncLog(channelAccountId: string) {
     return this.prisma.emailSyncLog.create({
       data: {

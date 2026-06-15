@@ -7,6 +7,8 @@ const DEFAULT_EMAIL_IMAP_SECURE = true;
 const DEFAULT_EMAIL_SMTP_PORT = 587;
 const DEFAULT_EMAIL_SMTP_SECURE = false;
 const DEFAULT_EMAIL_POLL_INTERVAL_MS = 30000;
+const DEFAULT_EMAIL_SYNC_SINCE_MINUTES = 60;
+const DEFAULT_EMAIL_SYNC_MAX_MESSAGES = 10;
 const DEFAULT_FACEBOOK_GRAPH_API_VERSION = 'v20.0';
 const DEFAULT_FACEBOOK_WEBHOOK_SIGNATURE_REQUIRED = true;
 
@@ -69,6 +71,14 @@ export const providerConfig = {
     pollIntervalMs: getNumberEnv(
       'EMAIL_POLL_INTERVAL_MS',
       DEFAULT_EMAIL_POLL_INTERVAL_MS,
+    ),
+    syncSinceMinutes: getNumberEnv(
+      'EMAIL_SYNC_SINCE_MINUTES',
+      DEFAULT_EMAIL_SYNC_SINCE_MINUTES,
+    ),
+    syncMaxMessages: getNumberEnv(
+      'EMAIL_SYNC_MAX_MESSAGES',
+      DEFAULT_EMAIL_SYNC_MAX_MESSAGES,
     ),
   },
   facebook: {

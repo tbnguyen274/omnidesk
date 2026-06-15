@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { EmailInboundService } from '../email/email-inbound.service';
+import { EmailLiveInboundService } from '../email/email-live-inbound.service';
 import { EmailOutboundService } from '../email/email-outbound.service';
 import { FacebookInboundRepository } from '../facebook/repositories/facebook-inbound.repository';
 import { FacebookOutboundRepository } from '../facebook/repositories/facebook-outbound.repository';
@@ -18,6 +19,7 @@ import { QueueService } from './queue.service';
     PrismaService,
     RealtimeEventsPublisher,
     EmailInboundService,
+    EmailLiveInboundService,
     EmailOutboundService,
     FacebookInboundRepository,
     FacebookInboundService,
