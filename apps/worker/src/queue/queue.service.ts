@@ -93,7 +93,15 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Queue ${queueName} is not initialized`);
     }
 
-    return queue.add(jobName, payload);
+    return queue.add(jobName, payload, {
+      removeOnComplete: {
+        age: 60 * 60,
+        count: 1000,
+      },
+      removeOnFail: {
+        age: 24 * 60 * 60,
+      },
+    });
   }
 
   async ping() {

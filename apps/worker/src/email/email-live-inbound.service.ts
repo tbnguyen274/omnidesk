@@ -59,7 +59,7 @@ export class EmailLiveInboundService {
 
     try {
       for await (const message of client.fetch(
-        { seen: false, since },
+        { seen: false, since, gmraw: 'category:primary' },
         { envelope: true, source: true, uid: true },
       )) {
         if (fetchedCount >= maxMessages) {
