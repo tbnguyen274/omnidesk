@@ -62,6 +62,14 @@ export class OutboundMessagesProcessor {
         sentAt = sentEmail.sentAt;
       }
 
+      if (outboundMessage.provider === OutboundProvider.FACEBOOK) {
+        const sentFb = await this.facebookOutbound.sendOutboundMessage(
+          outboundMessage.id,
+        );
+        externalMessageId = sentFb.externalMessageId;
+        sentAt = sentFb.sentAt;
+      }
+
       const sentMessage = await this.prisma.outboundMessage.update({
         where: { id: outboundMessage.id },
         data: {

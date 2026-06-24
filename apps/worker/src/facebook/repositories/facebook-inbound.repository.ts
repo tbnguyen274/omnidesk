@@ -114,12 +114,14 @@ export class FacebookInboundRepository {
           });
         }
 
+        const isFromPage = normalized.customer.externalId === normalized.source.pageId;
+
         const message = await tx.message.create({
           data: {
             conversationId: conversation.id,
             inboundEventId: inboundEvent.id,
-            direction: MessageDirection.INBOUND,
-            senderType: MessageSenderType.CUSTOMER,
+            direction: isFromPage ? MessageDirection.OUTBOUND : MessageDirection.INBOUND,
+            senderType: isFromPage ? MessageSenderType.AGENT : MessageSenderType.CUSTOMER,
             content: normalized.message.content,
             contentType: MessageContentType.TEXT,
             externalMessageId: normalized.externalMessageId,
