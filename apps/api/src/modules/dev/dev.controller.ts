@@ -1,9 +1,15 @@
-import { Controller, ForbiddenException, Post } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Post } from '@nestjs/common';
 import { DevService } from './dev.service';
 
 @Controller('dev')
 export class DevController {
   constructor(private readonly devService: DevService) {}
+
+  @Get('providers/health')
+  getProvidersHealth() {
+    this.ensureDevelopment();
+    return this.devService.getProvidersHealth();
+  }
 
   @Post('reset-demo-data')
   async resetDemoData() {
