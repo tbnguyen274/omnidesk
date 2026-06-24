@@ -13,7 +13,7 @@ import {
   Send,
   UserCheck,
 } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState, useRef, useEffect } from "react";
 import type {
   ChannelType,
   ConversationDetail,
@@ -99,7 +99,7 @@ export function LoginScreen({
         {error ? <ErrorBanner message={error} /> : null}
 
         <button
-          className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-400"
           disabled={submitting}
           type="submit"
         >
@@ -138,7 +138,7 @@ export function AppHeader({
           <p className="text-xs text-slate-500">{currentUser.role}</p>
         </div>
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 text-slate-700 cursor-pointer hover:bg-slate-100"
           onClick={onLogout}
           title="Logout"
           type="button"
@@ -188,7 +188,7 @@ export function InboxFilters({
           />
         </div>
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+          className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-700 cursor-pointer hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={loading}
           title="Refresh inbox"
           type="button"
@@ -260,7 +260,7 @@ function FilterSelect({
         {label}
       </span>
       <select
-        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-xs outline-none focus:border-slate-950"
+        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-xs outline-none cursor-pointer focus:border-slate-950"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >
@@ -295,10 +295,10 @@ export function ConversationList({
   }
 
   return (
-    <div className="max-h-[calc(100vh-177px)] overflow-y-auto p-2">
+    <div className="flex-1 overflow-y-auto p-2">
       {conversations.map((conversation) => (
         <button
-          className={`mb-2 w-full rounded-lg border p-3 text-left transition ${
+          className={`mb-2 w-full rounded-lg border p-3 text-left transition cursor-pointer ${
             selectedId === conversation.id
               ? "border-slate-950 bg-slate-100"
               : "border-slate-200 bg-white hover:bg-slate-50"
@@ -356,6 +356,14 @@ export function ConversationDetailPanel({
     [conversation],
   );
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [sortedMessages]);
+
   if (loading && !conversation) {
     return <PaneState text="Loading conversation" />;
   }
@@ -365,8 +373,8 @@ export function ConversationDetailPanel({
   }
 
   return (
-    <div className="flex h-full min-h-[560px] flex-col">
-      <div className="border-b border-slate-200 bg-white p-4">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b border-slate-200 bg-white p-4 shrink-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <ChannelBadge channelType={conversation.channelType} />
           <StatusBadge status={conversation.status} />
@@ -382,7 +390,7 @@ export function ConversationDetailPanel({
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
         <div className="mx-auto flex max-w-3xl flex-col gap-3">
           {sortedMessages.map((message) => (
             <MessageBubble key={message.id} message={message} />
@@ -477,7 +485,7 @@ function ReplyComposer({
           value={content}
         />
         <button
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
           disabled={disabled}
           title={disabledReason ?? "Send reply"}
           type="submit"
@@ -543,7 +551,7 @@ export function SidePanel({
               Status
             </span>
             <select
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-slate-950"
+              className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none cursor-pointer focus:border-slate-950 disabled:cursor-not-allowed"
               disabled={actionLoading}
               onChange={(event) =>
                 onStatusChange(event.target.value as ConversationStatus)
@@ -563,7 +571,7 @@ export function SidePanel({
               Priority
             </span>
             <select
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:border-slate-950"
+              className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none cursor-pointer focus:border-slate-950 disabled:cursor-not-allowed"
               disabled={actionLoading}
               onChange={(event) =>
                 onPriorityChange(event.target.value as Priority)
@@ -579,7 +587,7 @@ export function SidePanel({
           </label>
 
           <button
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-300 text-sm font-medium cursor-pointer hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={actionLoading || currentUser.role !== "AGENT"}
             onClick={onAssignToMe}
             type="button"
