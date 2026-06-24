@@ -2,9 +2,14 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { appConfig } from './config/app.config';
+import { validateProviderConfig } from './config/provider.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  validateProviderConfig();
+
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
   app.setGlobalPrefix('api');
   app.enableVersioning({
     type: VersioningType.URI,

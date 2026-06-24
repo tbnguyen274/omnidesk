@@ -11,6 +11,7 @@ import {
   InboundEventJobPayload,
   OutboundMessageJobPayload,
   QUEUE_NAMES,
+  QueuePayloadByName,
   QueueName,
   SlaCheckJobPayload,
 } from '@omnidesk/shared';
@@ -79,6 +80,28 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   getQueueNames() {
     return [...this.queues.keys()];
+  }
+
+  async add<TQueueName extends QueueName>(
+    queueName: TQueueName,
+    jobName: string,
+    payload: QueuePayloadByName[TQueueName],
+  ) {
+    const queue = this.queues.get(queueName);
+
+    if (!queue) {
+      throw new Error(`Queue ${queueName} is not initialized`);
+    }
+
+    return queue.add(jobName, payload, {
+      removeOnComplete: {
+        age: 60 * 60,
+        count: 1000,
+      },
+      removeOnFail: {
+        age: 24 * 60 * 60,
+      },
+    });
   }
 
   async ping() {

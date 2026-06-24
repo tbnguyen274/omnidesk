@@ -13,10 +13,42 @@ import {
 } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../common/database/prisma.service';
+import { providerConfig } from '../../config/provider.config';
 
 @Injectable()
 export class DevService {
   constructor(private readonly prisma: PrismaService) {}
+
+  getProvidersHealth() {
+    return {
+      email: {
+        providerMode: providerConfig.email.providerMode,
+        inboundMode: providerConfig.email.inboundMode,
+        outboundMode: providerConfig.email.outboundMode,
+        smtpConfigured: Boolean(
+          providerConfig.email.smtp.host &&
+            providerConfig.email.smtp.user &&
+            providerConfig.email.smtp.password,
+        ),
+        imapConfigured: Boolean(
+          providerConfig.email.imap.host &&
+            providerConfig.email.imap.user &&
+            providerConfig.email.imap.password,
+        ),
+      },
+      facebook: {
+        providerMode: providerConfig.facebook.providerMode,
+        appConfigured: Boolean(
+          providerConfig.facebook.appId && providerConfig.facebook.appSecret,
+        ),
+        pageConfigured: Boolean(
+          providerConfig.facebook.pageId &&
+            providerConfig.facebook.pageAccessToken,
+        ),
+        signatureRequired: providerConfig.facebook.webhookSignatureRequired,
+      },
+    };
+  }
 
   async resetDemoData() {
     await this.prisma.$transaction([

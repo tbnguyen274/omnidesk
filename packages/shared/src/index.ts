@@ -265,6 +265,7 @@ export type MockFacebookCommentPayload = {
   sentAt?: string;
   parentCommentId?: string;
   channelAccountId?: string;
+  postUrl?: string;
 };
 
 export type NormalizedFacebookMessage = {
@@ -293,6 +294,7 @@ export type NormalizedFacebookMessage = {
     postId?: string;
     commentId?: string;
     parentCommentId?: string;
+    postUrl?: string;
   };
   rawPayload: MockFacebookMessagePayload | MockFacebookCommentPayload;
   dedupKey: FacebookMessageDedupKey | FacebookCommentDedupKey;

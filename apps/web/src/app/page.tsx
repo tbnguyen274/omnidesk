@@ -302,8 +302,8 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f9] text-slate-950">
-      <div className="flex min-h-screen flex-col">
+    <main className="h-screen w-full overflow-hidden bg-[#f6f7f9] text-slate-950">
+      <div className="flex h-full flex-col">
         <AppHeader
           apiBaseUrl={apiClient.baseUrl}
           currentUser={currentUser}
@@ -311,7 +311,7 @@ export default function Home() {
         />
 
         <section className="grid min-h-0 flex-1 grid-cols-1 border-t border-slate-200 lg:grid-cols-[360px_minmax(0,1fr)_320px]">
-          <aside className="min-h-0 border-r border-slate-200 bg-white">
+          <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-white">
             <InboxFilters
               filters={filters}
               loading={listLoading}
@@ -327,7 +327,7 @@ export default function Home() {
             />
           </aside>
 
-          <section className="min-h-[560px] border-r border-slate-200 bg-slate-50">
+          <section className="relative flex min-h-0 flex-col border-r border-slate-200 bg-slate-50">
             {error ? <ErrorBanner message={error} /> : null}
             <ConversationDetailPanel
               conversation={selectedConversation}
@@ -337,7 +337,7 @@ export default function Home() {
             />
           </section>
 
-          <aside className="bg-white">
+          <aside className="flex min-h-0 flex-col overflow-y-auto bg-white">
             <SidePanel
               actionLoading={actionLoading}
               conversation={selectedConversation}

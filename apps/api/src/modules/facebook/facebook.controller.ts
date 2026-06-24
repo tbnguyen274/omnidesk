@@ -3,16 +3,24 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Headers,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 import { MockFacebookCommentDto } from './dto/mock-facebook-comment.dto';
 import { MockFacebookMessageDto } from './dto/mock-facebook-message.dto';
 import { FacebookService } from './facebook.service';
+import { FacebookSignatureService } from './services/facebook-signature.service';
 
 @Controller('webhooks/facebook')
 export class FacebookController {
-  constructor(private readonly facebookService: FacebookService) {}
+  constructor(
+    private readonly facebookService: FacebookService,
+    private readonly facebookSignatureService: FacebookSignatureService,
+  ) {}
 
   @Get()
   verifyWebhook(
@@ -28,7 +36,12 @@ export class FacebookController {
   }
 
   @Post()
-  async receiveWebhook(@Body() payload: Record<string, unknown>) {
+  async receiveWebhook(
+    @Body() payload: Record<string, unknown>,
+    @Req() request: RawBodyRequest<Request>,
+    @Headers('x-hub-signature-256') signature?: string,
+  ) {
+    this.facebookSignatureService.verifyRequest(request.rawBody, signature);
     const data = await this.facebookService.receiveWebhook(payload);
     return {
       success: true,

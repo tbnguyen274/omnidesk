@@ -99,12 +99,29 @@ export class FacebookInboundRepository {
       });
 
       if (!existingMessage) {
+        if (conversationCreated) {
+          await tx.message.create({
+            data: {
+              conversationId: conversation.id,
+              direction: MessageDirection.INBOUND,
+              senderType: MessageSenderType.SYSTEM,
+              content: `Original Facebook Post: https://facebook.com/${normalized.source.postId}`,
+              contentType: MessageContentType.SYSTEM,
+              externalMessageId: `sys_post_link_${normalized.source.postId}_${conversation.id}`,
+              deliveryStatus: MessageDeliveryStatus.RECEIVED,
+              createdAt: new Date(receivedAt.getTime() - 1000), // Appear right before the comment
+            },
+          });
+        }
+
+        const isFromPage = normalized.customer.externalId === normalized.source.pageId;
+
         const message = await tx.message.create({
           data: {
             conversationId: conversation.id,
             inboundEventId: inboundEvent.id,
-            direction: MessageDirection.INBOUND,
-            senderType: MessageSenderType.CUSTOMER,
+            direction: isFromPage ? MessageDirection.OUTBOUND : MessageDirection.INBOUND,
+            senderType: isFromPage ? MessageSenderType.AGENT : MessageSenderType.CUSTOMER,
             content: normalized.message.content,
             contentType: MessageContentType.TEXT,
             externalMessageId: normalized.externalMessageId,
@@ -258,12 +275,16 @@ export class FacebookInboundRepository {
   }
 
   private buildSubject(normalized: NormalizedFacebookMessage) {
+    const customerName = normalized.customer.name ?? normalized.customer.externalId;
+
     if (normalized.channelType === 'FACEBOOK_COMMENT') {
-      return `Facebook Comment - ${normalized.source.postId}`;
+      const preview =
+        normalized.message.content.length > 50
+          ? normalized.message.content.substring(0, 47) + '...'
+          : normalized.message.content;
+      return `Comment from ${customerName}: "${preview}"`;
     }
 
-    return `Facebook Messenger - ${
-      normalized.customer.name ?? normalized.customer.externalId
-    }`;
+    return `Facebook Messenger - ${customerName}`;
   }
 }

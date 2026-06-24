@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import { MockInboundEmailPayload, QUEUE_NAMES } from '@omnidesk/shared';
 import { QueuesService } from '../../common/queues/queues.service';
+import { providerConfig } from '../../config/provider.config';
 import { EventsService } from '../events/events.service';
 import { CreateEmailSyncDto } from './dto/create-email-sync.dto';
 import { ListEmailSyncLogsDto } from './dto/list-email-sync-logs.dto';
@@ -121,7 +122,14 @@ export class EmailService {
       await this.emailRepository.findFirstEmailChannelAccount();
 
     if (!channelAccount) {
-      throw new NotFoundException('No email channel account is configured');
+      const mailbox =
+        providerConfig.email.imap.user ?? providerConfig.email.smtp.fromAddress;
+
+      if (!mailbox) {
+        throw new NotFoundException('No email channel account is configured');
+      }
+
+      return this.emailRepository.createEmailChannelAccount(mailbox);
     }
 
     return channelAccount;

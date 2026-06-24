@@ -28,7 +28,7 @@ export class FacebookOutboundRepository {
       return;
     }
 
-    const externalMessageId = `mock_fb_${outboundMessage.id}`;
+    const externalMessageId = outboundMessage.externalMessageId || `mock_fb_${outboundMessage.id}`;
     const existingMessage = await this.prisma.message.findUnique({
       where: {
         conversationId_externalMessageId: {

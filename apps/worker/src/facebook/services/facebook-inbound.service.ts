@@ -56,11 +56,12 @@ export class FacebookInboundService {
     }
 
     if (this.isCommentPayload(rawPayload)) {
+      const threadId = rawPayload.parentCommentId || rawPayload.commentId;
       return {
         provider: 'FACEBOOK',
         channelType: 'FACEBOOK_COMMENT',
         externalMessageId: rawPayload.commentId,
-        externalConversationId: `FB_COMMENT:${rawPayload.pageId}:${rawPayload.postId}:${rawPayload.commentId}`,
+        externalConversationId: `FB_COMMENT:${rawPayload.pageId}:${rawPayload.postId}:${threadId}`,
         customer: {
           externalId: rawPayload.commenterId,
           name: rawPayload.commenterName,
@@ -76,6 +77,7 @@ export class FacebookInboundService {
           postId: rawPayload.postId,
           commentId: rawPayload.commentId,
           parentCommentId: rawPayload.parentCommentId,
+          postUrl: rawPayload.postUrl,
         },
         rawPayload,
         dedupKey: this.assertCommentDedupKey(dedupKey),

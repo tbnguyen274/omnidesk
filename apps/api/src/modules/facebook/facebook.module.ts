@@ -6,10 +6,17 @@ import {
 } from './facebook.controller';
 import { FacebookRepository } from './facebook.repository';
 import { FacebookService } from './facebook.service';
+import { FacebookSignatureService } from './services/facebook-signature.service';
+import { FacebookWebhookParserService } from './services/facebook-webhook-parser.service';
 
 @Module({
   imports: [EventsModule],
   controllers: [FacebookController, DevFacebookController],
-  providers: [FacebookService, FacebookRepository],
+  providers: [
+    FacebookService,
+    FacebookRepository,
+    FacebookSignatureService,
+    FacebookWebhookParserService,
+  ],
 })
 export class FacebookModule {}
