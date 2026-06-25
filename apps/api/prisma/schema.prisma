@@ -237,6 +237,7 @@ model Ticket {
   priority           Priority     @default(MEDIUM)
   assignedAgentId    String?      @map("assigned_agent_id") @db.Uuid
   slaDueAt           DateTime?    @map("sla_due_at")
+  slaPausedAt        DateTime?    @map("sla_paused_at")
   isOverdue          Boolean      @default(false) @map("is_overdue")
   firstResponseDueAt DateTime?    @map("first_response_due_at")
   resolvedAt         DateTime?    @map("resolved_at")

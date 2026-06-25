@@ -54,12 +54,20 @@ export class FacebookInboundRepository {
           channelAccountId: channelAccount.id,
           externalConversationId: normalized.externalConversationId,
         },
+        orderBy: {
+          createdAt: 'desc',
+        },
         include: {
           ticket: {
             select: { id: true },
           },
         },
       });
+
+      // If the latest conversation is CLOSED, ignore it and force a new one
+      if (conversation && conversation.status === ConversationStatus.CLOSED) {
+        conversation = null;
+      }
 
       if (!conversation) {
         conversationCreated = true;
@@ -80,12 +88,23 @@ export class FacebookInboundRepository {
           },
         });
       } else {
+        const isResolved = conversation.status === ConversationStatus.RESOLVED;
         await tx.conversation.update({
           where: { id: conversation.id },
           data: {
             customerId: customer.id,
             subject: conversation.subject ?? this.buildSubject(normalized),
             lastMessageAt: receivedAt,
+            status: isResolved ? ConversationStatus.IN_PROGRESS : undefined,
+            resolvedAt: isResolved ? null : undefined,
+            ticket: isResolved
+              ? {
+                  update: {
+                    status: TicketStatus.IN_PROGRESS,
+                    resolvedAt: null,
+                  },
+                }
+              : undefined,
           },
         });
       }
