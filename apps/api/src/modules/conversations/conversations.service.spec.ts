@@ -29,9 +29,14 @@ describe('ConversationsService', () => {
     const conversationsRepository = {
       list: jest.fn().mockResolvedValue([[conversation], 1]),
     };
+    const notificationsService = {
+      publish: jest.fn(),
+    };
 
-    const service = new ConversationsService(conversationsRepository as never);
-
+    const service = new ConversationsService(
+      conversationsRepository as never,
+      notificationsService as never,
+    );
     await expect(service.list({ page: 1, limit: 20 })).resolves.toMatchObject({
       items: [
         {

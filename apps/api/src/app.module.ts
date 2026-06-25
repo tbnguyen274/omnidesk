@@ -8,6 +8,7 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
 import { CustomersModule } from './modules/customers/customers.module';
 import { EventsModule } from './modules/events/events.module';
 import { DevModule } from './modules/dev/dev.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EmailModule } from './modules/email/email.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
 import { HealthModule } from './modules/health/health.module';
@@ -40,6 +41,7 @@ import { RedisModule } from './common/redis/redis.module';
     AnalyticsModule,
     EventsModule,
     DevModule,
+    DashboardModule,
     EmailModule,
     FacebookModule,
   ],

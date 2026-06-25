@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ConversationStatus, Prisma, Priority } from '@prisma/client';
+import { ConversationStatus, Prisma, Priority, TicketStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 
 @Injectable()
@@ -78,6 +78,13 @@ export class ConversationsRepository {
         status,
         resolvedAt:
           status === ConversationStatus.RESOLVED ? new Date() : undefined,
+        ticket: {
+          update: {
+            status: status as unknown as TicketStatus,
+            resolvedAt:
+              status === ConversationStatus.RESOLVED ? new Date() : undefined,
+          },
+        },
       },
     });
   }
@@ -92,7 +99,15 @@ export class ConversationsRepository {
   updateAssignment(id: string, assignedAgentId: string) {
     return this.prisma.conversation.update({
       where: { id },
-      data: { assignedAgentId },
+      data: {
+        assignedAgentId,
+        ticket: {
+          update: {
+            status: TicketStatus.ASSIGNED,
+            assignedAgentId,
+          },
+        },
+      },
       include: {
         assignedAgent: {
           select: {

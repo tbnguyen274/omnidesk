@@ -42,6 +42,7 @@ export default function Home() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<{ id: string; name: string; email: string }[]>([]);
   const replyDisabledReason = selectedConversation
     ? getReplyDisabledReason(selectedConversation)
     : null;
@@ -126,6 +127,7 @@ export default function Home() {
       window.localStorage.setItem(TOKEN_STORAGE_KEY, data.accessToken);
       setToken(data.accessToken);
       setCurrentUser(data.user);
+      void loadAgents(data.accessToken);
     } catch (caught) {
       setAuthError(getErrorMessage(caught));
     } finally {
@@ -140,6 +142,15 @@ export default function Home() {
     setConversations([]);
     setSelectedId(null);
     setSelectedConversation(null);
+  }
+
+  async function loadAgents(accessToken: string) {
+    try {
+      const data = await apiClient.getAgents(accessToken);
+      setAgents(data);
+    } catch (caught) {
+      console.error("Failed to load agents", caught);
+    }
   }
 
   async function loadConversations(
@@ -258,6 +269,20 @@ export default function Home() {
     });
   }
 
+  async function handleAssignAgent(agentId: string) {
+    if (!token || !selectedConversation) {
+      return;
+    }
+
+    await runConversationAction(async () => {
+      await apiClient.assignConversation(
+        token,
+        selectedConversation.id,
+        agentId,
+      );
+    });
+  }
+
   async function handleSendReply(content: string) {
     if (!token || !selectedConversation) {
       return;
@@ -340,8 +365,10 @@ export default function Home() {
           <aside className="flex min-h-0 flex-col overflow-y-auto bg-white">
             <SidePanel
               actionLoading={actionLoading}
+              agents={agents}
               conversation={selectedConversation}
               currentUser={currentUser}
+              onAssignAgent={handleAssignAgent}
               onAssignToMe={handleAssignToMe}
               onPriorityChange={handlePriorityChange}
               onStatusChange={handleStatusChange}

@@ -19,8 +19,8 @@ describe('AuthService', () => {
     };
 
     authService = new AuthService(
-      usersService as UsersService,
-      jwtService as JwtService,
+      usersService as unknown as UsersService,
+      jwtService as unknown as JwtService,
     );
   });
 

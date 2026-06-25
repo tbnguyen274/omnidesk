@@ -9,6 +9,8 @@ import type {
   CurrentUser,
   LoginResponse,
   Priority,
+  DashboardSummary,
+  AgentPerformance,
 } from "./api-types";
 import { API_BASE_URL } from "./app-config";
 
@@ -141,6 +143,24 @@ export const apiClient = {
     return request<CreateOutboundMessageResponse>("/outbound/messages", "POST", {
       token,
       body: payload,
+    });
+  },
+
+  getDashboardSummary(token: string) {
+    return request<DashboardSummary>("/dashboard/summary", "GET", {
+      token,
+    });
+  },
+
+  getAgentPerformance(token: string) {
+    return request<AgentPerformance[]>("/dashboard/agent-performance", "GET", {
+      token,
+    });
+  },
+
+  getAgents(token: string) {
+    return request<{ id: string; name: string; email: string }[]>("/users/agents", "GET", {
+      token,
     });
   },
 };

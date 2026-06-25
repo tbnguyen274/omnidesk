@@ -122,14 +122,24 @@ export function AppHeader({
 }) {
   return (
     <header className="flex min-h-16 items-center justify-between gap-4 bg-white px-4 sm:px-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-950 text-white">
-          <Inbox size={20} aria-hidden="true" />
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-950 text-white">
+            <Inbox size={20} aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-base font-semibold">OmniDesk Inbox</h1>
+            <p className="text-xs text-slate-500">{apiBaseUrl}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-base font-semibold">OmniDesk Inbox</h1>
-          <p className="text-xs text-slate-500">{apiBaseUrl}</p>
-        </div>
+        <nav className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-6 h-10">
+          <a href="/" className="text-sm font-medium text-slate-900 hover:text-indigo-600">
+            Inbox
+          </a>
+          <a href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-indigo-600">
+            Dashboard
+          </a>
+        </nav>
       </div>
 
       <div className="flex items-center gap-3">
@@ -503,15 +513,19 @@ function ReplyComposer({
 
 export function SidePanel({
   actionLoading,
+  agents = [],
   conversation,
   currentUser,
+  onAssignAgent,
   onAssignToMe,
   onPriorityChange,
   onStatusChange,
 }: {
   actionLoading: boolean;
+  agents?: { id: string; name: string; email: string }[];
   conversation: ConversationDetail | null;
   currentUser: CurrentUser;
+  onAssignAgent?: (agentId: string) => void;
   onAssignToMe: () => void;
   onPriorityChange: (priority: Priority) => void;
   onStatusChange: (status: ConversationStatus) => void;
@@ -586,15 +600,45 @@ export function SidePanel({
             </select>
           </label>
 
-          <button
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-300 text-sm font-medium cursor-pointer hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={actionLoading || currentUser.role !== "AGENT"}
-            onClick={onAssignToMe}
-            type="button"
-          >
-            <UserCheck size={16} aria-hidden="true" />
-            Assign to me
-          </button>
+          {conversation.assignedAgent ? (
+            <div className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-600">
+              <UserCheck size={16} aria-hidden="true" className="text-emerald-500" />
+              Assigned to {conversation.assignedAgent.name || "Agent"}
+            </div>
+          ) : currentUser.role === "ADMIN" ? (
+            <div className="block pt-2">
+              <span className="mb-1 block text-xs font-medium text-slate-500">
+                Assign to Agent
+              </span>
+              <select
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none cursor-pointer focus:border-slate-950 disabled:cursor-not-allowed"
+                disabled={actionLoading}
+                onChange={(event) => {
+                  if (event.target.value && onAssignAgent) {
+                    onAssignAgent(event.target.value);
+                  }
+                }}
+                value=""
+              >
+                <option value="" disabled>Select an agent...</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <button
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-300 text-sm font-medium cursor-pointer hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={actionLoading}
+              onClick={onAssignToMe}
+              type="button"
+            >
+              <UserCheck size={16} aria-hidden="true" />
+              Assign to me
+            </button>
+          )}
         </div>
       </section>
 

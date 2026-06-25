@@ -329,3 +329,25 @@ export type NormalizedMessage = {
 };
 
 export type HealthStatus = 'ok' | 'error';
+
+export type PriorityLevel = 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
+
+export function calculateSlaDueAt(priority: PriorityLevel | string, createdAt: Date = new Date()): Date {
+  const hours = getSlaHours(priority as PriorityLevel);
+  return new Date(createdAt.getTime() + hours * 60 * 60 * 1000);
+}
+
+export function getSlaHours(priority: PriorityLevel | string): number {
+  switch (priority) {
+    case 'URGENT':
+      return 2;
+    case 'HIGH':
+      return 4;
+    case 'MEDIUM':
+      return 8;
+    case 'LOW':
+      return 24;
+    default:
+      return 8; // fallback
+  }
+}

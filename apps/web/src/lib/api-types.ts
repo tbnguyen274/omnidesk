@@ -164,3 +164,20 @@ export type CreateOutboundMessageResponse = {
   jobId: string | number | null;
   queued: boolean;
 };
+
+export type DashboardSummary = {
+  total: number;
+  new: number;
+  inProgress: number;
+  resolved: number;
+  overdue: number;
+  byChannel: Record<string, number>;
+};
+
+export type AgentPerformance = {
+  id: string;
+  name: string;
+  email: string;
+  resolvedTickets: number;
+};
+

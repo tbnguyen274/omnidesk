@@ -11,6 +11,7 @@ import {
   TicketStatus,
   UserRole,
 } from '@prisma/client';
+import { calculateSlaDueAt } from '@omnidesk/shared';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../common/database/prisma.service';
 import { providerConfig } from '../../config/provider.config';
@@ -203,6 +204,36 @@ export class DevService {
       },
     });
 
+    await this.createConversationWithMessage({
+      channelType: ChannelType.EMAIL,
+      channelAccountId: supportMailbox.id,
+      customerId: emailCustomer.id,
+      externalConversationId: 'email_thread_resolved_001',
+      subject: 'Hỗ trợ đổi trả hàng',
+      priority: Priority.LOW,
+      assignedAgentId: agent.id,
+      externalMessageId: 'email_seed_resolved_001',
+      content: 'Tôi muốn đổi trả sản phẩm do bị lỗi.',
+      tags: ['return'],
+      status: TicketStatus.RESOLVED,
+      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+    });
+
+    await this.createConversationWithMessage({
+      channelType: ChannelType.FACEBOOK_MESSAGE,
+      channelAccountId: facebookPage.id,
+      customerId: facebookCustomer.id,
+      externalConversationId: 'fb_thread_overdue_001',
+      subject: 'Phản ánh chất lượng dịch vụ',
+      priority: Priority.URGENT,
+      externalMessageId: 'fb_msg_seed_overdue_001',
+      content: 'Dịch vụ của bên bạn quá tệ, tôi cần hỗ trợ gấp.',
+      tags: ['complaint'],
+      status: TicketStatus.NEW,
+      isOverdue: true,
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+    });
+
     return {
       seeded: true,
     };
@@ -278,7 +309,11 @@ export class DevService {
     externalMessageId: string;
     content: string;
     tags: string[];
+    isOverdue?: boolean;
+    status?: TicketStatus;
+    createdAt?: Date;
   }) {
+    const creationTime = params.createdAt ?? new Date();
     const existing = await this.prisma.conversation.findFirst({
       where: {
         channelAccountId: params.channelAccountId,
@@ -339,14 +374,16 @@ export class DevService {
       update: {
         priority: params.priority,
         assignedAgentId: params.assignedAgentId,
+        status: params.status ?? TicketStatus.NEW,
+        isOverdue: params.isOverdue ?? false,
       },
       create: {
         conversationId: conversation.id,
-        status: TicketStatus.NEW,
+        status: params.status ?? TicketStatus.NEW,
         priority: params.priority,
         assignedAgentId: params.assignedAgentId,
-        slaDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        firstResponseDueAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        slaDueAt: calculateSlaDueAt(params.priority, creationTime),
+        isOverdue: params.isOverdue ?? false,
       },
     });
 

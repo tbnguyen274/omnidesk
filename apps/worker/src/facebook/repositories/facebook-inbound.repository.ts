@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   NormalizedFacebookMessage,
   REALTIME_EVENT_TYPES,
+  calculateSlaDueAt,
 } from '@omnidesk/shared';
 import {
   ChannelAccountType,
@@ -134,10 +135,13 @@ export class FacebookInboundRepository {
       }
 
       if (!conversation.ticket) {
+        const priority = conversation.priority ?? 'MEDIUM';
         const ticket = await tx.ticket.create({
           data: {
             conversationId: conversation.id,
             status: TicketStatus.NEW,
+            priority,
+            slaDueAt: calculateSlaDueAt(priority, receivedAt),
           },
         });
         ticketId = ticket.id;

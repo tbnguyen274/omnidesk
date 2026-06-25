@@ -211,8 +211,8 @@ export class ConversationsService {
       throw new NotFoundException('Assigned agent not found');
     }
 
-    if (user.role !== UserRole.AGENT || user.status !== UserStatus.ACTIVE) {
-      throw new BadRequestException('Assigned user must be an active agent');
+    if (user.status !== 'ACTIVE') {
+      throw new BadRequestException('Assigned user must be active');
     }
   }
 }
