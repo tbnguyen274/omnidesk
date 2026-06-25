@@ -8,6 +8,7 @@
     "dev:ngrok": "ngrok http 3000 --domain=enormously-fine-silkworm.ngrok-free.app",
     "db:generate": "pnpm --filter api prisma:generate",
     "db:migrate": "pnpm --filter api prisma:migrate",
+    "db:reset": "pnpm --filter api exec prisma migrate reset --force",
     "db:seed": "pnpm --filter api prisma:seed",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",

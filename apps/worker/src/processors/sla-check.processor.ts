@@ -24,6 +24,7 @@ export class SlaCheckProcessor {
         slaDueAt: {
           lt: now,
         },
+        isOverdue: false,
         status: {
           notIn: [TicketStatus.RESOLVED, TicketStatus.CLOSED],
         },
@@ -31,6 +32,19 @@ export class SlaCheckProcessor {
       select: {
         id: true,
         conversationId: true,
+      },
+    });
+
+    if (overdueTickets.length === 0) {
+      return;
+    }
+
+    await this.prisma.ticket.updateMany({
+      where: {
+        id: { in: overdueTickets.map((t) => t.id) },
+      },
+      data: {
+        isOverdue: true,
       },
     });
 

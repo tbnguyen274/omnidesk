@@ -122,14 +122,24 @@ export function AppHeader({
 }) {
   return (
     <header className="flex min-h-16 items-center justify-between gap-4 bg-white px-4 sm:px-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-950 text-white">
-          <Inbox size={20} aria-hidden="true" />
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-950 text-white">
+            <Inbox size={20} aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-base font-semibold">OmniDesk Inbox</h1>
+            <p className="text-xs text-slate-500">{apiBaseUrl}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-base font-semibold">OmniDesk Inbox</h1>
-          <p className="text-xs text-slate-500">{apiBaseUrl}</p>
-        </div>
+        <nav className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-6 h-10">
+          <a href="/" className="text-sm font-medium text-slate-900 hover:text-indigo-600">
+            Inbox
+          </a>
+          <a href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-indigo-600">
+            Dashboard
+          </a>
+        </nav>
       </div>
 
       <div className="flex items-center gap-3">
