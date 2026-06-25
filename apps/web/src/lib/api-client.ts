@@ -157,4 +157,10 @@ export const apiClient = {
       token,
     });
   },
+
+  getAgents(token: string) {
+    return request<{ id: string; name: string; email: string }[]>("/users/agents", "GET", {
+      token,
+    });
+  },
 };

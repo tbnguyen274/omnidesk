@@ -25,4 +25,21 @@ export class UsersService {
       },
     });
   }
+
+  findAgents() {
+    return this.prisma.user.findMany({
+      where: {
+        role: 'AGENT',
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
 }
