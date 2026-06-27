@@ -13,6 +13,8 @@ import { InboundEventsProcessor } from '../processors/inbound-events.processor';
 import { OutboundMessagesProcessor } from '../processors/outbound-messages.processor';
 import { SlaCheckProcessor } from '../processors/sla-check.processor';
 import { SlaCheckScheduler } from '../processors/sla-check.scheduler';
+import { AutoCloseProcessor } from '../processors/auto-close.processor';
+import { AutoCloseScheduler } from '../processors/auto-close.scheduler';
 import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
 import { QueueService } from './queue.service';
 
@@ -33,6 +35,8 @@ import { QueueService } from './queue.service';
     EmailSyncProcessor,
     SlaCheckProcessor,
     SlaCheckScheduler,
+    AutoCloseProcessor,
+    AutoCloseScheduler,
     QueueService,
   ],
   exports: [QueueService],

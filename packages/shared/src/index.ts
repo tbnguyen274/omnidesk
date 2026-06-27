@@ -138,6 +138,7 @@ export const QUEUE_NAMES = {
   EMAIL_SYNC: 'email-sync',
   SLA_CHECK: 'sla-check',
   ANALYTICS_AGGREGATION: 'analytics-aggregation',
+  AUTO_CLOSE: 'auto-close',
 } as const;
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 
@@ -179,12 +180,17 @@ export type AnalyticsAggregationJobPayload = {
   requestedAt: string;
 };
 
+export type AutoCloseJobPayload = {
+  requestedAt: string;
+};
+
 export type QueuePayloadByName = {
   [QUEUE_NAMES.INBOUND_EVENTS]: InboundEventJobPayload;
   [QUEUE_NAMES.OUTBOUND_MESSAGES]: OutboundMessageJobPayload;
   [QUEUE_NAMES.EMAIL_SYNC]: EmailSyncJobPayload;
   [QUEUE_NAMES.SLA_CHECK]: SlaCheckJobPayload;
   [QUEUE_NAMES.ANALYTICS_AGGREGATION]: AnalyticsAggregationJobPayload;
+  [QUEUE_NAMES.AUTO_CLOSE]: AutoCloseJobPayload;
 };
 
 export type MockInboundEmailPayload = {

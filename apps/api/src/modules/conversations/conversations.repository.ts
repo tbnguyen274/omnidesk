@@ -71,18 +71,43 @@ export class ConversationsRepository {
     });
   }
 
-  updateStatus(id: string, status: ConversationStatus) {
+  async updateStatus(id: string, status: ConversationStatus) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id },
+      include: { ticket: true },
+    });
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    const now = new Date();
+    const isWaitingCustomer = status === ConversationStatus.WAITING_CUSTOMER;
+    const isResolved = status === ConversationStatus.RESOLVED;
+
+    let newSlaDueAt = conversation.ticket?.slaDueAt;
+    let newSlaPausedAt = conversation.ticket?.slaPausedAt;
+
+    if (isWaitingCustomer && !conversation.ticket?.slaPausedAt) {
+      newSlaPausedAt = now;
+    } else if (!isWaitingCustomer && conversation.ticket?.slaPausedAt && conversation.ticket?.slaDueAt) {
+      // Unpause SLA: calculate how long it was paused and add it to the due date
+      const pauseDurationMs = now.getTime() - conversation.ticket.slaPausedAt.getTime();
+      newSlaDueAt = new Date(conversation.ticket.slaDueAt.getTime() + pauseDurationMs);
+      newSlaPausedAt = null;
+    }
+
     return this.prisma.conversation.update({
       where: { id },
       data: {
         status,
-        resolvedAt:
-          status === ConversationStatus.RESOLVED ? new Date() : undefined,
+        resolvedAt: isResolved ? now : undefined,
         ticket: {
           update: {
             status: status as unknown as TicketStatus,
-            resolvedAt:
-              status === ConversationStatus.RESOLVED ? new Date() : undefined,
+            resolvedAt: isResolved ? now : undefined,
+            slaDueAt: newSlaDueAt,
+            slaPausedAt: newSlaPausedAt,
           },
         },
       },

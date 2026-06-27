@@ -46,7 +46,7 @@ export class FacebookInboundRepository {
         tx,
         normalized,
       );
-      const customer = await this.findOrCreateCustomer(tx, normalized);
+      const customer = await this.findOrCreateCustomer(tx, normalized, channelAccount);
 
       let conversation = await tx.conversation.findFirst({
         where: {
@@ -54,12 +54,20 @@ export class FacebookInboundRepository {
           channelAccountId: channelAccount.id,
           externalConversationId: normalized.externalConversationId,
         },
+        orderBy: {
+          createdAt: 'desc',
+        },
         include: {
           ticket: {
             select: { id: true },
           },
         },
       });
+
+      // If the latest conversation is CLOSED, ignore it and force a new one
+      if (conversation && conversation.status === ConversationStatus.CLOSED) {
+        conversation = null;
+      }
 
       if (!conversation) {
         conversationCreated = true;
@@ -80,12 +88,26 @@ export class FacebookInboundRepository {
           },
         });
       } else {
+        const isResolved = conversation.status === ConversationStatus.RESOLVED;
         await tx.conversation.update({
           where: { id: conversation.id },
           data: {
             customerId: customer.id,
-            subject: conversation.subject ?? this.buildSubject(normalized),
+            subject:
+              !conversation.subject || conversation.subject.startsWith('Facebook Messenger -') || conversation.subject.startsWith('Comment from ') || conversation.subject.includes('Unknown Customer') || conversation.subject.includes('undefined')
+                ? this.buildSubject(normalized)
+                : conversation.subject,
             lastMessageAt: receivedAt,
+            status: isResolved ? ConversationStatus.IN_PROGRESS : undefined,
+            resolvedAt: isResolved ? null : undefined,
+            ticket: isResolved
+              ? {
+                  update: {
+                    status: TicketStatus.IN_PROGRESS,
+                    resolvedAt: null,
+                  },
+                }
+              : undefined,
           },
         });
       }
@@ -100,7 +122,7 @@ export class FacebookInboundRepository {
       });
 
       if (!existingMessage) {
-        if (conversationCreated) {
+        if (conversationCreated && normalized.channelType === 'FACEBOOK_COMMENT') {
           await tx.message.create({
             data: {
               conversationId: conversation.id,
@@ -255,7 +277,31 @@ export class FacebookInboundRepository {
   private async findOrCreateCustomer(
     tx: Prisma.TransactionClient,
     normalized: NormalizedFacebookMessage,
+    channelAccount: any,
   ) {
+    let customerName = normalized.customer.name;
+
+    if (!customerName) {
+      const config = channelAccount.configJson as Record<string, any>;
+      const token = config?.accessToken ?? process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+      if (token) {
+        try {
+          const response = await fetch(
+            `https://graph.facebook.com/v20.0/${normalized.customer.externalId}?fields=first_name,last_name&access_token=${token}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            customerName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+            if (customerName) {
+              normalized.customer.name = customerName;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to fetch Facebook profile:', e);
+        }
+      }
+    }
+
     const existing = await tx.customer.findFirst({
       where: { externalFacebookId: normalized.customer.externalId },
     });
@@ -264,7 +310,7 @@ export class FacebookInboundRepository {
       return tx.customer.update({
         where: { id: existing.id },
         data: {
-          name: existing.name ?? normalized.customer.name,
+          name: customerName,
           externalFacebookId: normalized.customer.externalId,
         },
       });
@@ -272,23 +318,21 @@ export class FacebookInboundRepository {
 
     return tx.customer.create({
       data: {
-        name: normalized.customer.name,
+        name: customerName,
         externalFacebookId: normalized.customer.externalId,
       },
     });
   }
 
   private buildSubject(normalized: NormalizedFacebookMessage) {
-    const customerName = normalized.customer.name ?? normalized.customer.externalId;
-
     if (normalized.channelType === 'FACEBOOK_COMMENT') {
       const preview =
         normalized.message.content.length > 50
           ? normalized.message.content.substring(0, 47) + '...'
           : normalized.message.content;
-      return `Comment from ${customerName}: "${preview}"`;
+      return `Facebook Comment - ${normalized.customer.externalId}: "${preview}"`;
     }
 
-    return `Facebook Messenger - ${customerName}`;
+    return `Facebook Messenger - ${normalized.customer.externalId}`;
   }
 }
