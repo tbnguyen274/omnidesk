@@ -34,6 +34,7 @@ next-env.d.ts
 .env.development.local
 .env.test.local
 .env.production.local
+.env.docker
 *.pem
 *.key
 
@@ -83,3 +84,5 @@ utils/
 .postman/
 postman/
 /sandbox/
+report/
+slides/

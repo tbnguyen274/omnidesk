@@ -32,6 +32,53 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omnidesk-api
+    restart: unless-stopped
+    command: >
+      sh -c "pnpm --filter api exec prisma migrate deploy && pnpm --filter api start:prod"
+    env_file:
+      - .env.docker
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omnidesk-worker
+    restart: unless-stopped
+    command: pnpm --filter worker start:prod
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omnidesk-web
+    restart: unless-stopped
+    command: pnpm --filter web start
+    env_file:
+      - .env.docker
+    ports:
+      - "3002:3002"
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
   redis_data:
