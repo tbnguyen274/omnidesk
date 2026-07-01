@@ -89,6 +89,7 @@ export type ConversationMessage = {
   contentType: MessageContentType;
   deliveryStatus: DeliveryStatus;
   externalMessageId: string | null;
+  replyToMessageId?: string | null;
   createdAt: string;
   sentAt: string | null;
 };
@@ -139,6 +140,7 @@ export type CreateOutboundMessagePayload = {
   channelType: ChannelType;
   provider: OutboundProvider;
   recipientExternalId?: string;
+  replyToMessageId?: string;
   content: string;
 };
 

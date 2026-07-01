@@ -416,8 +416,16 @@ export function ConversationDetailPanel({
             <MessageBubble
               key={message.id}
               message={message}
+              repliedToMessage={
+                message.replyToMessageId
+                  ? sortedMessages.find(
+                      (m) => m.externalMessageId === message.replyToMessageId,
+                    )
+                  : undefined
+              }
               showReplyButton={
-                conversation.channelType === "FACEBOOK_COMMENT" &&
+                (conversation.channelType === "FACEBOOK_COMMENT" ||
+                 conversation.channelType === "FACEBOOK_MESSAGE") &&
                 message.direction === "INBOUND"
               }
               onReply={() => setReplyingToMessage(message)}
@@ -441,10 +449,12 @@ export function ConversationDetailPanel({
 
 function MessageBubble({
   message,
+  repliedToMessage,
   showReplyButton,
   onReply,
 }: {
   message: ConversationDetail["messages"][number];
+  repliedToMessage?: ConversationDetail["messages"][number];
   showReplyButton?: boolean;
   onReply?: () => void;
 }) {
@@ -463,6 +473,11 @@ function MessageBubble({
           <span>{formatEnum(message.senderType)}</span>
           <span>{formatTime(message.createdAt)}</span>
         </div>
+        {repliedToMessage && (
+          <div className={`mb-2 flex items-center gap-2 border-l-2 pl-2 text-xs opacity-70 ${outbound ? "border-white" : "border-slate-400"}`}>
+            <span className="truncate">{repliedToMessage.content}</span>
+          </div>
+        )}
         {message.contentType === "HTML" ? (
           <HtmlMessageViewer html={message.content} />
         ) : (

@@ -442,6 +442,7 @@ function createOutboundMessagePayload(
       provider: "FACEBOOK",
       recipientExternalId:
         conversation.customer.externalFacebookId ?? undefined,
+      replyToMessageId: replyToExternalId ?? undefined,
       content,
     };
   }
@@ -450,8 +451,8 @@ function createOutboundMessagePayload(
     conversationId: conversation.id,
     channelType: conversation.channelType,
     provider: "FACEBOOK",
-    recipientExternalId:
-      replyToExternalId ?? conversation.customer.externalFacebookId ?? undefined,
+    recipientExternalId: conversation.customer.externalFacebookId ?? undefined,
+    replyToMessageId: replyToExternalId ?? undefined,
     content,
   };
 }
