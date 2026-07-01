@@ -173,7 +173,10 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       QUEUE_NAMES.AUTO_CLOSE,
       new BullWorker(
         QUEUE_NAMES.AUTO_CLOSE,
-        (job) => this.autoCloseProcessor.process(job),
+        (job) =>
+          this.autoCloseProcessor.process(
+            job as Parameters<typeof this.autoCloseProcessor.process>[0],
+          ),
         { connection: this.connectionOptions },
       ),
     );

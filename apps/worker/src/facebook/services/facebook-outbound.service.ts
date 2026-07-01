@@ -44,7 +44,9 @@ export class FacebookOutboundService {
 
     const pageAccessToken = providerConfig.facebook.pageAccessToken;
     if (!pageAccessToken) {
-      throw new Error('FACEBOOK_PAGE_ACCESS_TOKEN is required for live outbound');
+      throw new Error(
+        'FACEBOOK_PAGE_ACCESS_TOKEN is required for live outbound',
+      );
     }
 
     const { conversation } = outboundMessage;

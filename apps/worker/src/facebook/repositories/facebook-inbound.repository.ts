@@ -46,7 +46,11 @@ export class FacebookInboundRepository {
         tx,
         normalized,
       );
-      const customer = await this.findOrCreateCustomer(tx, normalized, channelAccount);
+      const customer = await this.findOrCreateCustomer(
+        tx,
+        normalized,
+        channelAccount,
+      );
 
       let conversation = await tx.conversation.findFirst({
         where: {
@@ -94,7 +98,11 @@ export class FacebookInboundRepository {
           data: {
             customerId: customer.id,
             subject:
-              !conversation.subject || conversation.subject.startsWith('Facebook Messenger -') || conversation.subject.startsWith('Comment from ') || conversation.subject.includes('Unknown Customer') || conversation.subject.includes('undefined')
+              !conversation.subject ||
+              conversation.subject.startsWith('Facebook Messenger -') ||
+              conversation.subject.startsWith('Comment from ') ||
+              conversation.subject.includes('Unknown Customer') ||
+              conversation.subject.includes('undefined')
                 ? this.buildSubject(normalized)
                 : conversation.subject,
             lastMessageAt: receivedAt,
@@ -122,7 +130,10 @@ export class FacebookInboundRepository {
       });
 
       if (!existingMessage) {
-        if (conversationCreated && normalized.channelType === 'FACEBOOK_COMMENT') {
+        if (
+          conversationCreated &&
+          normalized.channelType === 'FACEBOOK_COMMENT'
+        ) {
           await tx.message.create({
             data: {
               conversationId: conversation.id,
@@ -137,14 +148,19 @@ export class FacebookInboundRepository {
           });
         }
 
-        const isFromPage = normalized.customer.externalId === normalized.source.pageId;
+        const isFromPage =
+          normalized.customer.externalId === normalized.source.pageId;
 
         const message = await tx.message.create({
           data: {
             conversationId: conversation.id,
             inboundEventId: inboundEvent.id,
-            direction: isFromPage ? MessageDirection.OUTBOUND : MessageDirection.INBOUND,
-            senderType: isFromPage ? MessageSenderType.AGENT : MessageSenderType.CUSTOMER,
+            direction: isFromPage
+              ? MessageDirection.OUTBOUND
+              : MessageDirection.INBOUND,
+            senderType: isFromPage
+              ? MessageSenderType.AGENT
+              : MessageSenderType.CUSTOMER,
             content: normalized.message.content,
             contentType: MessageContentType.TEXT,
             externalMessageId: normalized.externalMessageId,
@@ -277,21 +293,27 @@ export class FacebookInboundRepository {
   private async findOrCreateCustomer(
     tx: Prisma.TransactionClient,
     normalized: NormalizedFacebookMessage,
-    channelAccount: any,
+    channelAccount: { configJson: unknown },
   ) {
     let customerName = normalized.customer.name;
 
     if (!customerName) {
-      const config = channelAccount.configJson as Record<string, any>;
-      const token = config?.accessToken ?? process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+      const config = channelAccount.configJson as Record<string, unknown>;
+      const token =
+        (config?.accessToken as string | undefined) ??
+        process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
       if (token) {
         try {
           const response = await fetch(
-            `https://graph.facebook.com/v20.0/${normalized.customer.externalId}?fields=first_name,last_name&access_token=${token}`
+            `https://graph.facebook.com/v20.0/${normalized.customer.externalId}?fields=first_name,last_name&access_token=${token}`,
           );
           if (response.ok) {
-            const data = await response.json();
-            customerName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+            const data = (await response.json()) as {
+              first_name?: string;
+              last_name?: string;
+            };
+            customerName =
+              `${data.first_name || ''} ${data.last_name || ''}`.trim();
             if (customerName) {
               normalized.customer.name = customerName;
             }

@@ -80,7 +80,7 @@ docs/
 plans/
 utils/
 
-.github/
+# .github/
 .postman/
 postman/
 /sandbox/

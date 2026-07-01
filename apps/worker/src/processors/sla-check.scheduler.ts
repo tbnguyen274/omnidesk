@@ -40,13 +40,9 @@ export class SlaCheckScheduler implements OnModuleInit, OnModuleDestroy {
     this.tickInProgress = true;
 
     try {
-      await this.queueService.add(
-        QUEUE_NAMES.SLA_CHECK,
-        'sla-check',
-        {
-          requestedAt: new Date().toISOString(),
-        },
-      );
+      await this.queueService.add(QUEUE_NAMES.SLA_CHECK, 'sla-check', {
+        requestedAt: new Date().toISOString(),
+      });
     } catch (error) {
       this.logger.error(
         error instanceof Error ? error.message : 'Scheduled SLA check failed',

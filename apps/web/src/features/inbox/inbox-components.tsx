@@ -15,6 +15,7 @@ import {
   UserCheck,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { FormEvent, useMemo, useState, useRef, useEffect } from "react";
 import type {
   ChannelType,
@@ -135,12 +136,12 @@ export function AppHeader({
           </div>
         </div>
         <nav className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-6 h-10">
-          <a href="/" className="text-sm font-medium text-slate-900 hover:text-indigo-600">
+          <Link href="/" className="text-sm font-medium text-slate-900 hover:text-indigo-600">
             Inbox
-          </a>
-          <a href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-indigo-600">
+          </Link>
+          <Link href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-indigo-600">
             Dashboard
-          </a>
+          </Link>
         </nav>
       </div>
 
@@ -373,6 +374,7 @@ export function ConversationDetailPanel({
   >(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReplyingToMessage(null);
   }, [conversation?.id]);
 
@@ -864,7 +866,7 @@ function HtmlMessageViewer({ html }: { html: string }) {
       try {
         const height = iframeRef.current.contentWindow.document.documentElement.scrollHeight;
         iframeRef.current.style.height = `${Math.max(height, 60)}px`;
-      } catch (e) {
+      } catch {
         // Ignore cross-origin errors if any
       }
     }

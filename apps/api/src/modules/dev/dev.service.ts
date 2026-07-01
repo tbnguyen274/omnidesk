@@ -28,13 +28,13 @@ export class DevService {
         outboundMode: providerConfig.email.outboundMode,
         smtpConfigured: Boolean(
           providerConfig.email.smtp.host &&
-            providerConfig.email.smtp.user &&
-            providerConfig.email.smtp.password,
+          providerConfig.email.smtp.user &&
+          providerConfig.email.smtp.password,
         ),
         imapConfigured: Boolean(
           providerConfig.email.imap.host &&
-            providerConfig.email.imap.user &&
-            providerConfig.email.imap.password,
+          providerConfig.email.imap.user &&
+          providerConfig.email.imap.password,
         ),
       },
       facebook: {
@@ -44,7 +44,7 @@ export class DevService {
         ),
         pageConfigured: Boolean(
           providerConfig.facebook.pageId &&
-            providerConfig.facebook.pageAccessToken,
+          providerConfig.facebook.pageAccessToken,
         ),
         signatureRequired: providerConfig.facebook.webhookSignatureRequired,
       },
@@ -373,7 +373,12 @@ export class DevService {
             customerId: params.customerId,
             externalConversationId: params.externalConversationId,
             subject: params.subject,
-            status: params.status === TicketStatus.RESOLVED ? 'RESOLVED' : params.status === TicketStatus.CLOSED ? 'CLOSED' : 'NEW',
+            status:
+              params.status === TicketStatus.RESOLVED
+                ? 'RESOLVED'
+                : params.status === TicketStatus.CLOSED
+                  ? 'CLOSED'
+                  : 'NEW',
             priority: params.priority,
             assignedAgentId: params.assignedAgentId,
             lastMessageAt: new Date(),

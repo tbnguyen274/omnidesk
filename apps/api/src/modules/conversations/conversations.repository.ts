@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { ConversationStatus, Prisma, Priority, TicketStatus } from '@prisma/client';
+import {
+  ConversationStatus,
+  Prisma,
+  Priority,
+  TicketStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 
 @Injectable()
@@ -90,10 +95,17 @@ export class ConversationsRepository {
 
     if (isWaitingCustomer && !conversation.ticket?.slaPausedAt) {
       newSlaPausedAt = now;
-    } else if (!isWaitingCustomer && conversation.ticket?.slaPausedAt && conversation.ticket?.slaDueAt) {
+    } else if (
+      !isWaitingCustomer &&
+      conversation.ticket?.slaPausedAt &&
+      conversation.ticket?.slaDueAt
+    ) {
       // Unpause SLA: calculate how long it was paused and add it to the due date
-      const pauseDurationMs = now.getTime() - conversation.ticket.slaPausedAt.getTime();
-      newSlaDueAt = new Date(conversation.ticket.slaDueAt.getTime() + pauseDurationMs);
+      const pauseDurationMs =
+        now.getTime() - conversation.ticket.slaPausedAt.getTime();
+      newSlaDueAt = new Date(
+        conversation.ticket.slaDueAt.getTime() + pauseDurationMs,
+      );
       newSlaPausedAt = null;
     }
 
@@ -104,7 +116,7 @@ export class ConversationsRepository {
         resolvedAt: isResolved ? now : undefined,
         ticket: {
           update: {
-            status: status as unknown as TicketStatus,
+            status: status,
             resolvedAt: isResolved ? now : undefined,
             slaDueAt: newSlaDueAt,
             slaPausedAt: newSlaPausedAt,

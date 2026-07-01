@@ -42,6 +42,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
     if (!storedToken) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAuthLoading(false);
       return;
     }

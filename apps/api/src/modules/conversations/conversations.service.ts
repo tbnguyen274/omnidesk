@@ -3,13 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  ConversationStatus,
-  Prisma,
-  Priority,
-  UserRole,
-  UserStatus,
-} from '@prisma/client';
+import { ConversationStatus, Prisma, Priority } from '@prisma/client';
 import { REALTIME_EVENT_TYPES } from '@omnidesk/shared';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ConversationsRepository } from './conversations.repository';

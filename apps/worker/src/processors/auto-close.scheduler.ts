@@ -40,13 +40,9 @@ export class AutoCloseScheduler implements OnModuleInit, OnModuleDestroy {
     this.tickInProgress = true;
 
     try {
-      await this.queueService.add(
-        QUEUE_NAMES.AUTO_CLOSE,
-        'auto-close',
-        {
-          requestedAt: new Date().toISOString(),
-        },
-      );
+      await this.queueService.add(QUEUE_NAMES.AUTO_CLOSE, 'auto-close', {
+        requestedAt: new Date().toISOString(),
+      });
     } catch (error) {
       this.logger.error('Failed to dispatch auto-close job', error);
     } finally {

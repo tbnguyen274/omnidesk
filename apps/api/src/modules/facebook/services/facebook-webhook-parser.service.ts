@@ -175,7 +175,9 @@ export class FacebookWebhookParserService {
       text,
       sentAt: this.timestampToIso(value?.created_time),
       parentCommentId,
-      postUrl: this.stringValue((value?.post as Record<string, unknown>)?.permalink_url),
+      postUrl: this.stringValue(
+        (value?.post as Record<string, unknown>)?.permalink_url,
+      ),
     } satisfies MockFacebookCommentPayload;
   }
 

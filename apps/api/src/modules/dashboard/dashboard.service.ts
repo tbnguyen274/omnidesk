@@ -7,13 +7,21 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getSummary() {
-    const [total, newTickets, inProgress, resolved, overdue] = await Promise.all([
-      this.prisma.ticket.count(),
-      this.prisma.ticket.count({ where: { status: TicketStatus.NEW } }),
-      this.prisma.ticket.count({ where: { status: TicketStatus.IN_PROGRESS } }),
-      this.prisma.ticket.count({ where: { status: TicketStatus.RESOLVED } }),
-      this.prisma.ticket.count({ where: { isOverdue: true, status: { notIn: [TicketStatus.RESOLVED, TicketStatus.CLOSED] } } }),
-    ]);
+    const [total, newTickets, inProgress, resolved, overdue] =
+      await Promise.all([
+        this.prisma.ticket.count(),
+        this.prisma.ticket.count({ where: { status: TicketStatus.NEW } }),
+        this.prisma.ticket.count({
+          where: { status: TicketStatus.IN_PROGRESS },
+        }),
+        this.prisma.ticket.count({ where: { status: TicketStatus.RESOLVED } }),
+        this.prisma.ticket.count({
+          where: {
+            isOverdue: true,
+            status: { notIn: [TicketStatus.RESOLVED, TicketStatus.CLOSED] },
+          },
+        }),
+      ]);
 
     const channelCounts = await this.prisma.conversation.groupBy({
       by: ['channelType'],
@@ -22,10 +30,13 @@ export class DashboardService {
       },
     });
 
-    const byChannel = channelCounts.reduce((acc, item) => {
-      acc[item.channelType] = item._count.id;
-      return acc;
-    }, {} as Record<string, number>);
+    const byChannel = channelCounts.reduce(
+      (acc, item) => {
+        acc[item.channelType] = item._count.id;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       total,

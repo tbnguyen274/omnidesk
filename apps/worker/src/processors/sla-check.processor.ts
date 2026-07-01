@@ -26,7 +26,11 @@ export class SlaCheckProcessor {
         },
         isOverdue: false,
         status: {
-          notIn: [TicketStatus.RESOLVED, TicketStatus.CLOSED, TicketStatus.WAITING_CUSTOMER],
+          notIn: [
+            TicketStatus.RESOLVED,
+            TicketStatus.CLOSED,
+            TicketStatus.WAITING_CUSTOMER,
+          ],
         },
       },
       select: {
