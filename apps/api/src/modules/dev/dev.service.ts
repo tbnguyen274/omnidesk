@@ -234,6 +234,38 @@ export class DevService {
       createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
     });
 
+    await this.createConversationWithMessage({
+      channelType: ChannelType.FACEBOOK_MESSAGE,
+      channelAccountId: facebookPage.id,
+      customerId: commentCustomer.id,
+      externalConversationId: 'fb_thread_waiting_001',
+      subject: 'Yêu cầu cung cấp thêm thông tin',
+      priority: Priority.MEDIUM,
+      assignedAgentId: agent.id,
+      externalMessageId: 'fb_msg_seed_waiting_001',
+      content: 'Bạn cho mình xin thêm ảnh sản phẩm bị lỗi nhé.',
+      tags: ['return'],
+      status: TicketStatus.WAITING_CUSTOMER,
+      slaPausedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Paused 1 day ago
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // Created 2 days ago
+    });
+
+    await this.createConversationWithMessage({
+      channelType: ChannelType.EMAIL,
+      channelAccountId: supportMailbox.id,
+      customerId: emailCustomer.id,
+      externalConversationId: 'email_thread_autoclose_001',
+      subject: 'Thắc mắc về bảo hành',
+      priority: Priority.MEDIUM,
+      assignedAgentId: agent.id,
+      externalMessageId: 'email_seed_autoclose_001',
+      content: 'Cho mình hỏi thời gian bảo hành là bao lâu?',
+      tags: ['info'],
+      status: TicketStatus.RESOLVED,
+      resolvedAt: new Date(Date.now() - 3.1 * 24 * 60 * 60 * 1000), // Resolved 3.1 days ago
+      createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // Created 4 days ago
+    });
+
     return {
       seeded: true,
     };
@@ -312,6 +344,8 @@ export class DevService {
     isOverdue?: boolean;
     status?: TicketStatus;
     createdAt?: Date;
+    resolvedAt?: Date;
+    slaPausedAt?: Date;
   }) {
     const creationTime = params.createdAt ?? new Date();
     const existing = await this.prisma.conversation.findFirst({
@@ -329,6 +363,7 @@ export class DevService {
             priority: params.priority,
             assignedAgentId: params.assignedAgentId,
             lastMessageAt: new Date(),
+            resolvedAt: params.resolvedAt,
           },
         })
       : await this.prisma.conversation.create({
@@ -338,10 +373,11 @@ export class DevService {
             customerId: params.customerId,
             externalConversationId: params.externalConversationId,
             subject: params.subject,
-            status: 'NEW',
+            status: params.status === TicketStatus.RESOLVED ? 'RESOLVED' : params.status === TicketStatus.CLOSED ? 'CLOSED' : 'NEW',
             priority: params.priority,
             assignedAgentId: params.assignedAgentId,
             lastMessageAt: new Date(),
+            resolvedAt: params.resolvedAt,
           },
         });
 
@@ -376,6 +412,8 @@ export class DevService {
         assignedAgentId: params.assignedAgentId,
         status: params.status ?? TicketStatus.NEW,
         isOverdue: params.isOverdue ?? false,
+        resolvedAt: params.resolvedAt,
+        slaPausedAt: params.slaPausedAt,
       },
       create: {
         conversationId: conversation.id,
@@ -384,6 +422,8 @@ export class DevService {
         assignedAgentId: params.assignedAgentId,
         slaDueAt: calculateSlaDueAt(params.priority, creationTime),
         isOverdue: params.isOverdue ?? false,
+        resolvedAt: params.resolvedAt,
+        slaPausedAt: params.slaPausedAt,
       },
     });
 
