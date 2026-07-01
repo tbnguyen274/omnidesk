@@ -426,7 +426,7 @@ function MessageBubble({
   return (
     <div className={`flex ${outbound ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[78%] rounded-lg border px-4 py-3 ${
+        className={`${message.contentType === "HTML" ? "max-w-[95%] w-full" : "max-w-[78%]"} rounded-lg border px-4 py-3 ${
           outbound
             ? "border-slate-950 bg-slate-950 text-white"
             : "border-slate-200 bg-white text-slate-950"
@@ -436,9 +436,13 @@ function MessageBubble({
           <span>{formatEnum(message.senderType)}</span>
           <span>{formatTime(message.createdAt)}</span>
         </div>
-        <p className="whitespace-pre-wrap text-sm leading-6">
-          {message.content}
-        </p>
+        {message.contentType === "HTML" ? (
+          <HtmlMessageViewer html={message.content} />
+        ) : (
+          <p className="whitespace-pre-wrap text-sm leading-6 break-words">
+            {linkify(message.content)}
+          </p>
+        )}
         <p className="mt-2 text-xs opacity-70">
           {formatEnum(message.deliveryStatus)}
         </p>
@@ -765,4 +769,50 @@ function getErrorMessage(caught: unknown) {
   }
 
   return "Unable to send reply";
+}
+
+function HtmlMessageViewer({ html }: { html: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const adjustHeight = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      try {
+        const height = iframeRef.current.contentWindow.document.documentElement.scrollHeight;
+        iframeRef.current.style.height = `${Math.max(height, 60)}px`;
+      } catch (e) {
+        // Ignore cross-origin errors if any
+      }
+    }
+  };
+
+  return (
+    <iframe
+      ref={iframeRef}
+      srcDoc={html}
+      onLoad={adjustHeight}
+      className="w-full border-none bg-white rounded-md text-slate-950"
+      style={{ minWidth: "100%", minHeight: "60px" }}
+      sandbox="allow-same-origin allow-popups"
+    />
+  );
+}
+
+function linkify(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.split(urlRegex).map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-blue-500"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
 }
