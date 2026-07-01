@@ -135,6 +135,7 @@ export class ConversationsService {
         contentType: message.contentType,
         deliveryStatus: message.deliveryStatus,
         externalMessageId: message.externalMessageId,
+        replyToMessageId: message.replyToMessageId,
         createdAt: message.createdAt,
         sentAt: message.sentAt,
       })),

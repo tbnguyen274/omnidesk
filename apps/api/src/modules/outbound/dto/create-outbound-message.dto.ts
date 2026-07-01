@@ -21,6 +21,10 @@ export class CreateOutboundMessageDto {
   @IsString()
   recipientExternalId?: string;
 
+  @IsOptional()
+  @IsString()
+  replyToMessageId?: string;
+
   @IsString()
   @MinLength(1)
   content!: string;

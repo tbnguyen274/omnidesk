@@ -216,6 +216,7 @@ model Message {
   content            String
   contentType        MessageContentType    @default(TEXT) @map("content_type")
   externalMessageId  String?               @map("external_message_id")
+  replyToMessageId   String?               @map("reply_to_message_id")
   rawPayload         Json?                 @map("raw_payload")
   deliveryStatus     MessageDeliveryStatus @default(RECEIVED) @map("delivery_status")
   sentAt             DateTime?             @map("sent_at")
@@ -308,6 +309,7 @@ model OutboundMessage {
   maxRetries          Int                   @default(3) @map("max_retries")
   lastError           String?               @map("last_error")
   externalMessageId   String?               @map("external_message_id")
+  replyToMessageId    String?               @map("reply_to_message_id")
   createdBy           String                @map("created_by") @db.Uuid
   createdAt           DateTime              @default(now()) @map("created_at")
   sentAt              DateTime?             @map("sent_at")

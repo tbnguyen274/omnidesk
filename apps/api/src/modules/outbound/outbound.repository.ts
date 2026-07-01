@@ -21,6 +21,7 @@ export class OutboundRepository {
         channelType: dto.channelType,
         provider: dto.provider,
         recipientExternalId: dto.recipientExternalId,
+        replyToMessageId: dto.replyToMessageId,
         content: dto.content,
         status: OutboundMessageStatus.PENDING,
         createdBy,
