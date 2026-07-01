@@ -88,6 +88,7 @@ export type ConversationMessage = {
   content: string;
   contentType: MessageContentType;
   deliveryStatus: DeliveryStatus;
+  externalMessageId: string | null;
   createdAt: string;
   sentAt: string | null;
 };

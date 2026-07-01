@@ -134,6 +134,7 @@ export class ConversationsService {
         content: message.content,
         contentType: message.contentType,
         deliveryStatus: message.deliveryStatus,
+        externalMessageId: message.externalMessageId,
         createdAt: message.createdAt,
         sentAt: message.sentAt,
       })),

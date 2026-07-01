@@ -283,12 +283,16 @@ export default function Home() {
     });
   }
 
-  async function handleSendReply(content: string) {
+  async function handleSendReply(content: string, replyToExternalId?: string | null) {
     if (!token || !selectedConversation) {
       return;
     }
 
-    const payload = createOutboundMessagePayload(selectedConversation, content);
+    const payload = createOutboundMessagePayload(
+      selectedConversation,
+      content,
+      replyToExternalId,
+    );
 
     await apiClient.createOutboundMessage(token, payload);
     await Promise.all([
@@ -413,6 +417,7 @@ function dedupeById<T extends { id: string }>(items: T[]) {
 function createOutboundMessagePayload(
   conversation: ConversationDetail,
   content: string,
+  replyToExternalId?: string | null,
 ): CreateOutboundMessagePayload {
   const disabledReason = getReplyDisabledReason(conversation);
 
@@ -445,7 +450,8 @@ function createOutboundMessagePayload(
     conversationId: conversation.id,
     channelType: conversation.channelType,
     provider: "FACEBOOK",
-    recipientExternalId: conversation.customer.externalFacebookId ?? undefined,
+    recipientExternalId:
+      replyToExternalId ?? conversation.customer.externalFacebookId ?? undefined,
     content,
   };
 }

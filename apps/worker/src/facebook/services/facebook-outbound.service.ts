@@ -59,8 +59,10 @@ export class FacebookOutboundService {
         throw new Error('Invalid Facebook Comment conversation ID structure');
       }
 
+      const targetCommentId = outboundMessage.recipientExternalId || threadId;
+
       const response = await fetch(
-        `https://graph.facebook.com/${graphApiVersion}/${threadId}/comments`,
+        `https://graph.facebook.com/${graphApiVersion}/${targetCommentId}/comments`,
         {
           method: 'POST',
           headers: {

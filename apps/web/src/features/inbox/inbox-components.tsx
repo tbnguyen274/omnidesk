@@ -9,9 +9,11 @@ import {
   Mail,
   MessageCircle,
   RefreshCw,
+  Reply,
   Search,
   Send,
   UserCheck,
+  X,
 } from "lucide-react";
 import { FormEvent, useMemo, useState, useRef, useEffect } from "react";
 import type {
@@ -358,13 +360,21 @@ export function ConversationDetailPanel({
 }: {
   conversation: ConversationDetail | null;
   loading: boolean;
-  onSendReply?: (content: string) => Promise<void>;
+  onSendReply?: (content: string, replyToExternalId?: string | null) => Promise<void>;
   replyDisabledReason?: string | null;
 }) {
   const sortedMessages = useMemo(
     () => conversation?.messages ?? [],
     [conversation],
   );
+
+  const [replyingToMessage, setReplyingToMessage] = useState<
+    ConversationDetail["messages"][number] | null
+  >(null);
+
+  useEffect(() => {
+    setReplyingToMessage(null);
+  }, [conversation?.id]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -403,14 +413,27 @@ export function ConversationDetailPanel({
       <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
         <div className="mx-auto flex max-w-3xl flex-col gap-3">
           {sortedMessages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+            <MessageBubble
+              key={message.id}
+              message={message}
+              showReplyButton={
+                conversation.channelType === "FACEBOOK_COMMENT" &&
+                message.direction === "INBOUND"
+              }
+              onReply={() => setReplyingToMessage(message)}
+            />
           ))}
         </div>
       </div>
 
       <ReplyComposer
         disabledReason={replyDisabledReason}
-        onSendReply={onSendReply}
+        onSendReply={async (content) => {
+          await onSendReply?.(content, replyingToMessage?.externalMessageId);
+          setReplyingToMessage(null);
+        }}
+        replyingToMessage={replyingToMessage}
+        onCancelReply={() => setReplyingToMessage(null)}
       />
     </div>
   );
@@ -418,15 +441,19 @@ export function ConversationDetailPanel({
 
 function MessageBubble({
   message,
+  showReplyButton,
+  onReply,
 }: {
   message: ConversationDetail["messages"][number];
+  showReplyButton?: boolean;
+  onReply?: () => void;
 }) {
   const outbound = message.direction === "OUTBOUND";
 
   return (
-    <div className={`flex ${outbound ? "justify-end" : "justify-start"}`}>
+    <div className={`group flex ${outbound ? "justify-end" : "justify-start"} items-center gap-2`}>
       <div
-        className={`${message.contentType === "HTML" ? "max-w-[95%] w-full" : "max-w-[78%]"} rounded-lg border px-4 py-3 ${
+        className={`${message.contentType === "HTML" ? "max-w-[95%] w-full" : "max-w-[78%]"} rounded-lg border px-4 py-3 relative ${
           outbound
             ? "border-slate-950 bg-slate-950 text-white"
             : "border-slate-200 bg-white text-slate-950"
@@ -447,6 +474,15 @@ function MessageBubble({
           {formatEnum(message.deliveryStatus)}
         </p>
       </div>
+      {showReplyButton && !outbound && (
+        <button
+          className="invisible group-hover:visible p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+          title="Reply to this comment"
+          onClick={onReply}
+        >
+          <Reply size={16} />
+        </button>
+      )}
     </div>
   );
 }
@@ -454,13 +490,18 @@ function MessageBubble({
 function ReplyComposer({
   disabledReason,
   onSendReply,
+  replyingToMessage,
+  onCancelReply,
 }: {
   disabledReason?: string | null;
   onSendReply?: (content: string) => Promise<void>;
+  replyingToMessage?: ConversationDetail["messages"][number] | null;
+  onCancelReply?: () => void;
 }) {
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const trimmedContent = content.trim();
   const disabled =
     submitting || !onSendReply || Boolean(disabledReason) || !trimmedContent;
@@ -487,15 +528,44 @@ function ReplyComposer({
 
   return (
     <form
+      ref={formRef}
       className="border-t border-slate-200 bg-white p-4"
       onSubmit={handleSubmit}
     >
+      {replyingToMessage && (
+        <div className="mb-2 flex items-center justify-between rounded-md bg-slate-50 border border-slate-200 p-2 text-xs text-slate-600">
+          <div className="flex items-center gap-2 truncate">
+            <Reply size={14} className="text-slate-400" />
+            <span className="font-semibold text-slate-700">
+              Replying to:
+            </span>
+            <span className="truncate opacity-80">
+              {replyingToMessage.content}
+            </span>
+          </div>
+          {onCancelReply && (
+            <button
+              type="button"
+              className="p-1 hover:bg-slate-200 rounded-md cursor-pointer"
+              onClick={onCancelReply}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex gap-2">
         <textarea
           className="min-h-20 flex-1 resize-none rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-slate-950"
           disabled={submitting}
           onChange={(event) => setContent(event.target.value)}
-          placeholder="Write a reply"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              formRef.current?.requestSubmit();
+            }
+          }}
+          placeholder="Write a reply (Enter to send, Shift+Enter for new line)"
           value={content}
         />
         <button
