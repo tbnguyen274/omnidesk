@@ -54,6 +54,7 @@ export class FacebookOutboundRepository {
           content: outboundMessage.content,
           contentType: MessageContentType.TEXT,
           externalMessageId,
+          replyToMessageId: outboundMessage.replyToMessageId,
           deliveryStatus: MessageDeliveryStatus.SENT,
           sentAt,
           createdAt: sentAt,

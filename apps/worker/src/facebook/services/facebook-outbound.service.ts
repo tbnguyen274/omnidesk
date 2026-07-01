@@ -59,7 +59,7 @@ export class FacebookOutboundService {
         throw new Error('Invalid Facebook Comment conversation ID structure');
       }
 
-      const targetCommentId = outboundMessage.recipientExternalId || threadId;
+      const targetCommentId = outboundMessage.replyToMessageId || threadId;
 
       const response = await fetch(
         `https://graph.facebook.com/${graphApiVersion}/${targetCommentId}/comments`,
@@ -110,7 +110,9 @@ export class FacebookOutboundService {
           },
           body: JSON.stringify({
             recipient: { id: recipientId },
-            message: { text: outboundMessage.content },
+            message: {
+              text: outboundMessage.content,
+            },
           }),
         },
       );
