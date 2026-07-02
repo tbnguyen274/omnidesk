@@ -124,22 +124,22 @@ export function AppHeader({
   onLogout: () => void;
 }) {
   return (
-    <header className="flex min-h-16 items-center justify-between gap-4 bg-white px-4 sm:px-6">
+    <header className="flex min-h-16 items-center justify-between gap-4 bg-[#1f1f1f] border-b border-[#333333] px-4 sm:px-6">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-950 text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-600 text-white">
             <Inbox size={20} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-base font-semibold">OmniDesk Inbox</h1>
-            <p className="text-xs text-slate-500">{apiBaseUrl}</p>
+            <h1 className="text-base font-semibold text-white">OmniDesk Inbox</h1>
+            <p className="text-xs text-neutral-400">{apiBaseUrl}</p>
           </div>
         </div>
-        <nav className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-6 h-10">
-          <Link href="/" className="text-sm font-medium text-slate-900 hover:text-indigo-600">
+        <nav className="hidden sm:flex items-center gap-4 border-l border-[#333333] pl-6 h-10">
+          <Link href="/" className="text-sm font-medium text-neutral-300 hover:text-white transition-colors">
             Inbox
           </Link>
-          <Link href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-indigo-600">
+          <Link href="/dashboard" className="text-sm font-medium text-neutral-500 hover:text-white transition-colors">
             Dashboard
           </Link>
         </nav>
@@ -147,11 +147,11 @@ export function AppHeader({
 
       <div className="flex items-center gap-3">
         <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium">{currentUser.name}</p>
-          <p className="text-xs text-slate-500">{currentUser.role}</p>
+          <p className="text-sm font-medium text-white">{currentUser.name}</p>
+          <p className="text-xs text-neutral-400">{currentUser.role}</p>
         </div>
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 text-slate-700 cursor-pointer hover:bg-slate-100"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-[#333333] text-neutral-400 cursor-pointer hover:bg-[#2a2a2a] hover:text-white transition-colors"
           onClick={onLogout}
           title="Logout"
           type="button"
@@ -179,7 +179,7 @@ export function InboxFilters({
   const [search, setSearch] = useState(filters.search ?? "");
 
   return (
-    <div className="border-b border-slate-200 p-4">
+    <div className="border-b border-[#333333] bg-[#1f1f1f] p-4">
       <form
         className="mb-3 flex gap-2"
         onSubmit={(event) => {
@@ -189,19 +189,19 @@ export function InboxFilters({
       >
         <div className="relative flex-1">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"
             size={16}
             aria-hidden="true"
           />
           <input
-            className="h-10 w-full rounded-md border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-slate-950"
+            className="h-10 w-full rounded-md border border-[#333333] bg-[#141414] pl-9 pr-3 text-sm text-neutral-200 outline-none placeholder:text-neutral-500 focus:border-[#555555] transition-colors"
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search conversations"
             value={search}
           />
         </div>
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-700 cursor-pointer hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-10 w-10 items-center justify-center rounded-md border border-[#333333] bg-[#141414] text-neutral-400 cursor-pointer hover:bg-[#2a2a2a] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           disabled={loading}
           title="Refresh inbox"
           type="button"
@@ -269,17 +269,17 @@ function FilterSelect({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-500">
+      <span className="mb-1 block text-xs font-medium text-neutral-400">
         {label}
       </span>
       <select
-        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-xs outline-none cursor-pointer focus:border-slate-950"
+        className="h-9 w-full rounded-md border border-[#333333] bg-[#141414] px-2 text-xs text-neutral-200 outline-none cursor-pointer focus:border-[#555555] transition-colors"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >
-        <option value="">All</option>
+        <option value="" className="bg-[#1f1f1f]">All</option>
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option key={option.value} value={option.value} className="bg-[#1f1f1f]">
             {option.label}
           </option>
         ))}
@@ -308,31 +308,30 @@ export function ConversationList({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-2">
+    <div className="flex-1 overflow-y-auto p-2 bg-transparent">
       {conversations.map((conversation) => (
         <button
-          className={`mb-2 w-full rounded-lg border p-3 text-left transition cursor-pointer ${
-            selectedId === conversation.id
-              ? "border-slate-950 bg-slate-100"
-              : "border-slate-200 bg-white hover:bg-slate-50"
-          }`}
+          className={`mb-2 w-full rounded-lg border p-3 text-left transition-colors cursor-pointer ${selectedId === conversation.id
+              ? "border-[#444444] bg-[#2a2a2a]"
+              : "border-[#333333] bg-transparent hover:bg-[#2a2a2a]/50"
+            }`}
           key={conversation.id}
           onClick={() => onSelect(conversation.id)}
           type="button"
         >
           <div className="mb-2 flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
+              <p className="truncate text-sm font-semibold text-white">
                 {conversation.customer.name ??
                   conversation.customer.email ??
                   "Unknown customer"}
               </p>
-              <p className="truncate text-xs text-slate-500">
+              <p className="truncate text-xs text-neutral-400">
                 {conversation.subject ?? "No subject"}
               </p>
             </div>
             <ChevronRight
-              className="mt-1 shrink-0 text-slate-400"
+              className="mt-1 shrink-0 text-neutral-500"
               size={16}
               aria-hidden="true"
             />
@@ -344,7 +343,7 @@ export function ConversationList({
             <PriorityBadge priority={conversation.priority} />
           </div>
 
-          <p className="line-clamp-2 min-h-10 text-xs leading-5 text-slate-600">
+          <p className="line-clamp-2 min-h-10 text-xs leading-5 text-neutral-400">
             {conversation.lastMessage?.content ?? "No messages yet"}
           </p>
         </button>
@@ -395,24 +394,24 @@ export function ConversationDetailPanel({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-slate-200 bg-white p-4 shrink-0">
+    <div className="flex h-full min-h-0 flex-col bg-transparent">
+      <div className="border-b border-[#333333] p-4 shrink-0 bg-transparent">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <ChannelBadge channelType={conversation.channelType} />
           <StatusBadge status={conversation.status} />
           <PriorityBadge priority={conversation.priority} />
         </div>
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-semibold text-white">
           {conversation.subject ?? "Untitled conversation"}
         </h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-neutral-400">
           {conversation.customer.name ??
             conversation.customer.email ??
             "Unknown customer"}
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto p-4 bg-[#141414]" ref={scrollRef}>
         <div className="mx-auto flex max-w-3xl flex-col gap-3">
           {sortedMessages.map((message) => (
             <MessageBubble
@@ -421,13 +420,13 @@ export function ConversationDetailPanel({
               repliedToMessage={
                 message.replyToMessageId
                   ? sortedMessages.find(
-                      (m) => m.externalMessageId === message.replyToMessageId,
-                    )
+                    (m) => m.externalMessageId === message.replyToMessageId,
+                  )
                   : undefined
               }
               showReplyButton={
                 (conversation.channelType === "FACEBOOK_COMMENT" ||
-                 conversation.channelType === "FACEBOOK_MESSAGE") &&
+                  conversation.channelType === "FACEBOOK_MESSAGE") &&
                 message.direction === "INBOUND"
               }
               onReply={() => setReplyingToMessage(message)}
@@ -465,18 +464,17 @@ function MessageBubble({
   return (
     <div className={`group flex ${outbound ? "justify-end" : "justify-start"} items-center gap-2`}>
       <div
-        className={`${message.contentType === "HTML" ? "max-w-[95%] w-full" : "max-w-[78%]"} rounded-lg border px-4 py-3 relative ${
-          outbound
-            ? "border-slate-950 bg-slate-950 text-white"
-            : "border-slate-200 bg-white text-slate-950"
-        }`}
+        className={`${message.contentType === "HTML" ? "max-w-[95%] w-full" : "max-w-[78%]"} rounded-lg border px-4 py-3 relative ${outbound
+            ? "border-blue-600 bg-blue-600 text-white"
+            : "border-[#444444] bg-[#2a2a2a] text-neutral-100"
+          }`}
       >
         <div className="mb-1 flex items-center gap-2 text-xs opacity-80">
           <span>{formatEnum(message.senderType)}</span>
           <span>{formatTime(message.createdAt)}</span>
         </div>
         {repliedToMessage && (
-          <div className={`mb-2 flex items-center gap-2 border-l-2 pl-2 text-xs opacity-70 ${outbound ? "border-white" : "border-slate-400"}`}>
+          <div className={`mb-2 flex items-center gap-2 border-l-2 pl-2 text-xs opacity-70 ${outbound ? "border-white" : "border-neutral-500"}`}>
             <span className="truncate">{repliedToMessage.content}</span>
           </div>
         )}
@@ -493,7 +491,7 @@ function MessageBubble({
       </div>
       {showReplyButton && !outbound && (
         <button
-          className="invisible group-hover:visible p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+          className="invisible group-hover:visible p-1.5 rounded-full text-neutral-500 hover:text-white hover:bg-[#2a2a2a] transition-colors cursor-pointer"
           title="Reply to this comment"
           onClick={onReply}
         >
@@ -504,7 +502,7 @@ function MessageBubble({
   );
 }
 
-function ReplyComposer({
+export function ReplyComposer({
   disabledReason,
   onSendReply,
   replyingToMessage,
@@ -546,14 +544,14 @@ function ReplyComposer({
   return (
     <form
       ref={formRef}
-      className="border-t border-slate-200 bg-white p-4"
+      className="border-t border-[#333333] bg-transparent p-4 shrink-0"
       onSubmit={handleSubmit}
     >
       {replyingToMessage && (
-        <div className="mb-2 flex items-center justify-between rounded-md bg-slate-50 border border-slate-200 p-2 text-xs text-slate-600">
+        <div className="mb-2 flex items-center justify-between rounded-md bg-[#141414] border border-[#333333] p-2 text-xs text-neutral-300">
           <div className="flex items-center gap-2 truncate">
-            <Reply size={14} className="text-slate-400" />
-            <span className="font-semibold text-slate-700">
+            <Reply size={14} className="text-neutral-500" />
+            <span className="font-semibold text-white">
               Replying to:
             </span>
             <span className="truncate opacity-80">
@@ -563,7 +561,7 @@ function ReplyComposer({
           {onCancelReply && (
             <button
               type="button"
-              className="p-1 hover:bg-slate-200 rounded-md cursor-pointer"
+              className="p-1 hover:bg-[#2a2a2a] rounded-md cursor-pointer transition-colors"
               onClick={onCancelReply}
             >
               <X size={14} />
@@ -573,7 +571,7 @@ function ReplyComposer({
       )}
       <div className="flex gap-2">
         <textarea
-          className="min-h-20 flex-1 resize-none rounded-md border border-slate-300 p-3 text-sm outline-none focus:border-slate-950"
+          className="min-h-20 flex-1 resize-none rounded-md border border-[#333333] bg-[#141414] p-3 text-sm text-neutral-200 outline-none focus:border-[#555555] placeholder:text-neutral-500 transition-colors"
           disabled={submitting}
           onChange={(event) => setContent(event.target.value)}
           onKeyDown={(event) => {
@@ -586,7 +584,7 @@ function ReplyComposer({
           value={content}
         />
         <button
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-neutral-700 text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-[#2a2a2a] disabled:text-neutral-600 hover:bg-[#555555] transition-colors"
           disabled={disabled}
           title={disabledReason ?? "Send reply"}
           type="submit"
@@ -595,9 +593,9 @@ function ReplyComposer({
         </button>
       </div>
       {disabledReason ? (
-        <p className="mt-2 text-xs text-slate-500">{disabledReason}</p>
+        <p className="mt-2 text-xs text-neutral-500">{disabledReason}</p>
       ) : null}
-      {error ? <p className="mt-2 text-xs text-rose-600">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs text-rose-500">{error}</p> : null}
     </form>
   );
 }
@@ -626,20 +624,20 @@ export function SidePanel({
   }
 
   return (
-    <div className="flex h-full min-h-[560px] flex-col">
-      <section className="border-b border-slate-200 p-4">
-        <h3 className="mb-3 text-sm font-semibold">Customer</h3>
+    <div className="flex h-full min-h-[560px] flex-col bg-transparent text-neutral-300 border-l border-[#333333]">
+      <section className="border-b border-[#333333] p-4">
+        <h3 className="mb-3 text-sm font-semibold text-white">Customer Information</h3>
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#2a2a2a] border border-[#444444] text-sm font-semibold text-white">
             {getInitials(
               conversation.customer.name ?? conversation.customer.email,
             )}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
+            <p className="truncate text-sm font-medium text-white">
               {conversation.customer.name ?? "Unknown customer"}
             </p>
-            <p className="truncate text-xs text-slate-500">
+            <p className="truncate text-xs text-neutral-400">
               {conversation.customer.email ??
                 conversation.customer.externalFacebookId ??
                 "No external id"}
@@ -648,15 +646,15 @@ export function SidePanel({
         </div>
       </section>
 
-      <section className="border-b border-slate-200 p-4">
-        <h3 className="mb-3 text-sm font-semibold">Ticket</h3>
+      <section className="border-b border-[#333333] p-4">
+        <h3 className="mb-3 text-sm font-semibold text-white">Ticket Details</h3>
         <div className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-500">
+            <span className="mb-1 block text-xs font-medium text-neutral-400">
               Status
             </span>
             <select
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none cursor-pointer focus:border-slate-950 disabled:cursor-not-allowed"
+              className="h-10 w-full rounded-md border border-[#333333] bg-[#141414] px-2 text-sm outline-none cursor-pointer focus:border-[#555555] disabled:cursor-not-allowed transition-colors"
               disabled={actionLoading}
               onChange={(event) =>
                 onStatusChange(event.target.value as ConversationStatus)
@@ -664,7 +662,7 @@ export function SidePanel({
               value={conversation.status}
             >
               {statusOptions.map((status) => (
-                <option key={status} value={status}>
+                <option key={status} value={status} className="bg-[#1f1f1f]">
                   {formatEnum(status)}
                 </option>
               ))}
@@ -672,11 +670,11 @@ export function SidePanel({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-500">
+            <span className="mb-1 block text-xs font-medium text-neutral-400">
               Priority
             </span>
             <select
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none cursor-pointer focus:border-slate-950 disabled:cursor-not-allowed"
+              className="h-10 w-full rounded-md border border-[#333333] bg-[#141414] px-2 text-sm outline-none cursor-pointer focus:border-[#555555] disabled:cursor-not-allowed transition-colors"
               disabled={actionLoading}
               onChange={(event) =>
                 onPriorityChange(event.target.value as Priority)
@@ -684,7 +682,7 @@ export function SidePanel({
               value={conversation.priority}
             >
               {priorityOptions.map((priority) => (
-                <option key={priority} value={priority}>
+                <option key={priority} value={priority} className="bg-[#1f1f1f]">
                   {formatEnum(priority)}
                 </option>
               ))}
@@ -692,17 +690,17 @@ export function SidePanel({
           </label>
 
           {conversation.assignedAgent ? (
-            <div className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-600">
+            <div className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#2a2a2a] border border-[#444444] text-sm font-medium text-neutral-300">
               <UserCheck size={16} aria-hidden="true" className="text-emerald-500" />
               Assigned to {conversation.assignedAgent.name || "Agent"}
             </div>
           ) : currentUser.role === "ADMIN" ? (
             <div className="block pt-2">
-              <span className="mb-1 block text-xs font-medium text-slate-500">
+              <span className="mb-1 block text-xs font-medium text-neutral-400">
                 Assign to Agent
               </span>
               <select
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm outline-none cursor-pointer focus:border-slate-950 disabled:cursor-not-allowed"
+                className="h-10 w-full rounded-md border border-[#333333] bg-[#141414] px-2 text-sm outline-none cursor-pointer focus:border-[#555555] disabled:cursor-not-allowed transition-colors"
                 disabled={actionLoading}
                 onChange={(event) => {
                   if (event.target.value && onAssignAgent) {
@@ -711,9 +709,9 @@ export function SidePanel({
                 }}
                 value=""
               >
-                <option value="" disabled>Select an agent...</option>
+                <option value="" disabled className="bg-[#1f1f1f]">Select an agent...</option>
                 {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
+                  <option key={agent.id} value={agent.id} className="bg-[#1f1f1f]">
                     {agent.name}
                   </option>
                 ))}
@@ -721,7 +719,7 @@ export function SidePanel({
             </div>
           ) : (
             <button
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-300 text-sm font-medium cursor-pointer hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-[#444444] bg-[#2a2a2a] text-sm font-medium cursor-pointer hover:bg-[#333333] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={actionLoading}
               onClick={onAssignToMe}
               type="button"
@@ -734,19 +732,19 @@ export function SidePanel({
       </section>
 
       <section className="p-4">
-        <h3 className="mb-3 text-sm font-semibold">Tags</h3>
+        <h3 className="mb-3 text-sm font-semibold text-white">Tags</h3>
         <div className="flex flex-wrap gap-2">
           {conversation.tags.length > 0 ? (
             conversation.tags.map((tag) => (
               <span
-                className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700"
+                className="rounded-md border border-[#444444] bg-[#2a2a2a] px-2 py-1 text-xs text-neutral-300"
                 key={tag.id}
               >
                 {tag.name}
               </span>
             ))
           ) : (
-            <p className="text-sm text-slate-500">No tags</p>
+            <p className="text-sm text-neutral-500">No tags</p>
           )}
         </div>
       </section>
@@ -755,15 +753,19 @@ export function SidePanel({
 }
 
 function ChannelBadge({ channelType }: { channelType: ChannelType }) {
-  const icon =
-    channelType === "EMAIL" ? (
-      <Mail size={13} aria-hidden="true" />
-    ) : (
-      <MessageCircle size={13} aria-hidden="true" />
-    );
+  const isEmail = channelType === "EMAIL";
+  const icon = isEmail ? (
+    <Mail size={13} aria-hidden="true" />
+  ) : (
+    <MessageCircle size={13} aria-hidden="true" />
+  );
+
+  const colors = isEmail
+    ? "bg-fuchsia-600 text-white border-fuchsia-600"
+    : "bg-indigo-600 text-white border-indigo-600";
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
+    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] leading-none font-medium border ${colors}`}>
       {icon}
       {channelOptions.find((option) => option.value === channelType)?.label}
     </span>
@@ -771,8 +773,16 @@ function ChannelBadge({ channelType }: { channelType: ChannelType }) {
 }
 
 function StatusBadge({ status }: { status: ConversationStatus }) {
+  const colors = {
+    NEW: "bg-violet-600 text-white border-violet-600",
+    IN_PROGRESS: "bg-blue-600 text-white border-blue-600",
+    WAITING_CUSTOMER: "bg-amber-600 text-white border-amber-600",
+    RESOLVED: "bg-emerald-600 text-white border-emerald-600",
+    CLOSED: "bg-neutral-700 text-neutral-300 border-neutral-700",
+  }[status] || "bg-neutral-700 text-neutral-300 border-neutral-700";
+
   return (
-    <span className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700">
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] leading-none font-medium border ${colors}`}>
       {formatEnum(status)}
     </span>
   );
@@ -780,15 +790,17 @@ function StatusBadge({ status }: { status: ConversationStatus }) {
 
 function PriorityBadge({ priority }: { priority: Priority }) {
   const className =
-    priority === "URGENT" || priority === "HIGH"
-      ? "bg-rose-50 text-rose-700"
-      : priority === "MEDIUM"
-        ? "bg-amber-50 text-amber-700"
-        : "bg-slate-100 text-slate-700";
+    priority === "URGENT"
+      ? "bg-rose-600 text-white border-rose-600"
+      : priority === "HIGH"
+        ? "bg-orange-600 text-white border-orange-600"
+        : priority === "MEDIUM"
+          ? "bg-sky-600 text-white border-sky-600"
+          : "bg-neutral-600 text-white border-neutral-600";
 
   return (
     <span
-      className={`rounded-md px-2 py-1 text-[11px] font-medium ${className}`}
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] leading-none font-medium border ${className}`}
     >
       {formatEnum(priority)}
     </span>

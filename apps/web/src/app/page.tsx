@@ -331,16 +331,18 @@ export default function Home() {
   }
 
   return (
-    <main className="h-screen w-full overflow-hidden bg-[#f6f7f9] text-slate-950">
-      <div className="flex h-full flex-col">
-        <AppHeader
-          apiBaseUrl={apiClient.baseUrl}
-          currentUser={currentUser}
-          onLogout={handleLogout}
-        />
+    <main className="h-screen w-full overflow-hidden bg-black p-4 text-neutral-200">
+      <div className="flex h-full flex-col gap-4">
+        <div className="shrink-0 rounded-xl overflow-hidden border border-[#333333]">
+          <AppHeader
+            apiBaseUrl={apiClient.baseUrl}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+          />
+        </div>
 
-        <section className="grid min-h-0 flex-1 grid-cols-1 border-t border-slate-200 lg:grid-cols-[360px_minmax(0,1fr)_320px]">
-          <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-white">
+        <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)_320px]">
+          <aside className="flex min-h-0 flex-col rounded-xl overflow-hidden border border-[#333333] bg-[#1f1f1f]">
             <InboxFilters
               filters={filters}
               loading={listLoading}
@@ -356,7 +358,7 @@ export default function Home() {
             />
           </aside>
 
-          <section className="relative flex min-h-0 flex-col border-r border-slate-200 bg-slate-50">
+          <section className="relative flex min-h-0 flex-col rounded-xl overflow-hidden border border-[#333333] bg-[#1f1f1f]">
             {error ? <ErrorBanner message={error} /> : null}
             <ConversationDetailPanel
               conversation={selectedConversation}
@@ -366,7 +368,7 @@ export default function Home() {
             />
           </section>
 
-          <aside className="flex min-h-0 flex-col overflow-y-auto bg-white">
+          <aside className="flex min-h-0 flex-col overflow-y-auto rounded-xl overflow-hidden border border-[#333333] bg-[#1f1f1f]">
             <SidePanel
               actionLoading={actionLoading}
               agents={agents}
