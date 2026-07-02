@@ -125,7 +125,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         QUEUE_NAMES.INBOUND_EVENTS,
         (job: Job<InboundEventJobPayload>) =>
           this.inboundEventsProcessor.process(job),
-        { connection: this.connectionOptions },
+        { connection: this.connectionOptions, concurrency: 5 },
       ),
     );
 
@@ -135,7 +135,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         QUEUE_NAMES.OUTBOUND_MESSAGES,
         (job: Job<OutboundMessageJobPayload>) =>
           this.outboundMessagesProcessor.process(job),
-        { connection: this.connectionOptions },
+        { connection: this.connectionOptions, concurrency: 5 },
       ),
     );
 
@@ -144,7 +144,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       new BullWorker(
         QUEUE_NAMES.EMAIL_SYNC,
         (job: Job<EmailSyncJobPayload>) => this.emailSyncProcessor.process(job),
-        { connection: this.connectionOptions },
+        { connection: this.connectionOptions, concurrency: 5 },
       ),
     );
 
