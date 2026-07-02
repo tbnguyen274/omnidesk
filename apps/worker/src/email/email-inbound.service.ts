@@ -46,6 +46,10 @@ export class EmailInboundService {
       );
       const customer = await this.findOrCreateCustomer(tx, normalized);
 
+      // Acquire a row-level lock on the customer to prevent race conditions
+      // for concurrent webhooks of the same customer.
+      await tx.$executeRaw`SELECT 1 FROM "customers" WHERE "id" = ${customer.id}::uuid FOR UPDATE`;
+
       let conversation = await tx.conversation.findFirst({
         where: {
           channelType: ChannelType.EMAIL,
@@ -311,21 +315,14 @@ export class EmailInboundService {
     tx: Prisma.TransactionClient,
     normalized: NormalizedEmailMessage,
   ) {
-    const existing = await tx.customer.findFirst({
-      where: { email: normalized.customer.email },
-    });
-
-    if (existing) {
-      return tx.customer.update({
-        where: { id: existing.id },
-        data: {
-          name: existing.name ?? normalized.customer.name,
-        },
-      });
+    if (!normalized.customer.email) {
+      throw new Error('Customer email is missing for upsert');
     }
 
-    return tx.customer.create({
-      data: {
+    return tx.customer.upsert({
+      where: { email: normalized.customer.email },
+      update: {},
+      create: {
         name: normalized.customer.name,
         email: normalized.customer.email,
       },

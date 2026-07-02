@@ -142,17 +142,15 @@ model User {
 model Customer {
   id                 String   @id @default(uuid()) @db.Uuid
   name               String?
-  email              String?
+  email              String?  @unique
   phone              String?
   avatarUrl          String?  @map("avatar_url")
-  externalFacebookId String?  @map("external_facebook_id")
+  externalFacebookId String?  @unique @map("external_facebook_id")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   conversations Conversation[]
 
-  @@index([email])
-  @@index([externalFacebookId])
   @@map("customers")
 }
 

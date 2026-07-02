@@ -52,6 +52,10 @@ export class FacebookInboundRepository {
         channelAccount,
       );
 
+      // Acquire a row-level lock on the customer to prevent race conditions
+      // for concurrent webhooks of the same customer.
+      await tx.$executeRaw`SELECT 1 FROM "customers" WHERE "id" = ${customer.id}::uuid FOR UPDATE`;
+
       let conversation = await tx.conversation.findFirst({
         where: {
           channelType,
@@ -293,29 +297,34 @@ export class FacebookInboundRepository {
   private async findOrCreateCustomer(
     tx: Prisma.TransactionClient,
     normalized: NormalizedFacebookMessage,
-    channelAccount: { configJson: unknown },
+    channelAccount: { id: string },
   ) {
-    let customerName = normalized.customer.name;
+    if (!normalized.customer.externalId) {
+      throw new Error('Customer external ID is missing');
+    }
 
-    if (!customerName) {
-      const config = channelAccount.configJson as Record<string, unknown>;
-      const token =
-        (config?.accessToken as string | undefined) ??
-        process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
-      if (token) {
+    let customerName = normalized.customer.name;
+    if (!customerName || customerName === 'Unknown Customer') {
+      if (normalized.channelType === 'FACEBOOK_COMMENT') {
         try {
-          const response = await fetch(
-            `https://graph.facebook.com/v20.0/${normalized.customer.externalId}?fields=first_name,last_name&access_token=${token}`,
-          );
-          if (response.ok) {
-            const data = (await response.json()) as {
-              first_name?: string;
-              last_name?: string;
-            };
-            customerName =
-              `${data.first_name || ''} ${data.last_name || ''}`.trim();
-            if (customerName) {
-              normalized.customer.name = customerName;
+          const ca = await tx.channelAccount.findUnique({
+            where: { id: channelAccount.id },
+            select: { accessTokenEncrypted: true },
+          });
+          if (ca?.accessTokenEncrypted) {
+            const response = await fetch(
+              `https://graph.facebook.com/v19.0/${normalized.customer.externalId}?fields=first_name,last_name&access_token=${ca.accessTokenEncrypted}`,
+            );
+            if (response.ok) {
+              const data = (await response.json()) as {
+                first_name?: string;
+                last_name?: string;
+              };
+              customerName =
+                `${data.first_name || ''} ${data.last_name || ''}`.trim();
+              if (customerName) {
+                normalized.customer.name = customerName;
+              }
             }
           }
         } catch (e) {
@@ -324,22 +333,10 @@ export class FacebookInboundRepository {
       }
     }
 
-    const existing = await tx.customer.findFirst({
+    return tx.customer.upsert({
       where: { externalFacebookId: normalized.customer.externalId },
-    });
-
-    if (existing) {
-      return tx.customer.update({
-        where: { id: existing.id },
-        data: {
-          name: customerName,
-          externalFacebookId: normalized.customer.externalId,
-        },
-      });
-    }
-
-    return tx.customer.create({
-      data: {
+      update: {},
+      create: {
         name: customerName,
         externalFacebookId: normalized.customer.externalId,
       },
