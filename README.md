@@ -35,6 +35,7 @@ OmniDesk standardizes every customer interaction into a unified `Conversation �
 | 🛡 **Idempotency** | Dedup keys on all inbound events prevent duplicate processing when webhooks are retried. |
 | 📤 **Outbox Pattern** | Outbound messages are persisted before sending, enabling automatic retry on provider failure. |
 | ⚡ **Real-time Sync** | WebSocket events keep the Inbox UI updated instantly across all connected agents. |
+| 🚦 **Concurrency Control** | Row-Level Locking in PostgreSQL serializes concurrent webhooks to prevent duplicate data generation. |
 | 🧪 **Mock Mode** | A fully mocked environment for demos without requiring live Facebook API credentials. |
 
 ---

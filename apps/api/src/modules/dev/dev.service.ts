@@ -11,7 +11,7 @@ import {
   TicketStatus,
   UserRole,
 } from '@prisma/client';
-import { calculateSlaDueAt } from '@omnidesk/shared';
+import { calculateSlaDueAt, encrypt } from '@omnidesk/shared';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../../common/database/prisma.service';
 import { providerConfig } from '../../config/provider.config';
@@ -110,6 +110,7 @@ export class DevService {
       type: ChannelAccountType.FACEBOOK,
       displayName: 'OmniDesk Demo Page',
       externalId: 'demo_page_001',
+      accessTokenPlain: 'mock-facebook-page-token-123456789',
       configJson: {
         mode: 'mock',
         pageId: 'demo_page_001',
@@ -120,6 +121,7 @@ export class DevService {
       type: ChannelAccountType.EMAIL,
       displayName: 'Support Mailbox',
       externalId: 'support@omnidesk.local',
+      accessTokenPlain: 'mock-email-app-password-98765',
       configJson: {
         mode: 'mock',
         mailbox: 'support@omnidesk.local',
@@ -275,6 +277,7 @@ export class DevService {
     type: ChannelAccountType;
     displayName: string;
     externalId: string;
+    accessTokenPlain?: string;
     configJson: Prisma.InputJsonObject;
   }) {
     const existing = await this.prisma.channelAccount.findFirst({
@@ -284,12 +287,22 @@ export class DevService {
       },
     });
 
+    const encryptionKey = process.env.ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      throw new Error('ENCRYPTION_KEY is required to seed channel accounts');
+    }
+
+    const accessTokenEncrypted = params.accessTokenPlain
+      ? encrypt(params.accessTokenPlain, encryptionKey)
+      : null;
+
     if (existing) {
       return this.prisma.channelAccount.update({
         where: { id: existing.id },
         data: {
           displayName: params.displayName,
           configJson: params.configJson,
+          accessTokenEncrypted: accessTokenEncrypted ?? existing.accessTokenEncrypted,
           status: 'ACTIVE',
         },
       });
@@ -300,6 +313,7 @@ export class DevService {
         type: params.type,
         displayName: params.displayName,
         externalId: params.externalId,
+        accessTokenEncrypted,
         configJson: params.configJson,
         status: 'ACTIVE',
       },
