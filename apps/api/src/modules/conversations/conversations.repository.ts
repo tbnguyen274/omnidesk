@@ -167,4 +167,39 @@ export class ConversationsRepository {
       },
     });
   }
+
+  async addTag(conversationId: string, tagId: string) {
+    // Avoid duplicate creation errors by using upsert or checking first
+    const existing = await this.prisma.conversationTag.findUnique({
+      where: {
+        conversationId_tagId: {
+          conversationId,
+          tagId,
+        },
+      },
+    });
+
+    if (existing) return existing;
+
+    return this.prisma.conversationTag.create({
+      data: {
+        conversationId,
+        tagId,
+      },
+      include: {
+        tag: true,
+      },
+    });
+  }
+
+  async removeTag(conversationId: string, tagId: string) {
+    return this.prisma.conversationTag.delete({
+      where: {
+        conversationId_tagId: {
+          conversationId,
+          tagId,
+        },
+      },
+    });
+  }
 }

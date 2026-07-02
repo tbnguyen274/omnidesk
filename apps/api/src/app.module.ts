@@ -18,6 +18,7 @@ import { OutboundModule } from './modules/outbound/outbound.module';
 import { SlaModule } from './modules/sla/sla.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { UsersModule } from './modules/users/users.module';
+import { TagsModule } from './modules/tags/tags.module';
 import { DatabaseModule } from './common/database/database.module';
 import { QueuesModule } from './common/queues/queues.module';
 import { RedisModule } from './common/redis/redis.module';
@@ -44,6 +45,7 @@ import { RedisModule } from './common/redis/redis.module';
     DashboardModule,
     EmailModule,
     FacebookModule,
+    TagsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

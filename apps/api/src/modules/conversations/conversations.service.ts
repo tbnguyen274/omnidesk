@@ -183,6 +183,24 @@ export class ConversationsService {
     return conversation;
   }
 
+  async addTag(id: string, tagId: string) {
+    await this.ensureConversationExists(id);
+
+    await this.conversationsRepository.addTag(id, tagId);
+    this.publishConversationUpdated(id);
+
+    return { success: true };
+  }
+
+  async removeTag(id: string, tagId: string) {
+    await this.ensureConversationExists(id);
+
+    await this.conversationsRepository.removeTag(id, tagId);
+    this.publishConversationUpdated(id);
+
+    return { success: true };
+  }
+
   private publishConversationUpdated(conversationId: string) {
     this.notificationsService.publishToConversation(conversationId, {
       type: REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,

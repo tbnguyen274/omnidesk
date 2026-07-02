@@ -163,4 +163,30 @@ export const apiClient = {
       token,
     });
   },
+
+  getTags(token: string) {
+    return request<{ id: string; name: string; color: string | null }[]>("/tags", "GET", {
+      token,
+    });
+  },
+
+  createTag(token: string, name: string, color?: string) {
+    return request<{ id: string; name: string; color: string | null }>("/tags", "POST", {
+      token,
+      body: { name, color },
+    });
+  },
+
+  addConversationTag(token: string, conversationId: string, tagId: string) {
+    return request(`/conversations/${conversationId}/tags`, "POST", {
+      token,
+      body: { tagId },
+    });
+  },
+
+  removeConversationTag(token: string, conversationId: string, tagId: string) {
+    return request(`/conversations/${conversationId}/tags/${tagId}`, "DELETE", {
+      token,
+    });
+  },
 };

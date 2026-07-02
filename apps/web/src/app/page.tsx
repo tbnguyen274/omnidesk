@@ -43,6 +43,7 @@ export default function Home() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [agents, setAgents] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [tags, setTags] = useState<{ id: string; name: string; color: string | null }[]>([]);
   const replyDisabledReason = selectedConversation
     ? getReplyDisabledReason(selectedConversation)
     : null;
@@ -67,6 +68,8 @@ export default function Home() {
       .then((user) => {
         setToken(storedToken);
         setCurrentUser(user);
+        void loadAgents(storedToken);
+        void loadTags(storedToken);
       })
       .catch(() => {
         window.localStorage.removeItem(TOKEN_STORAGE_KEY);
@@ -128,6 +131,7 @@ export default function Home() {
       setToken(data.accessToken);
       setCurrentUser(data.user);
       void loadAgents(data.accessToken);
+      void loadTags(data.accessToken);
     } catch (caught) {
       setAuthError(getErrorMessage(caught));
     } finally {
@@ -150,6 +154,15 @@ export default function Home() {
       setAgents(data);
     } catch (caught) {
       console.error("Failed to load agents", caught);
+    }
+  }
+
+  async function loadTags(accessToken: string) {
+    try {
+      const data = await apiClient.getTags(accessToken);
+      setTags(data);
+    } catch (caught) {
+      console.error("Failed to load tags", caught);
     }
   }
 
@@ -301,6 +314,33 @@ export default function Home() {
     ]);
   }
 
+  async function handleAddTag(tagId: string) {
+    if (!token || !selectedConversation) return;
+
+    await runConversationAction(async () => {
+      await apiClient.addConversationTag(token, selectedConversation.id, tagId);
+    });
+  }
+
+  async function handleCreateTag(name: string, color?: string) {
+    if (!token || !selectedConversation) return;
+
+    await runConversationAction(async () => {
+      const newTag = await apiClient.createTag(token, name, color);
+      // reload tags
+      void loadTags(token);
+      await apiClient.addConversationTag(token, selectedConversation.id, newTag.id);
+    });
+  }
+
+  async function handleRemoveTag(tagId: string) {
+    if (!token || !selectedConversation) return;
+
+    await runConversationAction(async () => {
+      await apiClient.removeConversationTag(token, selectedConversation.id, tagId);
+    });
+  }
+
   async function runConversationAction(action: () => Promise<void>) {
     if (!token || !selectedConversation) {
       return;
@@ -374,10 +414,14 @@ export default function Home() {
               agents={agents}
               conversation={selectedConversation}
               currentUser={currentUser}
+              tags={tags}
               onAssignAgent={handleAssignAgent}
               onAssignToMe={handleAssignToMe}
               onPriorityChange={handlePriorityChange}
               onStatusChange={handleStatusChange}
+              onAddTag={handleAddTag}
+              onCreateTag={handleCreateTag}
+              onRemoveTag={handleRemoveTag}
             />
           </aside>
         </section>

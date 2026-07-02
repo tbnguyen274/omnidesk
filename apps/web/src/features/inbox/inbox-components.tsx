@@ -600,24 +600,168 @@ export function ReplyComposer({
   );
 }
 
+function TagsSection({
+  actionLoading,
+  tags = [],
+  conversationTags = [],
+  onAddTag,
+  onCreateTag,
+  onRemoveTag,
+}: {
+  actionLoading: boolean;
+  tags?: { id: string; name: string; color?: string | null }[];
+  conversationTags: { id: string; name: string; color?: string | null }[];
+  onAddTag?: (tagId: string) => void;
+  onCreateTag?: (name: string, color?: string) => void;
+  onRemoveTag?: (tagId: string) => void;
+}) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && inputValue.trim()) {
+      const name = inputValue.trim().toLowerCase();
+      const existing = tags.find((t) => t.name.toLowerCase() === name);
+      if (existing) {
+        onAddTag?.(existing.id);
+      } else {
+        onCreateTag?.(name);
+      }
+      setInputValue("");
+      setIsAdding(false);
+    } else if (e.key === "Escape") {
+      setInputValue("");
+      setIsAdding(false);
+    }
+  };
+
+  const filteredTags = tags.filter(
+    (t) =>
+      t.name.toLowerCase().includes(inputValue.trim().toLowerCase()) &&
+      !conversationTags.find((ct) => ct.id === t.id)
+  );
+
+  const exactMatch = tags.some((t) => t.name.toLowerCase() === inputValue.trim().toLowerCase());
+
+  return (
+    <section className="p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-white">Tags</h3>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {conversationTags.map((tag) => (
+          <span
+            className="group flex items-center gap-1 rounded-md border border-[#444444] bg-[#2a2a2a] pl-2 pr-1 py-1 text-xs text-neutral-300"
+            key={tag.id}
+          >
+            {tag.name}
+            <button
+              onClick={() => onRemoveTag?.(tag.id)}
+              disabled={actionLoading}
+              className="text-neutral-500 hover:text-red-400 focus:outline-none disabled:opacity-50 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Remove tag"
+            >
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        {conversationTags.length === 0 && !isAdding && (
+          <p className="text-sm text-neutral-500">No tags</p>
+        )}
+        
+        {!isAdding ? (
+          <button
+            onClick={() => setIsAdding(true)}
+            disabled={actionLoading}
+            className="flex items-center gap-1 rounded-md bg-transparent border border-dashed border-[#555] px-2 py-1 text-xs font-medium text-neutral-400 hover:text-white hover:border-neutral-400 hover:bg-[#2a2a2a] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            + Add tag
+          </button>
+        ) : (
+          <div className="relative">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Tag name..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => {
+                // slight delay to allow click on options
+                setTimeout(() => {
+                  if (!inputValue.trim()) {
+                    setIsAdding(false);
+                  }
+                }, 150);
+              }}
+              disabled={actionLoading}
+              className="w-32 rounded-md border border-[#555] bg-[#141414] px-2 py-1 text-xs text-white outline-none focus:border-indigo-500 disabled:cursor-not-allowed transition-colors"
+            />
+            {inputValue.trim() && (
+              <div className="absolute top-full left-0 z-10 w-48 mt-1 max-h-40 overflow-y-auto rounded-md border border-[#333333] bg-[#1a1a1a] shadow-lg">
+                {filteredTags.map((t) => (
+                  <button
+                    key={t.id}
+                    className="block w-full text-left px-2 py-1.5 text-xs text-neutral-300 hover:bg-[#333333]"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onAddTag?.(t.id);
+                      setInputValue("");
+                      setIsAdding(false);
+                    }}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+                {!exactMatch && (
+                  <button
+                    className="block w-full text-left px-2 py-1.5 text-xs text-indigo-300 hover:bg-[#333333]"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onCreateTag?.(inputValue.trim().toLowerCase());
+                      setInputValue("");
+                      setIsAdding(false);
+                    }}
+                  >
+                    Create &quot;{inputValue.trim().toLowerCase()}&quot;
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function SidePanel({
   actionLoading,
   agents = [],
   conversation,
   currentUser,
+  tags = [],
   onAssignAgent,
   onAssignToMe,
   onPriorityChange,
   onStatusChange,
+  onAddTag,
+  onCreateTag,
+  onRemoveTag,
 }: {
   actionLoading: boolean;
   agents?: { id: string; name: string; email: string }[];
   conversation: ConversationDetail | null;
   currentUser: CurrentUser;
+  tags?: { id: string; name: string; color?: string | null }[];
   onAssignAgent?: (agentId: string) => void;
   onAssignToMe: () => void;
   onPriorityChange: (priority: Priority) => void;
   onStatusChange: (status: ConversationStatus) => void;
+  onAddTag?: (tagId: string) => void;
+  onCreateTag?: (name: string, color?: string) => void;
+  onRemoveTag?: (tagId: string) => void;
 }) {
   if (!conversation) {
     return <PaneState text="No ticket selected" />;
@@ -731,23 +875,14 @@ export function SidePanel({
         </div>
       </section>
 
-      <section className="p-4">
-        <h3 className="mb-3 text-sm font-semibold text-white">Tags</h3>
-        <div className="flex flex-wrap gap-2">
-          {conversation.tags.length > 0 ? (
-            conversation.tags.map((tag) => (
-              <span
-                className="rounded-md border border-[#444444] bg-[#2a2a2a] px-2 py-1 text-xs text-neutral-300"
-                key={tag.id}
-              >
-                {tag.name}
-              </span>
-            ))
-          ) : (
-            <p className="text-sm text-neutral-500">No tags</p>
-          )}
-        </div>
-      </section>
+      <TagsSection
+        actionLoading={actionLoading}
+        tags={tags}
+        conversationTags={conversation.tags}
+        onAddTag={onAddTag}
+        onCreateTag={onCreateTag}
+        onRemoveTag={onRemoveTag}
+      />
     </div>
   );
 }

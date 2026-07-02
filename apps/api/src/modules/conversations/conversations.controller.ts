@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -77,6 +79,24 @@ export class ConversationsController {
       id,
       dto.assignedAgentId,
     );
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Post(':id/tags')
+  async addTag(@Param('id') id: string, @Body() dto: { tagId: string }) {
+    const data = await this.conversationsService.addTag(id, dto.tagId);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Delete(':id/tags/:tagId')
+  async removeTag(@Param('id') id: string, @Param('tagId') tagId: string) {
+    const data = await this.conversationsService.removeTag(id, tagId);
     return {
       success: true,
       data,
