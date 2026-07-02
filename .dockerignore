@@ -1,0 +1,34 @@
+.git
+.gitignore
+.dockerignore
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+*.log
+
+# Build artifacts
+dist/
+build/
+.next/
+.cache/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing
+coverage/
+
+# Local env files (optional, as they might be injected by docker-compose)
+.env
+apps/api/.env
+apps/worker/.env
+apps/web/.env
+**/node_modules
+**/dist

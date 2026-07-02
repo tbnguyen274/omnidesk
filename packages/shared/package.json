@@ -2,16 +2,24 @@
   "name": "@omnidesk/shared",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "echo \"Shared package exports TypeScript contracts\"",
-    "dev": "echo \"Shared package has no dev server\"",
+    "build": "tsc",
+    "dev": "tsc --watch",
     "lint": "echo \"No lint configured for shared package\"",
     "test": "echo \"No tests configured for shared package\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.25.0"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
 }

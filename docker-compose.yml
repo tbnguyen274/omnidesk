@@ -36,10 +36,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: api
     container_name: omnidesk-api
     restart: unless-stopped
-    command: >
-      sh -c "pnpm --filter api exec prisma migrate deploy && pnpm --filter api start:prod"
     env_file:
       - .env.docker
     ports:
@@ -54,9 +53,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: worker
     container_name: omnidesk-worker
     restart: unless-stopped
-    command: pnpm --filter worker start:prod
     env_file:
       - .env.docker
     depends_on:
@@ -69,9 +68,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: web
     container_name: omnidesk-web
     restart: unless-stopped
-    command: pnpm --filter web start
     env_file:
       - .env.docker
     ports:

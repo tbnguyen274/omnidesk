@@ -352,9 +352,11 @@ export class FacebookInboundRepository {
         normalized.message.content.length > 50
           ? normalized.message.content.substring(0, 47) + '...'
           : normalized.message.content;
-      return `Facebook Comment - ${normalized.customer.externalId}: "${preview}"`;
+      const name = normalized.customer.name || normalized.customer.externalId;
+      return `Facebook Comment - ${name}: "${preview}"`;
     }
 
-    return `Facebook Messenger - ${normalized.customer.externalId}`;
+    const name = normalized.customer.name || normalized.customer.externalId;
+    return `Facebook Messenger - ${name}`;
   }
 }
