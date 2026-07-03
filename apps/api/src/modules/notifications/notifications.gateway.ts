@@ -146,19 +146,12 @@ export class NotificationsGateway
   }
 
   private extractToken(client: AuthenticatedSocket) {
-    const authToken = client.handshake.auth?.token;
-
-    if (typeof authToken === 'string' && authToken.length > 0) {
-      return authToken;
+    const rawCookie = client.handshake.headers.cookie;
+    if (!rawCookie) {
+      return null;
     }
-
-    const authorization = client.handshake.headers.authorization;
-
-    if (authorization?.startsWith('Bearer ')) {
-      return authorization.slice('Bearer '.length);
-    }
-
-    return undefined;
+    const match = rawCookie.match(/(?:^|;\s*)Authentication=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
   }
 
   private async ensureAuthenticated(client: AuthenticatedSocket) {

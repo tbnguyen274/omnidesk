@@ -20,7 +20,6 @@ import { UpdateConversationPriorityDto } from './dto/update-conversation-priorit
 import { UpdateConversationStatusDto } from './dto/update-conversation-status.dto';
 
 @Controller('conversations')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}

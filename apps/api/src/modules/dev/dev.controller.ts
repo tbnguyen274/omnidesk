@@ -1,6 +1,8 @@
 import { Controller, ForbiddenException, Get, Post } from '@nestjs/common';
+import { Public } from '../../common/auth/public.decorator';
 import { DevService } from './dev.service';
 
+@Public()
 @Controller('dev')
 export class DevController {
   constructor(private readonly devService: DevService) {}

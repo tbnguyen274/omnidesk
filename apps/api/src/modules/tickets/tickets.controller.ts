@@ -17,7 +17,6 @@ import { UpdateTicketStatusDto } from './dto/update-ticket-status.dto';
 import { TicketsService } from './tickets.service';
 
 @Controller('tickets')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}

@@ -9,7 +9,6 @@ import { CreateOutboundMessageDto } from './dto/create-outbound-message.dto';
 import { OutboundService } from './outbound.service';
 
 @Controller('outbound')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class OutboundController {
   constructor(private readonly outboundService: OutboundService) {}

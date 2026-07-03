@@ -127,11 +127,12 @@ export default function Home() {
 
     try {
       const data = await apiClient.login(email, password);
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, data.accessToken);
-      setToken(data.accessToken);
+      const dummyToken = "cookie-auth"; // Tokens are now handled via HttpOnly Cookies
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, dummyToken);
+      setToken(dummyToken);
       setCurrentUser(data.user);
-      void loadAgents(data.accessToken);
-      void loadTags(data.accessToken);
+      void loadAgents(dummyToken);
+      void loadTags(dummyToken);
     } catch (caught) {
       setAuthError(getErrorMessage(caught));
     } finally {

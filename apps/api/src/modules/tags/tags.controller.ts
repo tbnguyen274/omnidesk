@@ -6,7 +6,6 @@ import { RolesGuard } from '../../common/auth/roles.guard';
 import { TagsService } from './tags.service';
 
 @Controller('tags')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class TagsController {
   constructor(private readonly tagsService: TagsService) {}

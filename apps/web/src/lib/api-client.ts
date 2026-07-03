@@ -48,8 +48,8 @@ async function request<T>(
     method,
     headers: {
       "Content-Type": "application/json",
-      ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
     },
+    credentials: "include",
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 

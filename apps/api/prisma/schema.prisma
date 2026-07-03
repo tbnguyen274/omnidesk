@@ -121,18 +121,19 @@ enum EmailSyncStatus {
 }
 
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  name          String
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  role          UserRole
-  status        UserStatus     @default(ACTIVE)
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  id                 String     @id @default(uuid()) @db.Uuid
+  name               String
+  email              String     @unique
+  passwordHash       String     @map("password_hash")
+  role               UserRole
+  status             UserStatus @default(ACTIVE)
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+  hashedRefreshToken String?    @map("hashed_refresh_token")
 
-  assignedConversations Conversation[] @relation("ConversationAssignedAgent")
-  assignedTickets       Ticket[]       @relation("TicketAssignedAgent")
-  sentMessages          Message[]      @relation("MessageSender")
+  assignedConversations Conversation[]    @relation("ConversationAssignedAgent")
+  assignedTickets       Ticket[]          @relation("TicketAssignedAgent")
+  sentMessages          Message[]         @relation("MessageSender")
   outboundMessages      OutboundMessage[]
   auditLogs             AuditLog[]
 
@@ -188,9 +189,9 @@ model Conversation {
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
 
-  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id])
-  customer         Customer       @relation(fields: [customerId], references: [id])
-  assignedAgent    User?          @relation("ConversationAssignedAgent", fields: [assignedAgentId], references: [id])
+  channelAccount   ChannelAccount    @relation(fields: [channelAccountId], references: [id])
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  assignedAgent    User?             @relation("ConversationAssignedAgent", fields: [assignedAgentId], references: [id])
   messages         Message[]
   ticket           Ticket?
   conversationTags ConversationTag[]
@@ -205,20 +206,20 @@ model Conversation {
 }
 
 model Message {
-  id                 String                @id @default(uuid()) @db.Uuid
-  conversationId     String                @map("conversation_id") @db.Uuid
-  inboundEventId     String?               @map("inbound_event_id") @db.Uuid
-  direction          MessageDirection
-  senderType         MessageSenderType     @map("sender_type")
-  senderId           String?               @map("sender_id") @db.Uuid
-  content            String
-  contentType        MessageContentType    @default(TEXT) @map("content_type")
-  externalMessageId  String?               @map("external_message_id")
-  replyToMessageId   String?               @map("reply_to_message_id")
-  rawPayload         Json?                 @map("raw_payload")
-  deliveryStatus     MessageDeliveryStatus @default(RECEIVED) @map("delivery_status")
-  sentAt             DateTime?             @map("sent_at")
-  createdAt          DateTime              @default(now()) @map("created_at")
+  id                String                @id @default(uuid()) @db.Uuid
+  conversationId    String                @map("conversation_id") @db.Uuid
+  inboundEventId    String?               @map("inbound_event_id") @db.Uuid
+  direction         MessageDirection
+  senderType        MessageSenderType     @map("sender_type")
+  senderId          String?               @map("sender_id") @db.Uuid
+  content           String
+  contentType       MessageContentType    @default(TEXT) @map("content_type")
+  externalMessageId String?               @map("external_message_id")
+  replyToMessageId  String?               @map("reply_to_message_id")
+  rawPayload        Json?                 @map("raw_payload")
+  deliveryStatus    MessageDeliveryStatus @default(RECEIVED) @map("delivery_status")
+  sentAt            DateTime?             @map("sent_at")
+  createdAt         DateTime              @default(now()) @map("created_at")
 
   conversation Conversation  @relation(fields: [conversationId], references: [id])
   inboundEvent InboundEvent? @relation(fields: [inboundEventId], references: [id])
@@ -279,7 +280,7 @@ model ConversationTag {
 model InboundEvent {
   id               String             @id @default(uuid()) @db.Uuid
   provider         InboundProvider
-  eventType        InboundEventType    @map("event_type")
+  eventType        InboundEventType   @map("event_type")
   externalEventId  String?            @map("external_event_id")
   dedupKey         String             @unique @map("dedup_key")
   rawPayload       Json               @map("raw_payload")
@@ -323,14 +324,14 @@ model OutboundMessage {
 }
 
 model EmailSyncLog {
-  id                String          @id @default(uuid()) @db.Uuid
-  channelAccountId  String          @map("channel_account_id") @db.Uuid
-  syncStartedAt     DateTime        @default(now()) @map("sync_started_at")
-  syncFinishedAt    DateTime?       @map("sync_finished_at")
-  status            EmailSyncStatus
-  fetchedCount      Int             @default(0) @map("fetched_count")
-  processedCount    Int             @default(0) @map("processed_count")
-  errorMessage      String?         @map("error_message")
+  id               String          @id @default(uuid()) @db.Uuid
+  channelAccountId String          @map("channel_account_id") @db.Uuid
+  syncStartedAt    DateTime        @default(now()) @map("sync_started_at")
+  syncFinishedAt   DateTime?       @map("sync_finished_at")
+  status           EmailSyncStatus
+  fetchedCount     Int             @default(0) @map("fetched_count")
+  processedCount   Int             @default(0) @map("processed_count")
+  errorMessage     String?         @map("error_message")
 
   channelAccount ChannelAccount @relation(fields: [channelAccountId], references: [id])
 

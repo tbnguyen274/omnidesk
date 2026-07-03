@@ -7,12 +7,13 @@ import { UsersService } from '../users/users.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
-  let usersService: jest.Mocked<Pick<UsersService, 'findByEmail'>>;
+  let usersService: jest.Mocked<Pick<UsersService, 'findByEmail' | 'setCurrentRefreshToken'>>;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
 
   beforeEach(() => {
     usersService = {
       findByEmail: jest.fn(),
+      setCurrentRefreshToken: jest.fn(),
     };
     jwtService = {
       signAsync: jest.fn().mockResolvedValue('jwt-token'),
@@ -34,6 +35,7 @@ describe('AuthService', () => {
       status: UserStatus.ACTIVE,
       createdAt: new Date(),
       updatedAt: new Date(),
+      hashedRefreshToken: null,
     });
 
     await expect(
@@ -43,6 +45,7 @@ describe('AuthService', () => {
       }),
     ).resolves.toMatchObject({
       accessToken: 'jwt-token',
+      refreshToken: 'jwt-token',
       user: {
         email: 'agent@omnidesk.local',
         role: UserRole.AGENT,

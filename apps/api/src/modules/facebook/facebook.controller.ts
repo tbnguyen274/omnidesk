@@ -14,7 +14,9 @@ import { MockFacebookCommentDto } from './dto/mock-facebook-comment.dto';
 import { MockFacebookMessageDto } from './dto/mock-facebook-message.dto';
 import { FacebookService } from './facebook.service';
 import { FacebookSignatureService } from './services/facebook-signature.service';
+import { Public } from '../../common/auth/public.decorator';
 
+@Public()
 @Controller('webhooks/facebook')
 export class FacebookController {
   constructor(
@@ -50,6 +52,7 @@ export class FacebookController {
   }
 }
 
+@Public()
 @Controller('dev/facebook')
 export class DevFacebookController {
   constructor(private readonly facebookService: FacebookService) {}

@@ -10,7 +10,7 @@ import {
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../common/auth/current-user.type';
-import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { Public } from '../../common/auth/public.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
 import { RolesGuard } from '../../common/auth/roles.guard';
 import { CreateEmailSyncDto } from './dto/create-email-sync.dto';
@@ -19,7 +19,6 @@ import { MockInboundEmailDto } from './dto/mock-inbound-email.dto';
 import { EmailService } from './email.service';
 
 @Controller('email')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class EmailController {
   constructor(private readonly emailService: EmailService) {}
@@ -46,6 +45,7 @@ export class EmailController {
   }
 }
 
+@Public()
 @Controller('dev/email')
 export class DevEmailController {
   constructor(private readonly emailService: EmailService) {}

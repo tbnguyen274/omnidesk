@@ -9,7 +9,6 @@ import { ListOutboundEventsDto } from './dto/list-outbound-events.dto';
 import { EventsService } from './events.service';
 
 @Controller('events')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
