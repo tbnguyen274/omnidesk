@@ -210,6 +210,31 @@ export default function Home() {
     }
   }
 
+  async function handleLoadOlderMessages() {
+    if (!token || !selectedConversation || selectedConversation.messages.length === 0) {
+      return;
+    }
+
+    const firstMessageId = selectedConversation.messages[0].id;
+
+    try {
+      const olderMessages = await apiClient.getConversationMessages(
+        token,
+        selectedConversation.id,
+        firstMessageId
+      );
+
+      if (olderMessages.length > 0) {
+        setSelectedConversation({
+          ...selectedConversation,
+          messages: [...olderMessages, ...selectedConversation.messages],
+        });
+      }
+    } catch (caught) {
+      console.error("Failed to load older messages", caught);
+    }
+  }
+
   async function handleRealtimeEvents(events: RealtimeEvent[]) {
     if (!token || events.length === 0) {
       return;
@@ -439,12 +464,14 @@ export default function Home() {
           <section className="relative flex min-h-0 flex-col rounded-xl overflow-hidden border border-[#333333] bg-[#1f1f1f]">
             {error ? <ErrorBanner message={error} /> : null}
             <ConversationDetailPanel
+              key={selectedConversation?.id ?? "empty"}
               conversation={selectedConversation}
               loading={detailLoading}
               onSendReply={handleSendReply}
               replyDisabledReason={replyDisabledReason}
               typingAgents={selectedId ? typingAgents[selectedId] : undefined}
               onTypingChange={sendTyping}
+              onLoadOlderMessages={handleLoadOlderMessages}
             />
           </section>
 

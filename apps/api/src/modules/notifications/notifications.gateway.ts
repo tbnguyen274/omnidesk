@@ -137,7 +137,8 @@ export class NotificationsGateway
     client.broadcast.to(room).emit('realtime.event', {
       type: 'agent.typing',
       conversationId,
-      agentName: client.data.user?.name || client.data.user?.email || 'An agent',
+      agentName:
+        client.data.user?.name || client.data.user?.email || 'An agent',
       isTyping: payload.isTyping,
     });
   }

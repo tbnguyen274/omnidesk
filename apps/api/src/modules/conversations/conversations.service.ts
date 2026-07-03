@@ -121,7 +121,7 @@ export class ConversationsService {
         name: tag.name,
         color: tag.color,
       })),
-      messages: conversation.messages.map((message) => ({
+      messages: conversation.messages.reverse().map((message) => ({
         id: message.id,
         direction: message.direction,
         senderType: message.senderType,
@@ -138,6 +138,34 @@ export class ConversationsService {
       updatedAt: conversation.updatedAt,
       version: conversation.version,
     };
+  }
+
+  async getMessages(
+    conversationId: string,
+    cursor: string | undefined,
+    limit: number,
+  ) {
+    await this.conversationsRepository.findExistingById(conversationId);
+
+    const messages = await this.conversationsRepository.getMessages(
+      conversationId,
+      cursor,
+      limit,
+    );
+
+    return messages.reverse().map((message) => ({
+      id: message.id,
+      direction: message.direction,
+      senderType: message.senderType,
+      senderId: message.senderId,
+      content: message.content,
+      contentType: message.contentType,
+      deliveryStatus: message.deliveryStatus,
+      externalMessageId: message.externalMessageId,
+      replyToMessageId: message.replyToMessageId,
+      createdAt: message.createdAt,
+      sentAt: message.sentAt,
+    }));
   }
 
   async updateStatus(id: string, status: ConversationStatus, version: number) {
@@ -231,7 +259,7 @@ export class ConversationsService {
 
   private async ensureAssignableAgent(id: string | null) {
     if (!id) return;
-    
+
     const user = await this.conversationsRepository.findAssignableUser(id);
 
     if (!user) {

@@ -39,6 +39,24 @@ export class ConversationsController {
     };
   }
 
+  @Get(':id/messages')
+  async getMessages(
+    @Param('id') id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const limitNumber = limit ? parseInt(limit, 10) : 50;
+    const data = await this.conversationsService.getMessages(
+      id,
+      cursor,
+      limitNumber,
+    );
+    return {
+      success: true,
+      data,
+    };
+  }
+
   @Patch(':id/status')
   async updateStatus(
     @Param('id') id: string,

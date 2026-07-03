@@ -3,6 +3,7 @@ import type {
   ConversationDetail,
   ConversationFilters,
   ConversationListResponse,
+  ConversationMessage,
   ConversationStatus,
   CreateOutboundMessagePayload,
   CreateOutboundMessageResponse,
@@ -134,6 +135,15 @@ export const apiClient = {
         token,
         body: { assignedAgentId, version },
       },
+    );
+  },
+
+  getConversationMessages(token: string, id: string, cursor?: string) {
+    const query = cursor ? `?cursor=${cursor}` : "";
+    return request<ConversationMessage[]>(
+      `/conversations/${id}/messages${query}`,
+      "GET",
+      { token },
     );
   },
 

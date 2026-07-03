@@ -118,7 +118,9 @@ export class FacebookInboundRepository {
         });
 
         if (result.count === 0) {
-          throw new Error('OCC Conflict: Conversation was updated by another process. Worker will retry.');
+          throw new Error(
+            'OCC Conflict: Conversation was updated by another process. Worker will retry.',
+          );
         }
 
         if (isResolved && conversation.ticket) {

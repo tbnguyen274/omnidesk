@@ -72,7 +72,26 @@ export class EventsService {
       };
     }
 
-    const inboundEvent = await this.eventsRepository.createInbound(dto);
+    let inboundEvent;
+    try {
+      inboundEvent = await this.eventsRepository.createInbound(dto);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        // Race condition: another request just inserted this dedupKey
+        const newlyCreated = await this.eventsRepository.findInboundByDedupKey(
+          dto.dedupKey,
+        );
+        return {
+          inboundEvent: newlyCreated,
+          duplicated: true,
+          queued: false,
+        };
+      }
+      throw error;
+    }
 
     await this.queues.add(QUEUE_NAMES.INBOUND_EVENTS, 'process-inbound-event', {
       inboundEventId: inboundEvent.id,

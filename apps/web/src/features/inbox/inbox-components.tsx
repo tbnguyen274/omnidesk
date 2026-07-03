@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useMemo, useState, useRef, useEffect } from "react";
+import { FormEvent, useMemo, useState, useEffect, useRef, useLayoutEffect } from "react";
 import type {
   ChannelType,
   ConversationDetail,
@@ -359,6 +359,7 @@ export function ConversationDetailPanel({
   replyDisabledReason,
   typingAgents,
   onTypingChange,
+  onLoadOlderMessages,
 }: {
   conversation: ConversationDetail | null;
   loading: boolean;
@@ -366,28 +367,63 @@ export function ConversationDetailPanel({
   replyDisabledReason?: string | null;
   typingAgents?: string[];
   onTypingChange?: (isTyping: boolean) => void;
+  onLoadOlderMessages?: () => Promise<void>;
 }) {
   const sortedMessages = useMemo(
     () => conversation?.messages ?? [],
     [conversation],
   );
 
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const previousScrollHeightRef = useRef<number>(0);
+
   const [replyingToMessage, setReplyingToMessage] = useState<
     ConversationDetail["messages"][number] | null
   >(null);
+
+  const isAdjustingScrollRef = useRef(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReplyingToMessage(null);
   }, [conversation?.id]);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      if (isAdjustingScrollRef.current) {
+        // Adjust scroll position after loading older messages so the view doesn't jump
+        const newScrollHeight = scrollRef.current.scrollHeight;
+        scrollRef.current.scrollTop = newScrollHeight - previousScrollHeightRef.current;
+        isAdjustingScrollRef.current = false;
+      } else if (
+        scrollRef.current.scrollHeight - scrollRef.current.scrollTop - scrollRef.current.clientHeight < 100
+      ) {
+        // Only auto-scroll to bottom if the user was already near the bottom
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
     }
   }, [sortedMessages]);
+
+  const handleScroll = async () => {
+    if (!scrollRef.current || !onLoadOlderMessages || isLoadingOlder || !hasMoreMessages) return;
+
+    if (scrollRef.current.scrollTop === 0) {
+      const prevMessageCount = sortedMessages.length;
+      previousScrollHeightRef.current = scrollRef.current.scrollHeight;
+      isAdjustingScrollRef.current = true;
+      setIsLoadingOlder(true);
+      
+      await onLoadOlderMessages();
+      
+      // If we didn't get any new messages, we've reached the end
+      if (conversation?.messages && conversation.messages.length === prevMessageCount) {
+        setHasMoreMessages(false);
+      }
+      setIsLoadingOlder(false); // Reset loading state
+    }
+  };
 
   if (loading && !conversation) {
     return <PaneState text="Loading conversation" />;
@@ -420,8 +456,13 @@ export function ConversationDetailPanel({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 bg-[#141414]" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto p-4 bg-[#141414]" ref={scrollRef} onScroll={handleScroll}>
         <div className="mx-auto flex max-w-3xl flex-col gap-3">
+          {isLoadingOlder && (
+            <div className="text-center py-2">
+              <span className="text-xs text-neutral-500">Loading older messages...</span>
+            </div>
+          )}
           {sortedMessages.map((message) => (
             <MessageBubble
               key={message.id}
