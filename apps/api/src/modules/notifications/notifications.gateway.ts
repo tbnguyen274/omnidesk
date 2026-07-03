@@ -23,6 +23,7 @@ type AuthenticatedSocketData = {
   user?: {
     id: string;
     email: string;
+    name: string;
     role: string;
   };
 };
@@ -122,6 +123,25 @@ export class NotificationsGateway
     };
   }
 
+  @SubscribeMessage('agent_typing')
+  async handleAgentTyping(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() payload: { conversationId: string; isTyping: boolean },
+  ) {
+    await this.ensureAuthenticated(client);
+
+    const conversationId = this.requireConversationId(payload);
+    const room = this.conversationRoom(conversationId);
+
+    // Broadcast to everyone else in the room
+    client.broadcast.to(room).emit('realtime.event', {
+      type: 'agent.typing',
+      conversationId,
+      agentName: client.data.user?.name || client.data.user?.email || 'An agent',
+      isTyping: payload.isTyping,
+    });
+  }
+
   private async authenticate(client: AuthenticatedSocket) {
     const token = this.extractToken(client);
 
@@ -141,6 +161,7 @@ export class NotificationsGateway
     return {
       id: user.id,
       email: user.email,
+      name: user.name,
       role: user.role,
     };
   }

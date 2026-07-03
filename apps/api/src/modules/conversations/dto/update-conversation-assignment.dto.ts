@@ -1,6 +1,11 @@
-import { IsUUID } from 'class-validator';
+import { IsUUID, IsNumber, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class UpdateConversationAssignmentDto {
+  @IsOptional()
   @IsUUID()
-  assignedAgentId!: string;
+  assignedAgentId!: string | null;
+
+  @IsNumber()
+  @IsNotEmpty()
+  version!: number;
 }

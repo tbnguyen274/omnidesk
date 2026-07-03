@@ -98,8 +98,8 @@ export class FacebookInboundRepository {
         });
       } else {
         const isResolved = conversation.status === ConversationStatus.RESOLVED;
-        await tx.conversation.update({
-          where: { id: conversation.id },
+        const result = await tx.conversation.updateMany({
+          where: { id: conversation.id, version: conversation.version },
           data: {
             customerId: customer.id,
             subject:
@@ -113,16 +113,23 @@ export class FacebookInboundRepository {
             lastMessageAt: receivedAt,
             status: isResolved ? ConversationStatus.IN_PROGRESS : undefined,
             resolvedAt: isResolved ? null : undefined,
-            ticket: isResolved
-              ? {
-                  update: {
-                    status: TicketStatus.IN_PROGRESS,
-                    resolvedAt: null,
-                  },
-                }
-              : undefined,
+            version: { increment: 1 },
           },
         });
+
+        if (result.count === 0) {
+          throw new Error('OCC Conflict: Conversation was updated by another process. Worker will retry.');
+        }
+
+        if (isResolved && conversation.ticket) {
+          await tx.ticket.update({
+            where: { id: conversation.ticket.id },
+            data: {
+              status: TicketStatus.IN_PROGRESS,
+              resolvedAt: null,
+            },
+          });
+        }
       }
 
       const existingMessage = await tx.message.findUnique({

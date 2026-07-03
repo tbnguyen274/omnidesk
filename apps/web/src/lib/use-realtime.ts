@@ -90,7 +90,14 @@ export function useRealtime({
     };
   }, [conversationId, connectionState]);
 
+  const sendTyping = (isTyping: boolean) => {
+    if (socketRef.current && connectionState === "connected" && conversationId) {
+      socketRef.current.emit("agent_typing", { conversationId, isTyping });
+    }
+  };
+
   return {
     connectionState,
+    sendTyping,
   };
 }

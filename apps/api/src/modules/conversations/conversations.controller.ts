@@ -44,7 +44,11 @@ export class ConversationsController {
     @Param('id') id: string,
     @Body() dto: UpdateConversationStatusDto,
   ) {
-    const data = await this.conversationsService.updateStatus(id, dto.status);
+    const data = await this.conversationsService.updateStatus(
+      id,
+      dto.status,
+      dto.version,
+    );
     return {
       success: true,
       data,
@@ -59,6 +63,7 @@ export class ConversationsController {
     const data = await this.conversationsService.updatePriority(
       id,
       dto.priority,
+      dto.version,
     );
     return {
       success: true,
@@ -74,6 +79,7 @@ export class ConversationsController {
     const data = await this.conversationsService.updateAssignment(
       id,
       dto.assignedAgentId,
+      dto.version,
     );
     return {
       success: true,

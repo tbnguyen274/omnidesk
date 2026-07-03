@@ -126,6 +126,7 @@ export type ConversationDetail = {
   messages: ConversationMessage[];
   createdAt: string;
   updatedAt: string;
+  version: number;
 };
 
 export type ConversationFilters = {

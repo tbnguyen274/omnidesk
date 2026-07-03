@@ -357,11 +357,15 @@ export function ConversationDetailPanel({
   loading,
   onSendReply,
   replyDisabledReason,
+  typingAgents,
+  onTypingChange,
 }: {
   conversation: ConversationDetail | null;
   loading: boolean;
   onSendReply?: (content: string, replyToExternalId?: string | null) => Promise<void>;
   replyDisabledReason?: string | null;
+  typingAgents?: string[];
+  onTypingChange?: (isTyping: boolean) => void;
 }) {
   const sortedMessages = useMemo(
     () => conversation?.messages ?? [],
@@ -409,6 +413,11 @@ export function ConversationDetailPanel({
             conversation.customer.email ??
             "Unknown customer"}
         </p>
+        {typingAgents && typingAgents.length > 0 && (
+          <p className="text-xs text-amber-500 mt-1">
+            {typingAgents.join(", ")} {typingAgents.length === 1 ? 'is' : 'are'} typing...
+          </p>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 bg-[#141414]" ref={scrollRef}>
@@ -443,6 +452,7 @@ export function ConversationDetailPanel({
         }}
         replyingToMessage={replyingToMessage}
         onCancelReply={() => setReplyingToMessage(null)}
+        onTypingChange={onTypingChange}
       />
     </div>
   );
@@ -507,16 +517,23 @@ export function ReplyComposer({
   onSendReply,
   replyingToMessage,
   onCancelReply,
+  onTypingChange,
 }: {
   disabledReason?: string | null;
   onSendReply?: (content: string) => Promise<void>;
   replyingToMessage?: ConversationDetail["messages"][number] | null;
   onCancelReply?: () => void;
+  onTypingChange?: (isTyping: boolean) => void;
 }) {
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  
+  useEffect(() => {
+    onTypingChange?.(content.length > 0);
+  }, [content, onTypingChange]);
+
   const trimmedContent = content.trim();
   const disabled =
     submitting || !onSendReply || Boolean(disabledReason) || !trimmedContent;
@@ -744,6 +761,7 @@ export function SidePanel({
   tags = [],
   onAssignAgent,
   onAssignToMe,
+  onUnassign,
   onPriorityChange,
   onStatusChange,
   onAddTag,
@@ -757,6 +775,7 @@ export function SidePanel({
   tags?: { id: string; name: string; color?: string | null }[];
   onAssignAgent?: (agentId: string) => void;
   onAssignToMe: () => void;
+  onUnassign?: () => void;
   onPriorityChange: (priority: Priority) => void;
   onStatusChange: (status: ConversationStatus) => void;
   onAddTag?: (tagId: string) => void;
@@ -834,9 +853,21 @@ export function SidePanel({
           </label>
 
           {conversation.assignedAgent ? (
-            <div className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#2a2a2a] border border-[#444444] text-sm font-medium text-neutral-300">
-              <UserCheck size={16} aria-hidden="true" className="text-emerald-500" />
-              Assigned to {conversation.assignedAgent.name || "Agent"}
+            <div className="flex flex-col gap-2">
+              <div className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#2a2a2a] border border-[#444444] text-sm font-medium text-neutral-300">
+                <UserCheck size={16} aria-hidden="true" className="text-emerald-500" />
+                Assigned to {conversation.assignedAgent.name || "Agent"}
+              </div>
+              {(currentUser.role === "ADMIN" || currentUser.id === conversation.assignedAgent.id) && onUnassign && (
+                <button
+                  className="flex h-8 w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-red-600 text-xs font-medium text-white hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={actionLoading}
+                  onClick={onUnassign}
+                  type="button"
+                >
+                  Unassign
+                </button>
+              )}
             </div>
           ) : currentUser.role === "ADMIN" ? (
             <div className="block pt-2">

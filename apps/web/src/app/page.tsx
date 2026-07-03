@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { REALTIME_EVENT_TYPES, type RealtimeEvent } from "@omnidesk/shared";
+import { REALTIME_EVENT_TYPES, type RealtimeEvent, type AgentTypingRealtimeEvent } from "@omnidesk/shared";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useRealtime } from "@/lib/use-realtime";
 import type {
@@ -24,6 +24,7 @@ import {
   SidePanel,
 } from "@/features/inbox/inbox-components";
 
+
 const TOKEN_STORAGE_KEY = "omnidesk.accessToken";
 
 export default function Home() {
@@ -38,9 +39,10 @@ export default function Home() {
   const [selectedConversation, setSelectedConversation] =
     useState<ConversationDetail | null>(null);
   const [filters, setFilters] = useState<ConversationFilters>({});
-  const [listLoading, setListLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [typingAgents, setTypingAgents] = useState<{ [conversationId: string]: string[] }>({});
   const [error, setError] = useState<string | null>(null);
   const [agents, setAgents] = useState<{ id: string; name: string; email: string }[]>([]);
   const [tags, setTags] = useState<{ id: string; name: string; color: string | null }[]>([]);
@@ -48,7 +50,7 @@ export default function Home() {
     ? getReplyDisabledReason(selectedConversation)
     : null;
 
-  const { connectionState } = useRealtime({
+  const { connectionState, sendTyping } = useRealtime({
     conversationId: selectedId,
     onEvents: handleRealtimeEvents,
     token,
@@ -216,7 +218,23 @@ export default function Home() {
     const shouldRefreshList = events.some(shouldRefreshConversationList);
     const shouldRefreshDetail =
       selectedId !== null &&
-      events.some((event) => event.conversationId === selectedId);
+      events.some((event) => event.conversationId === selectedId && event.type !== 'agent.typing');
+
+    events.forEach(event => {
+      if (event.type === 'agent.typing') {
+        const e = event as AgentTypingRealtimeEvent;
+        setTypingAgents((prev) => {
+          const agents = prev[e.conversationId] || [];
+          const agentIndex = agents.indexOf(e.agentName);
+          if (e.isTyping && agentIndex === -1) {
+            return { ...prev, [e.conversationId]: [...agents, e.agentName] };
+          } else if (!e.isTyping && agentIndex !== -1) {
+            return { ...prev, [e.conversationId]: agents.filter((a) => a !== e.agentName) };
+          }
+          return prev;
+        });
+      }
+    });
 
     await Promise.all([
       shouldRefreshList
@@ -251,6 +269,7 @@ export default function Home() {
         token,
         selectedConversation.id,
         status,
+        selectedConversation.version,
       );
     });
   }
@@ -265,6 +284,7 @@ export default function Home() {
         token,
         selectedConversation.id,
         priority,
+        selectedConversation.version,
       );
     });
   }
@@ -279,6 +299,22 @@ export default function Home() {
         token,
         selectedConversation.id,
         currentUser.id,
+        selectedConversation.version,
+      );
+    });
+  }
+
+  async function handleUnassign() {
+    if (!token || !selectedConversation) {
+      return;
+    }
+
+    await runConversationAction(async () => {
+      await apiClient.assignConversation(
+        token,
+        selectedConversation.id,
+        null,
+        selectedConversation.version,
       );
     });
   }
@@ -293,6 +329,7 @@ export default function Home() {
         token,
         selectedConversation.id,
         agentId,
+        selectedConversation.version,
       );
     });
   }
@@ -406,6 +443,8 @@ export default function Home() {
               loading={detailLoading}
               onSendReply={handleSendReply}
               replyDisabledReason={replyDisabledReason}
+              typingAgents={selectedId ? typingAgents[selectedId] : undefined}
+              onTypingChange={sendTyping}
             />
           </section>
 
@@ -418,6 +457,7 @@ export default function Home() {
               tags={tags}
               onAssignAgent={handleAssignAgent}
               onAssignToMe={handleAssignToMe}
+              onUnassign={handleUnassign}
               onPriorityChange={handlePriorityChange}
               onStatusChange={handleStatusChange}
               onAddTag={handleAddTag}

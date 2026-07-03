@@ -63,6 +63,7 @@ export const REALTIME_EVENT_TYPES = {
   TICKET_UPDATED: 'ticket.updated',
   OUTBOUND_MESSAGE_UPDATED: 'outbound_message.updated',
   SLA_OVERDUE: 'sla.overdue',
+  AGENT_TYPING: 'agent.typing',
 } as const;
 export type RealtimeEventType =
   (typeof REALTIME_EVENT_TYPES)[keyof typeof REALTIME_EVENT_TYPES];
@@ -125,12 +126,21 @@ export type SlaOverdueRealtimeEvent = BaseRealtimeEvent<
   conversationId: string;
 };
 
+export type AgentTypingRealtimeEvent = BaseRealtimeEvent<
+  typeof REALTIME_EVENT_TYPES.AGENT_TYPING
+> & {
+  conversationId: string;
+  agentName: string;
+  isTyping: boolean;
+};
+
 export type RealtimeEvent =
   | ConversationRealtimeEvent
   | MessageCreatedRealtimeEvent
   | TicketUpdatedRealtimeEvent
   | OutboundMessageUpdatedRealtimeEvent
-  | SlaOverdueRealtimeEvent;
+  | SlaOverdueRealtimeEvent
+  | AgentTypingRealtimeEvent;
 
 export const QUEUE_NAMES = {
   INBOUND_EVENTS: 'inbound-events',

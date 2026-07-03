@@ -82,14 +82,19 @@ export class EmailInboundService {
           },
         });
       } else {
-        await tx.conversation.update({
-          where: { id: conversation.id },
+        const result = await tx.conversation.updateMany({
+          where: { id: conversation.id, version: conversation.version },
           data: {
             customerId: customer.id,
             subject: conversation.subject ?? normalized.message.subject,
             lastMessageAt: receivedAt,
+            version: { increment: 1 },
           },
         });
+
+        if (result.count === 0) {
+          throw new Error('OCC Conflict: Conversation was updated by another process. Worker will retry.');
+        }
       }
 
       const existingMessage = await tx.message.findUnique({

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import {
   ConversationStatus,
   Prisma,
@@ -76,7 +76,7 @@ export class ConversationsRepository {
     });
   }
 
-  async updateStatus(id: string, status: ConversationStatus) {
+  async updateStatus(id: string, status: ConversationStatus, version: number) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id },
       include: { ticket: true },
@@ -109,42 +109,92 @@ export class ConversationsRepository {
       newSlaPausedAt = null;
     }
 
-    return this.prisma.conversation.update({
-      where: { id },
+    const result = await this.prisma.conversation.updateMany({
+      where: { id, version },
       data: {
         status,
+        version: { increment: 1 },
         resolvedAt: isResolved ? now : undefined,
-        ticket: {
-          update: {
-            status: status,
-            resolvedAt: isResolved ? now : undefined,
-            slaDueAt: newSlaDueAt,
-            slaPausedAt: newSlaPausedAt,
-          },
-        },
       },
     });
-  }
 
-  updatePriority(id: string, priority: Priority) {
-    return this.prisma.conversation.update({
+    if (result.count === 0) {
+      throw new ConflictException('Data was modified by another agent. Please refresh.');
+    }
+
+    if (conversation.ticket) {
+      await this.prisma.ticket.update({
+        where: { id: conversation.ticket.id },
+        data: {
+          status: status as any,
+          resolvedAt: isResolved ? now : undefined,
+          slaDueAt: newSlaDueAt,
+          slaPausedAt: newSlaPausedAt,
+        },
+      });
+    }
+
+    return this.prisma.conversation.findUniqueOrThrow({
       where: { id },
-      data: { priority },
+      include: { ticket: true },
     });
   }
 
-  updateAssignment(id: string, assignedAgentId: string) {
-    return this.prisma.conversation.update({
+  async updatePriority(id: string, priority: Priority, version: number) {
+    const result = await this.prisma.conversation.updateMany({
+      where: { id, version },
+      data: { priority, version: { increment: 1 } },
+    });
+
+    if (result.count === 0) {
+      throw new ConflictException('Data was modified by another agent. Please refresh.');
+    }
+
+    // Also update ticket priority if exists
+    const conversation = await this.prisma.conversation.findUniqueOrThrow({
       where: { id },
+      include: { ticket: true },
+    });
+    if (conversation?.ticket) {
+      await this.prisma.ticket.update({
+        where: { id: conversation.ticket.id },
+        data: { priority },
+      });
+    }
+
+    return conversation;
+  }
+
+  async updateAssignment(id: string, assignedAgentId: string | null, version: number) {
+    const result = await this.prisma.conversation.updateMany({
+      where: { id, version },
       data: {
         assignedAgentId,
-        ticket: {
-          update: {
-            status: TicketStatus.ASSIGNED,
-            assignedAgentId,
-          },
-        },
+        version: { increment: 1 },
       },
+    });
+
+    if (result.count === 0) {
+      throw new ConflictException('Data was modified by another agent. Please refresh.');
+    }
+
+    const conversation = await this.prisma.conversation.findUniqueOrThrow({
+      where: { id },
+      include: { ticket: true },
+    });
+
+    if (conversation?.ticket) {
+      await this.prisma.ticket.update({
+        where: { id: conversation.ticket.id },
+        data: {
+          status: TicketStatus.ASSIGNED,
+          assignedAgentId,
+        },
+      });
+    }
+
+    return this.prisma.conversation.findUniqueOrThrow({
+      where: { id },
       include: {
         assignedAgent: {
           select: {

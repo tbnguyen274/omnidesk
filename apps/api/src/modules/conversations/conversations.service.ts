@@ -86,6 +86,7 @@ export class ConversationsService {
             }
           : null,
         lastMessageAt: conversation.lastMessageAt,
+        version: conversation.version,
       })),
       page,
       limit,
@@ -135,15 +136,17 @@ export class ConversationsService {
       })),
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
+      version: conversation.version,
     };
   }
 
-  async updateStatus(id: string, status: ConversationStatus) {
+  async updateStatus(id: string, status: ConversationStatus, version: number) {
     await this.ensureConversationExists(id);
 
     const conversation = await this.conversationsRepository.updateStatus(
       id,
       status,
+      version,
     );
 
     this.publishConversationUpdated(conversation.id);
@@ -151,12 +154,13 @@ export class ConversationsService {
     return conversation;
   }
 
-  async updatePriority(id: string, priority: Priority) {
+  async updatePriority(id: string, priority: Priority, version: number) {
     await this.ensureConversationExists(id);
 
     const conversation = await this.conversationsRepository.updatePriority(
       id,
       priority,
+      version,
     );
 
     this.publishConversationUpdated(conversation.id);
@@ -164,21 +168,28 @@ export class ConversationsService {
     return conversation;
   }
 
-  async updateAssignment(id: string, assignedAgentId: string) {
+  async updateAssignment(
+    id: string,
+    assignedAgentId: string | null,
+    version: number,
+  ) {
     await this.ensureConversationExists(id);
     await this.ensureAssignableAgent(assignedAgentId);
 
     const conversation = await this.conversationsRepository.updateAssignment(
       id,
       assignedAgentId,
+      version,
     );
 
     this.publishConversationUpdated(conversation.id);
-    this.notificationsService.publishToAgent(assignedAgentId, {
-      type: REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
-      conversationId: conversation.id,
-      occurredAt: new Date().toISOString(),
-    });
+    if (assignedAgentId) {
+      this.notificationsService.publishToAgent(assignedAgentId, {
+        type: REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
+        conversationId: conversation.id,
+        occurredAt: new Date().toISOString(),
+      });
+    }
 
     return conversation;
   }
@@ -218,7 +229,9 @@ export class ConversationsService {
     }
   }
 
-  private async ensureAssignableAgent(id: string) {
+  private async ensureAssignableAgent(id: string | null) {
+    if (!id) return;
+    
     const user = await this.conversationsRepository.findAssignableUser(id);
 
     if (!user) {

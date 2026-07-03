@@ -188,6 +188,7 @@ model Conversation {
   resolvedAt             DateTime?          @map("resolved_at")
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
+  version                Int                @default(1)
 
   channelAccount   ChannelAccount    @relation(fields: [channelAccountId], references: [id])
   customer         Customer          @relation(fields: [customerId], references: [id])

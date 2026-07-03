@@ -107,31 +107,32 @@ export const apiClient = {
     token: string,
     id: string,
     status: ConversationStatus,
+    version: number,
   ) {
     return request<ConversationDetail>(`/conversations/${id}/status`, "PATCH", {
       token,
-      body: { status },
+      body: { status, version },
     });
   },
 
-  updateConversationPriority(token: string, id: string, priority: Priority) {
+  updateConversationPriority(token: string, id: string, priority: Priority, version: number) {
     return request<ConversationDetail>(
       `/conversations/${id}/priority`,
       "PATCH",
       {
         token,
-        body: { priority },
+        body: { priority, version },
       },
     );
   },
 
-  assignConversation(token: string, id: string, assignedAgentId: string) {
+  assignConversation(token: string, id: string, assignedAgentId: string | null, version: number) {
     return request<ConversationDetail>(
       `/conversations/${id}/assignment`,
       "PATCH",
       {
         token,
-        body: { assignedAgentId },
+        body: { assignedAgentId, version },
       },
     );
   },
