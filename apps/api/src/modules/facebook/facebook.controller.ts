@@ -8,6 +8,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
+import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import { MockFacebookCommentDto } from './dto/mock-facebook-comment.dto';
@@ -17,6 +18,8 @@ import { FacebookSignatureService } from './services/facebook-signature.service'
 import { Public } from '../../common/auth/public.decorator';
 
 @Public()
+@ApiTags('Facebook')
+@ApiCookieAuth()
 @Controller('webhooks/facebook')
 export class FacebookController {
   constructor(
@@ -24,6 +27,10 @@ export class FacebookController {
     private readonly facebookSignatureService: FacebookSignatureService,
   ) {}
 
+  @ApiOperation({
+    summary: 'Verify Facebook webhook subscription',
+    description: 'Handles the initial verification challenge sent by Facebook when configuring a webhook.',
+  })
   @Get()
   verifyWebhook(
     @Query('hub.mode') mode?: string,
@@ -37,6 +44,10 @@ export class FacebookController {
     });
   }
 
+  @ApiOperation({
+    summary: 'Receive Facebook Messenger events',
+    description: 'Ingests real-time events and messages from Facebook Messenger webhook.',
+  })
   @Post()
   async receiveWebhook(
     @Body() payload: Record<string, unknown>,
@@ -57,6 +68,10 @@ export class FacebookController {
 export class DevFacebookController {
   constructor(private readonly facebookService: FacebookService) {}
 
+  @ApiOperation({
+    summary: 'Mock Facebook message',
+    description: 'Simulates receiving a Facebook Messenger chat message.',
+  })
   @Post('mock-message')
   async mockMessage(@Body() dto: MockFacebookMessageDto) {
     this.ensureDevelopment();
@@ -67,6 +82,10 @@ export class DevFacebookController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Mock Facebook post comment',
+    description: 'Simulates receiving a comment on a Facebook post.',
+  })
   @Post('mock-comment')
   async mockComment(@Body() dto: MockFacebookCommentDto) {
     this.ensureDevelopment();

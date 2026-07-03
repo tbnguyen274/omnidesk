@@ -6,6 +6,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../common/auth/current-user.type';
@@ -16,11 +17,17 @@ import { ListEmailSyncLogsDto } from './dto/list-email-sync-logs.dto';
 import { MockInboundEmailDto } from './dto/mock-inbound-email.dto';
 import { EmailService } from './email.service';
 
+@ApiTags('Email')
+@ApiCookieAuth()
 @Controller('email')
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class EmailController {
   constructor(private readonly emailService: EmailService) {}
 
+  @ApiOperation({
+    summary: 'Manually trigger email synchronization',
+    description: 'Forces a manual synchronization of incoming emails from the configured IMAP server.',
+  })
   @Post('sync')
   async createSync(
     @Body() dto: CreateEmailSyncDto,
@@ -33,6 +40,10 @@ export class EmailController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Retrieve email sync logs',
+    description: 'Returns a list of historical email synchronization operations and their status.',
+  })
   @Get('sync-logs')
   async listSyncLogs(@Query() query: ListEmailSyncLogsDto) {
     const data = await this.emailService.listSyncLogs(query);
@@ -48,6 +59,10 @@ export class EmailController {
 export class DevEmailController {
   constructor(private readonly emailService: EmailService) {}
 
+  @ApiOperation({
+    summary: 'Mock inbound email',
+    description: 'Simulates receiving an inbound email for local testing purposes.',
+  })
   @Post('mock-inbound')
   async mockInbound(@Body() dto: MockInboundEmailDto) {
     this.ensureDevelopment();

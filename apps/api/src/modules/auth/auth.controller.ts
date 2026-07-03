@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../common/auth/current-user.type';
@@ -8,6 +9,7 @@ import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -16,6 +18,10 @@ export class AuthController {
   ) {}
 
   @Public()
+  @ApiOperation({
+    summary: 'User login',
+    description: 'Authenticates a user using email and password. Sets HTTP-only cookies for authentication and refresh tokens.',
+  })
   @Post('login')
   async login(
     @Body() dto: LoginDto,
@@ -48,6 +54,11 @@ export class AuthController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Get current user profile',
+    description: 'Retrieves the profile information of the currently authenticated user.',
+  })
+  @ApiCookieAuth()
   @Get('me')
   async me(@CurrentUser() user: CurrentUserType) {
     const currentUser = await this.usersService.findById(user.id);
@@ -59,6 +70,11 @@ export class AuthController {
 
   @Public()
   @UseGuards(JwtRefreshGuard)
+  @ApiOperation({
+    summary: 'Refresh access token',
+    description: 'Issues a new authentication token using a valid refresh token from cookies.',
+  })
+  @ApiCookieAuth()
   @Post('refresh')
   async refresh(
     @CurrentUser() user: CurrentUserType,
@@ -91,6 +107,11 @@ export class AuthController {
     };
   }
 
+  @ApiOperation({
+    summary: 'User logout',
+    description: 'Clears authentication and refresh cookies, effectively logging the user out of the system.',
+  })
+  @ApiCookieAuth()
   @Post('logout')
   async logout(
     @CurrentUser() user: CurrentUserType,
