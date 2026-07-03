@@ -63,7 +63,8 @@ export class AuthService {
       throw new UnauthorizedException('Access Denied');
     }
 
-    const userWithHash = await this.usersService.findHashedRefreshTokenById(userId);
+    const userWithHash =
+      await this.usersService.findHashedRefreshTokenById(userId);
 
     if (!userWithHash?.hashedRefreshToken) {
       throw new UnauthorizedException('Access Denied');

@@ -7,12 +7,9 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { Roles } from '../../common/auth/roles.decorator';
-import { RolesGuard } from '../../common/auth/roles.guard';
 import { ConversationsService } from './conversations.service';
 import { ListConversationsDto } from './dto/list-conversations.dto';
 import { UpdateConversationAssignmentDto } from './dto/update-conversation-assignment.dto';

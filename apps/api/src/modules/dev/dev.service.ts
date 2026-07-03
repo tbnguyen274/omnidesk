@@ -302,7 +302,8 @@ export class DevService {
         data: {
           displayName: params.displayName,
           configJson: params.configJson,
-          accessTokenEncrypted: accessTokenEncrypted ?? existing.accessTokenEncrypted,
+          accessTokenEncrypted:
+            accessTokenEncrypted ?? existing.accessTokenEncrypted,
           status: 'ACTIVE',
         },
       });

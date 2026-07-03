@@ -1,16 +1,6 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { Roles } from '../../common/auth/roles.decorator';
-import { RolesGuard } from '../../common/auth/roles.guard';
 import { ListTicketsDto } from './dto/list-tickets.dto';
 import { UpdateTicketAssignmentDto } from './dto/update-ticket-assignment.dto';
 import { UpdateTicketStatusDto } from './dto/update-ticket-status.dto';

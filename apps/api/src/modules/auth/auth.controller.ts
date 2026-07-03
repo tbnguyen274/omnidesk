@@ -17,7 +17,10 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const data = await this.authService.login(dto);
 
     // Set HttpOnly cookie for the access token (15 minutes)
@@ -57,10 +60,16 @@ export class AuthController {
   @Public()
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
-  async refresh(@CurrentUser() user: CurrentUserType, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @CurrentUser() user: CurrentUserType,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     // CurrentUser will contain the decoded JWT payload from the Refresh token,
     // including the raw refreshToken (added in JwtRefreshStrategy)
-    const data = await this.authService.refreshTokens(user.id, (user as any).refreshToken);
+    const data = await this.authService.refreshTokens(
+      user.id,
+      (user as any).refreshToken,
+    );
 
     res.cookie('Authentication', data.accessToken, {
       httpOnly: true,
@@ -83,7 +92,10 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@CurrentUser() user: CurrentUserType, @Res({ passthrough: true }) res: Response) {
+  async logout(
+    @CurrentUser() user: CurrentUserType,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     await this.authService.logout(user.id);
 
     res.clearCookie('Authentication');

@@ -5,14 +5,12 @@ import {
   Get,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../common/auth/current-user.type';
 import { Public } from '../../common/auth/public.decorator';
 import { Roles } from '../../common/auth/roles.decorator';
-import { RolesGuard } from '../../common/auth/roles.guard';
 import { CreateEmailSyncDto } from './dto/create-email-sync.dto';
 import { ListEmailSyncLogsDto } from './dto/list-email-sync-logs.dto';
 import { MockInboundEmailDto } from './dto/mock-inbound-email.dto';

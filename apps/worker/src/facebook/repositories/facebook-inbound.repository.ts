@@ -314,7 +314,9 @@ export class FacebookInboundRepository {
           });
           if (ca?.accessTokenEncrypted) {
             const encryptionKey = process.env.ENCRYPTION_KEY;
-            const plainToken = encryptionKey ? decrypt(ca.accessTokenEncrypted, encryptionKey) : ca.accessTokenEncrypted;
+            const plainToken = encryptionKey
+              ? decrypt(ca.accessTokenEncrypted, encryptionKey)
+              : ca.accessTokenEncrypted;
             const response = await fetch(
               `https://graph.facebook.com/v19.0/${normalized.customer.externalId}?fields=first_name,last_name&access_token=${plainToken}`,
             );

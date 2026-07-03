@@ -6,7 +6,10 @@ import { appConfig } from '../../config/app.config';
 import { JwtPayload } from '../../common/auth/current-user.type';
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   constructor() {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -20,7 +23,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     });
   }
 
-  async validate(request: Request, payload: JwtPayload) {
+  validate(request: Request, payload: JwtPayload) {
     const refreshToken = request?.cookies?.Refresh;
     return {
       id: payload.sub,

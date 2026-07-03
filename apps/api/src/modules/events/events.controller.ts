@@ -1,8 +1,6 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { Roles } from '../../common/auth/roles.decorator';
-import { RolesGuard } from '../../common/auth/roles.guard';
 import { CreateInboundEventDto } from './dto/create-inbound-event.dto';
 import { ListInboundEventsDto } from './dto/list-inbound-events.dto';
 import { ListOutboundEventsDto } from './dto/list-outbound-events.dto';

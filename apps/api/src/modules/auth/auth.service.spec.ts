@@ -7,7 +7,9 @@ import { UsersService } from '../users/users.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
-  let usersService: jest.Mocked<Pick<UsersService, 'findByEmail' | 'setCurrentRefreshToken'>>;
+  let usersService: jest.Mocked<
+    Pick<UsersService, 'findByEmail' | 'setCurrentRefreshToken'>
+  >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
 
   beforeEach(() => {
