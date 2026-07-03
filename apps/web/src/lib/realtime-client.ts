@@ -21,6 +21,7 @@ type ServerToClientEvents = {
 type ClientToServerEvents = {
   "conversation.join": (payload: { conversationId: string }) => void;
   "conversation.leave": (payload: { conversationId: string }) => void;
+  "agent_typing": (payload: { conversationId: string; isTyping: boolean }) => void;
 };
 
 export function createRealtimeSocket(token: string): RealtimeSocket {
