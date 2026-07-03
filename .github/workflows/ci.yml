@@ -43,3 +43,36 @@ jobs:
 
       - name: Build Applications
         run: pnpm build
+
+  security-scan:
+    name: Security & Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for secret scanning
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Dependency Audit (pnpm audit)
+        run: pnpm audit --prod || echo "Audit found vulnerabilities, check details above."
+        # Dùng || echo để CI không chết ngay lập tức nếu có warning, bạn có thể bỏ đi để ép CI rớt.
+
+      - name: Secret Scanning (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
