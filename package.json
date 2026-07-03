@@ -18,5 +18,11 @@
   "devDependencies": {
     "socket.io-client": "^4.8.3"
   },
-  "packageManager": "pnpm@9.15.4"
+  "packageManager": "pnpm@9.15.4",
+  "resolutions": {
+    "ws": "^8.21.0",
+    "multer": "^2.2.0",
+    "nodemailer": "^9.0.1",
+    "postcss": "^8.5.10"
+  }
 }
