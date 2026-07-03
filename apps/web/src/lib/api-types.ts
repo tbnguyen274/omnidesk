@@ -71,6 +71,7 @@ export type ConversationListItem = {
     createdAt: string;
   } | null;
   lastMessageAt: string;
+  isRead: boolean;
 };
 
 export type ConversationListResponse = {
@@ -127,6 +128,7 @@ export type ConversationDetail = {
   createdAt: string;
   updatedAt: string;
   version: number;
+  isRead: boolean;
 };
 
 export type ConversationFilters = {

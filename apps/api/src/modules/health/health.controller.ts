@@ -12,7 +12,8 @@ export class HealthController {
 
   @ApiOperation({
     summary: 'System health check',
-    description: 'Returns the operational status of the API server and its core dependencies.',
+    description:
+      'Returns the operational status of the API server and its core dependencies.',
   })
   @Get()
   async check() {

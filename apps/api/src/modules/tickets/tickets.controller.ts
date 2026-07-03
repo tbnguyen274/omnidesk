@@ -29,7 +29,8 @@ export class TicketsController {
 
   @ApiOperation({
     summary: 'Get ticket details',
-    description: 'Retrieves detailed information for a specific support ticket.',
+    description:
+      'Retrieves detailed information for a specific support ticket.',
   })
   @Get(':id')
   async findById(@Param('id') id: string) {

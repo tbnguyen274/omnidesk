@@ -16,7 +16,8 @@ export class OutboundController {
 
   @ApiOperation({
     summary: 'Send outbound message',
-    description: 'Sends a reply or new outbound message to a customer through the appropriate channel (Email, Facebook).',
+    description:
+      'Sends a reply or new outbound message to a customer through the appropriate channel (Email, Facebook).',
   })
   @Post('messages')
   async create(

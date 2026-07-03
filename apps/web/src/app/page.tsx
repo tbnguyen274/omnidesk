@@ -211,28 +211,39 @@ export default function Home() {
   }
 
   async function handleLoadOlderMessages() {
-    if (!token || !selectedConversation || selectedConversation.messages.length === 0) {
-      return;
-    }
+    if (!token || !selectedConversation) return;
 
-    const firstMessageId = selectedConversation.messages[0].id;
+    if (!selectedConversation.messages.length) return;
 
-    try {
-      const olderMessages = await apiClient.getConversationMessages(
-        token,
-        selectedConversation.id,
-        firstMessageId
-      );
+    const oldestMessage = selectedConversation.messages[0];
+    const cursor = oldestMessage.createdAt;
 
+    await runConversationAction(async () => {
+      const olderMessages = await apiClient.getConversationMessages(token, selectedConversation.id, cursor);
+      
       if (olderMessages.length > 0) {
-        setSelectedConversation({
-          ...selectedConversation,
-          messages: [...olderMessages, ...selectedConversation.messages],
+        setSelectedConversation(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: [...olderMessages, ...prev.messages]
+          };
         });
       }
-    } catch (caught) {
-      console.error("Failed to load older messages", caught);
-    }
+    });
+  }
+
+  async function handleUpdateReadStatus(isRead: boolean) {
+    if (!token || !selectedConversation) return;
+
+    await runConversationAction(async () => {
+      await apiClient.updateConversationReadStatus(
+        token,
+        selectedConversation.id,
+        isRead,
+        selectedConversation.version,
+      );
+    });
   }
 
   async function handleRealtimeEvents(events: RealtimeEvent[]) {
@@ -472,6 +483,7 @@ export default function Home() {
               typingAgents={selectedId ? typingAgents[selectedId] : undefined}
               onTypingChange={sendTyping}
               onLoadOlderMessages={handleLoadOlderMessages}
+              onReadStatusChange={handleUpdateReadStatus}
             />
           </section>
 

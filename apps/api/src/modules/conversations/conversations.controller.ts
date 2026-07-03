@@ -16,6 +16,7 @@ import { ListConversationsDto } from './dto/list-conversations.dto';
 import { UpdateConversationAssignmentDto } from './dto/update-conversation-assignment.dto';
 import { UpdateConversationPriorityDto } from './dto/update-conversation-priority.dto';
 import { UpdateConversationStatusDto } from './dto/update-conversation-status.dto';
+import { UpdateConversationReadStatusDto } from './dto/update-conversation-read-status.dto';
 
 @ApiTags('Conversations')
 @ApiCookieAuth()
@@ -26,7 +27,8 @@ export class ConversationsController {
 
   @ApiOperation({
     summary: 'Retrieve conversations',
-    description: 'Returns a paginated list of conversations. Supports filtering by status, priority, and agent.',
+    description:
+      'Returns a paginated list of conversations. Supports filtering by status, priority, and agent.',
   })
   @Get()
   async list(@Query() query: ListConversationsDto) {
@@ -52,7 +54,8 @@ export class ConversationsController {
 
   @ApiOperation({
     summary: 'List conversation messages',
-    description: 'Retrieves a paginated list of messages associated with a specific conversation.',
+    description:
+      'Retrieves a paginated list of messages associated with a specific conversation.',
   })
   @Get(':id/messages')
   async getMessages(
@@ -74,7 +77,8 @@ export class ConversationsController {
 
   @ApiOperation({
     summary: 'Update conversation status',
-    description: 'Changes the status of a conversation (e.g., OPEN, SNOOZED, CLOSED) with optimistic concurrency control.',
+    description:
+      'Changes the status of a conversation (e.g., OPEN, SNOOZED, CLOSED) with optimistic concurrency control.',
   })
   @Patch(':id/status')
   async updateStatus(
@@ -94,7 +98,8 @@ export class ConversationsController {
 
   @ApiOperation({
     summary: 'Update conversation priority',
-    description: 'Modifies the priority level (e.g., LOW, NORMAL, HIGH, URGENT) of a conversation.',
+    description:
+      'Modifies the priority level (e.g., LOW, NORMAL, HIGH, URGENT) of a conversation.',
   })
   @Patch(':id/priority')
   async updatePriority(
@@ -113,8 +118,29 @@ export class ConversationsController {
   }
 
   @ApiOperation({
+    summary: 'Update read status',
+    description: 'Marks a conversation as read or unread.',
+  })
+  @Patch(':id/read-status')
+  async updateReadStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateConversationReadStatusDto,
+  ) {
+    const data = await this.conversationsService.updateReadStatus(
+      id,
+      dto.isRead,
+      dto.version,
+    );
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @ApiOperation({
     summary: 'Assign agent to conversation',
-    description: 'Assigns or re-assigns a conversation to a specific support agent.',
+    description:
+      'Assigns or re-assigns a conversation to a specific support agent.',
   })
   @Patch(':id/assignment')
   async updateAssignment(
@@ -134,7 +160,8 @@ export class ConversationsController {
 
   @ApiOperation({
     summary: 'Add tag to conversation',
-    description: 'Associates a specific tag with the conversation for categorization.',
+    description:
+      'Associates a specific tag with the conversation for categorization.',
   })
   @Post(':id/tags')
   async addTag(@Param('id') id: string, @Body() dto: { tagId: string }) {

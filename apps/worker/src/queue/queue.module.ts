@@ -9,6 +9,8 @@ import { FacebookOutboundRepository } from '../facebook/repositories/facebook-ou
 import { FacebookInboundService } from '../facebook/services/facebook-inbound.service';
 import { FacebookOutboundService } from '../facebook/services/facebook-outbound.service';
 import { EmailSyncProcessor } from '../processors/email-sync.processor';
+import { EmailActionsProcessor } from '../processors/email-actions.processor';
+import { EmailActionsService } from '../email/email-actions.service';
 import { InboundEventsProcessor } from '../processors/inbound-events.processor';
 import { OutboundMessagesProcessor } from '../processors/outbound-messages.processor';
 import { SlaCheckProcessor } from '../processors/sla-check.processor';
@@ -33,6 +35,8 @@ import { QueueService } from './queue.service';
     InboundEventsProcessor,
     OutboundMessagesProcessor,
     EmailSyncProcessor,
+    EmailActionsProcessor,
+    EmailActionsService,
     SlaCheckProcessor,
     SlaCheckScheduler,
     AutoCloseProcessor,

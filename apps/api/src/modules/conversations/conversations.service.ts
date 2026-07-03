@@ -3,9 +3,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConversationStatus, Prisma, Priority } from '@prisma/client';
-import { REALTIME_EVENT_TYPES } from '@omnidesk/shared';
+import {
+  ConversationStatus,
+  Prisma,
+  Priority,
+  ChannelType,
+} from '@prisma/client';
+import { REALTIME_EVENT_TYPES, QUEUE_NAMES } from '@omnidesk/shared';
 import { NotificationsService } from '../notifications/notifications.service';
+import { QueuesService } from '../../common/queues/queues.service';
 import { ConversationsRepository } from './conversations.repository';
 import { ListConversationsDto } from './dto/list-conversations.dto';
 
@@ -14,6 +20,7 @@ export class ConversationsService {
   constructor(
     private readonly conversationsRepository: ConversationsRepository,
     private readonly notificationsService: NotificationsService,
+    private readonly queuesService: QueuesService,
   ) {}
 
   async list(query: ListConversationsDto) {
@@ -87,6 +94,7 @@ export class ConversationsService {
           : null,
         lastMessageAt: conversation.lastMessageAt,
         version: conversation.version,
+        isRead: conversation.isRead,
       })),
       page,
       limit,
@@ -137,6 +145,7 @@ export class ConversationsService {
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
       version: conversation.version,
+      isRead: conversation.isRead,
     };
   }
 
@@ -179,6 +188,26 @@ export class ConversationsService {
 
     this.publishConversationUpdated(conversation.id);
 
+    if (
+      conversation.channelType === ChannelType.EMAIL &&
+      conversation.externalConversationId &&
+      status === ConversationStatus.CLOSED
+    ) {
+      const messageId =
+        await this.conversationsRepository.getLatestExternalMessageId(id);
+      if (messageId) {
+        await this.queuesService.add(
+          QUEUE_NAMES.EMAIL_ACTIONS,
+          'move-to-archive',
+          {
+            action: 'MOVE_TO_ARCHIVE',
+            messageId,
+            channelAccountId: conversation.channelAccountId,
+          },
+        );
+      }
+    }
+
     return conversation;
   }
 
@@ -192,6 +221,27 @@ export class ConversationsService {
     );
 
     this.publishConversationUpdated(conversation.id);
+
+    if (
+      conversation.channelType === ChannelType.EMAIL &&
+      conversation.externalConversationId
+    ) {
+      const messageId =
+        await this.conversationsRepository.getLatestExternalMessageId(id);
+      if (messageId) {
+        const isUrgent =
+          priority === Priority.URGENT || priority === Priority.HIGH;
+        await this.queuesService.add(
+          QUEUE_NAMES.EMAIL_ACTIONS,
+          isUrgent ? 'mark-starred' : 'unmark-starred',
+          {
+            action: isUrgent ? 'MARK_STARRED' : 'UNMARK_STARRED',
+            messageId,
+            channelAccountId: conversation.channelAccountId,
+          },
+        );
+      }
+    }
 
     return conversation;
   }
@@ -246,6 +296,39 @@ export class ConversationsService {
       conversationId,
       occurredAt: new Date().toISOString(),
     });
+  }
+
+  async updateReadStatus(id: string, isRead: boolean, version: number) {
+    await this.ensureConversationExists(id);
+
+    const conversation = await this.conversationsRepository.updateReadStatus(
+      id,
+      isRead,
+      version,
+    );
+
+    this.publishConversationUpdated(conversation.id);
+
+    if (
+      conversation.channelType === ChannelType.EMAIL &&
+      conversation.externalConversationId
+    ) {
+      const messageId =
+        await this.conversationsRepository.getLatestExternalMessageId(id);
+      if (messageId) {
+        await this.queuesService.add(
+          QUEUE_NAMES.EMAIL_ACTIONS,
+          isRead ? 'mark-read' : 'mark-unread',
+          {
+            action: isRead ? 'MARK_READ' : 'MARK_UNREAD',
+            messageId,
+            channelAccountId: conversation.channelAccountId,
+          },
+        );
+      }
+    }
+
+    return conversation;
   }
 
   private async ensureConversationExists(id: string) {

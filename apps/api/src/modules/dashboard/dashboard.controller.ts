@@ -10,7 +10,8 @@ export class DashboardController {
 
   @ApiOperation({
     summary: 'Get dashboard statistics',
-    description: 'Retrieves high-level summary metrics (e.g., total open conversations, SLA breaches) for the dashboard view.',
+    description:
+      'Retrieves high-level summary metrics (e.g., total open conversations, SLA breaches) for the dashboard view.',
   })
   @Get('summary')
   async getSummary() {
@@ -20,7 +21,8 @@ export class DashboardController {
 
   @ApiOperation({
     summary: 'Get agent performance metrics',
-    description: 'Retrieves analytical data regarding support agents performance (e.g., resolution time, response time).',
+    description:
+      'Retrieves analytical data regarding support agents performance (e.g., resolution time, response time).',
   })
   @Get('agent-performance')
   async getAgentPerformance() {

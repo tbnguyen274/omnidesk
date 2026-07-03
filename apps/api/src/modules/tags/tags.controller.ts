@@ -13,7 +13,8 @@ export class TagsController {
 
   @ApiOperation({
     summary: 'List all tags',
-    description: 'Retrieves all available tags that can be applied to conversations.',
+    description:
+      'Retrieves all available tags that can be applied to conversations.',
   })
   @Get()
   async list() {
@@ -26,7 +27,8 @@ export class TagsController {
 
   @ApiOperation({
     summary: 'Create a new tag',
-    description: 'Creates a new customizable tag with a specific name and color.',
+    description:
+      'Creates a new customizable tag with a specific name and color.',
   })
   @Post()
   async create(@Body() dto: { name: string; color?: string }) {

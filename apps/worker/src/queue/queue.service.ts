@@ -20,6 +20,7 @@ import { InboundEventsProcessor } from '../processors/inbound-events.processor';
 import { OutboundMessagesProcessor } from '../processors/outbound-messages.processor';
 import { SlaCheckProcessor } from '../processors/sla-check.processor';
 import { AutoCloseProcessor } from '../processors/auto-close.processor';
+import { EmailActionsProcessor } from '../processors/email-actions.processor';
 
 type RedisConnectionOptions = {
   host: string;
@@ -42,6 +43,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     private readonly emailSyncProcessor: EmailSyncProcessor,
     private readonly slaCheckProcessor: SlaCheckProcessor,
     private readonly autoCloseProcessor: AutoCloseProcessor,
+    private readonly emailActionsProcessor: EmailActionsProcessor,
   ) {}
 
   async onModuleInit() {
@@ -144,6 +146,18 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       new BullWorker(
         QUEUE_NAMES.EMAIL_SYNC,
         (job: Job<EmailSyncJobPayload>) => this.emailSyncProcessor.process(job),
+        { connection: this.connectionOptions, concurrency: 5 },
+      ),
+    );
+
+    this.workers.set(
+      QUEUE_NAMES.EMAIL_ACTIONS,
+      new BullWorker(
+        QUEUE_NAMES.EMAIL_ACTIONS,
+        (job) =>
+          this.emailActionsProcessor.process(
+            job as Parameters<typeof this.emailActionsProcessor.process>[0],
+          ),
         { connection: this.connectionOptions, concurrency: 5 },
       ),
     );

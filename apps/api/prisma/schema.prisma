@@ -186,6 +186,7 @@ model Conversation {
   lastMessageAt          DateTime           @default(now()) @map("last_message_at")
   firstResponseAt        DateTime?          @map("first_response_at")
   resolvedAt             DateTime?          @map("resolved_at")
+  isRead                 Boolean            @default(false) @map("is_read")
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
   version                Int                @default(1)

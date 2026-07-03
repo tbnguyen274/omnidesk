@@ -138,6 +138,17 @@ export const apiClient = {
     );
   },
 
+  updateConversationReadStatus(token: string, id: string, isRead: boolean, version: number) {
+    return request<ConversationDetail>(
+      `/conversations/${id}/read-status`,
+      "PATCH",
+      {
+        token,
+        body: { isRead, version },
+      },
+    );
+  },
+
   getConversationMessages(token: string, id: string, cursor?: string) {
     const query = cursor ? `?cursor=${cursor}` : "";
     return request<ConversationMessage[]>(

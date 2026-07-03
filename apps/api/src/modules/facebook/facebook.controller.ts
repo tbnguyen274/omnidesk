@@ -29,7 +29,8 @@ export class FacebookController {
 
   @ApiOperation({
     summary: 'Verify Facebook webhook subscription',
-    description: 'Handles the initial verification challenge sent by Facebook when configuring a webhook.',
+    description:
+      'Handles the initial verification challenge sent by Facebook when configuring a webhook.',
   })
   @Get()
   verifyWebhook(
@@ -46,7 +47,8 @@ export class FacebookController {
 
   @ApiOperation({
     summary: 'Receive Facebook Messenger events',
-    description: 'Ingests real-time events and messages from Facebook Messenger webhook.',
+    description:
+      'Ingests real-time events and messages from Facebook Messenger webhook.',
   })
   @Post()
   async receiveWebhook(

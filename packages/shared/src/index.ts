@@ -146,6 +146,7 @@ export const QUEUE_NAMES = {
   INBOUND_EVENTS: 'inbound-events',
   OUTBOUND_MESSAGES: 'outbound-messages',
   EMAIL_SYNC: 'email-sync',
+  EMAIL_ACTIONS: 'email-actions',
   SLA_CHECK: 'sla-check',
   ANALYTICS_AGGREGATION: 'analytics-aggregation',
   AUTO_CLOSE: 'auto-close',
@@ -182,6 +183,12 @@ export type EmailSyncJobPayload = {
   requestedBy?: string;
 };
 
+export type EmailActionsJobPayload = {
+  action: 'MARK_READ' | 'MARK_UNREAD' | 'MARK_STARRED' | 'UNMARK_STARRED' | 'MOVE_TO_ARCHIVE';
+  messageId: string;
+  channelAccountId: string;
+};
+
 export type SlaCheckJobPayload = {
   requestedAt: string;
 };
@@ -198,6 +205,7 @@ export type QueuePayloadByName = {
   [QUEUE_NAMES.INBOUND_EVENTS]: InboundEventJobPayload;
   [QUEUE_NAMES.OUTBOUND_MESSAGES]: OutboundMessageJobPayload;
   [QUEUE_NAMES.EMAIL_SYNC]: EmailSyncJobPayload;
+  [QUEUE_NAMES.EMAIL_ACTIONS]: EmailActionsJobPayload;
   [QUEUE_NAMES.SLA_CHECK]: SlaCheckJobPayload;
   [QUEUE_NAMES.ANALYTICS_AGGREGATION]: AnalyticsAggregationJobPayload;
   [QUEUE_NAMES.AUTO_CLOSE]: AutoCloseJobPayload;

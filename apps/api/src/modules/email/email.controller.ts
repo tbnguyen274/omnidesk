@@ -26,7 +26,8 @@ export class EmailController {
 
   @ApiOperation({
     summary: 'Manually trigger email synchronization',
-    description: 'Forces a manual synchronization of incoming emails from the configured IMAP server.',
+    description:
+      'Forces a manual synchronization of incoming emails from the configured IMAP server.',
   })
   @Post('sync')
   async createSync(
@@ -42,7 +43,8 @@ export class EmailController {
 
   @ApiOperation({
     summary: 'Retrieve email sync logs',
-    description: 'Returns a list of historical email synchronization operations and their status.',
+    description:
+      'Returns a list of historical email synchronization operations and their status.',
   })
   @Get('sync-logs')
   async listSyncLogs(@Query() query: ListEmailSyncLogsDto) {
@@ -61,7 +63,8 @@ export class DevEmailController {
 
   @ApiOperation({
     summary: 'Mock inbound email',
-    description: 'Simulates receiving an inbound email for local testing purposes.',
+    description:
+      'Simulates receiving an inbound email for local testing purposes.',
   })
   @Post('mock-inbound')
   async mockInbound(@Body() dto: MockInboundEmailDto) {

@@ -20,7 +20,8 @@ export class AuthController {
   @Public()
   @ApiOperation({
     summary: 'User login',
-    description: 'Authenticates a user using email and password. Sets HTTP-only cookies for authentication and refresh tokens.',
+    description:
+      'Authenticates a user using email and password. Sets HTTP-only cookies for authentication and refresh tokens.',
   })
   @Post('login')
   async login(
@@ -56,7 +57,8 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Get current user profile',
-    description: 'Retrieves the profile information of the currently authenticated user.',
+    description:
+      'Retrieves the profile information of the currently authenticated user.',
   })
   @ApiCookieAuth()
   @Get('me')
@@ -72,7 +74,8 @@ export class AuthController {
   @UseGuards(JwtRefreshGuard)
   @ApiOperation({
     summary: 'Refresh access token',
-    description: 'Issues a new authentication token using a valid refresh token from cookies.',
+    description:
+      'Issues a new authentication token using a valid refresh token from cookies.',
   })
   @ApiCookieAuth()
   @Post('refresh')
@@ -109,7 +112,8 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'User logout',
-    description: 'Clears authentication and refresh cookies, effectively logging the user out of the system.',
+    description:
+      'Clears authentication and refresh cookies, effectively logging the user out of the system.',
   })
   @ApiCookieAuth()
   @Post('logout')

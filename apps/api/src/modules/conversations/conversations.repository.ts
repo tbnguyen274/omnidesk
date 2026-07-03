@@ -248,6 +248,40 @@ export class ConversationsRepository {
     });
   }
 
+  async updateReadStatus(id: string, isRead: boolean, version: number) {
+    const result = await this.prisma.conversation.updateMany({
+      where: { id, version },
+      data: {
+        isRead,
+        version: { increment: 1 },
+      },
+    });
+
+    if (result.count === 0) {
+      throw new ConflictException(
+        'Data was modified by another agent. Please refresh.',
+      );
+    }
+
+    return this.prisma.conversation.findUniqueOrThrow({
+      where: { id },
+    });
+  }
+
+  async getLatestExternalMessageId(
+    conversationId: string,
+  ): Promise<string | null> {
+    const message = await this.prisma.message.findFirst({
+      where: {
+        conversationId,
+        externalMessageId: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { externalMessageId: true },
+    });
+    return message?.externalMessageId || null;
+  }
+
   findAssignableUser(id: string) {
     return this.prisma.user.findUnique({
       where: { id },

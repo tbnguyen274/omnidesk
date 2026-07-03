@@ -320,7 +320,10 @@ export function ConversationList({
           type="button"
         >
           <div className="mb-2 flex items-start justify-between gap-2">
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-center gap-2">
+              {conversation.isRead === false && (
+                <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+              )}
               <p className="truncate text-sm font-semibold text-white">
                 {conversation.customer.name ??
                   conversation.customer.email ??
@@ -360,6 +363,7 @@ export function ConversationDetailPanel({
   typingAgents,
   onTypingChange,
   onLoadOlderMessages,
+  onReadStatusChange,
 }: {
   conversation: ConversationDetail | null;
   loading: boolean;
@@ -368,6 +372,7 @@ export function ConversationDetailPanel({
   typingAgents?: string[];
   onTypingChange?: (isTyping: boolean) => void;
   onLoadOlderMessages?: () => Promise<void>;
+  onReadStatusChange?: (isRead: boolean) => Promise<void>;
 }) {
   const sortedMessages = useMemo(
     () => conversation?.messages ?? [],
@@ -435,24 +440,34 @@ export function ConversationDetailPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
-      <div className="border-b border-[#333333] p-4 shrink-0 bg-transparent">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <ChannelBadge channelType={conversation.channelType} />
-          <StatusBadge status={conversation.status} />
-          <PriorityBadge priority={conversation.priority} />
-        </div>
-        <h2 className="text-lg font-semibold text-white">
-          {conversation.subject ?? "Untitled conversation"}
-        </h2>
-        <p className="text-sm text-neutral-400">
-          {conversation.customer.name ??
-            conversation.customer.email ??
-            "Unknown customer"}
-        </p>
-        {typingAgents && typingAgents.length > 0 && (
-          <p className="text-xs text-amber-500 mt-1">
-            {typingAgents.join(", ")} {typingAgents.length === 1 ? 'is' : 'are'} typing...
+      <div className="border-b border-[#333333] p-4 shrink-0 bg-transparent flex justify-between items-start">
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <ChannelBadge channelType={conversation.channelType} />
+            <StatusBadge status={conversation.status} />
+            <PriorityBadge priority={conversation.priority} />
+          </div>
+          <h2 className="text-lg font-semibold text-white">
+            {conversation.subject ?? "Untitled conversation"}
+          </h2>
+          <p className="text-sm text-neutral-400">
+            {conversation.customer.name ??
+              conversation.customer.email ??
+              "Unknown customer"}
           </p>
+          {typingAgents && typingAgents.length > 0 && (
+            <p className="text-xs text-amber-500 mt-1">
+              {typingAgents.join(", ")} {typingAgents.length === 1 ? 'is' : 'are'} typing...
+            </p>
+          )}
+        </div>
+        {onReadStatusChange && (
+          <button
+            onClick={() => onReadStatusChange(!conversation.isRead)}
+            className="rounded-md border border-[#333333] px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-[#2a2a2a] hover:text-white transition-colors"
+          >
+            {conversation.isRead ? "Mark unread" : "Mark read"}
+          </button>
         )}
       </div>
 

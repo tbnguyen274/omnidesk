@@ -16,7 +16,8 @@ export class EventsController {
 
   @ApiOperation({
     summary: 'List inbound webhook events',
-    description: 'Retrieves a log of incoming webhook events received from third-party channels.',
+    description:
+      'Retrieves a log of incoming webhook events received from third-party channels.',
   })
   @Get('inbound')
   async listInbound(@Query() query: ListInboundEventsDto) {
@@ -29,7 +30,8 @@ export class EventsController {
 
   @ApiOperation({
     summary: 'List outbound webhook events',
-    description: 'Retrieves a log of webhook events sent from the system to external services.',
+    description:
+      'Retrieves a log of webhook events sent from the system to external services.',
   })
   @Get('outbound')
   async listOutbound(@Query() query: ListOutboundEventsDto) {
@@ -42,7 +44,8 @@ export class EventsController {
 
   @ApiOperation({
     summary: 'Ingest third-party webhook payload',
-    description: 'Endpoint for receiving real-time webhook payloads from third-party channels (e.g., Facebook, Email).',
+    description:
+      'Endpoint for receiving real-time webhook payloads from third-party channels (e.g., Facebook, Email).',
   })
   @Post('inbound')
   async createInbound(@Body() dto: CreateInboundEventDto) {

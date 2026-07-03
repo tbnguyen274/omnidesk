@@ -12,7 +12,8 @@ export class DevController {
 
   @ApiOperation({
     summary: 'Check provider configurations',
-    description: 'Validates and returns the health status of external providers (Email, Facebook).',
+    description:
+      'Validates and returns the health status of external providers (Email, Facebook).',
   })
   @Get('providers/health')
   getProvidersHealth() {
@@ -22,7 +23,8 @@ export class DevController {
 
   @ApiOperation({
     summary: 'Reset database to initial state',
-    description: 'Clears all existing transactional data and restores the system to a clean state for demonstration purposes.',
+    description:
+      'Clears all existing transactional data and restores the system to a clean state for demonstration purposes.',
   })
   @Post('reset-demo-data')
   async resetDemoData() {
@@ -36,7 +38,8 @@ export class DevController {
 
   @ApiOperation({
     summary: 'Seed sample data',
-    description: 'Populates the database with synthetic data (conversations, messages, customers) for testing and UI demonstration.',
+    description:
+      'Populates the database with synthetic data (conversations, messages, customers) for testing and UI demonstration.',
   })
   @Post('seed-demo-data')
   async seedDemoData() {
