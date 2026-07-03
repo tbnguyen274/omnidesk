@@ -37,6 +37,7 @@ OmniDesk standardizes every customer interaction into a unified `Conversation �
 | ⚡ **Real-time Sync** | WebSocket events keep the Inbox UI updated instantly across all connected agents. |
 | 🚦 **Concurrency Control** | Row-Level Locking in PostgreSQL serializes concurrent webhooks to prevent duplicate data generation. |
 | 🧪 **Mock Mode** | A fully mocked environment for demos without requiring live Facebook API credentials. |
+| 🔒 **Security** | Robust Auth with HttpOnly Cookies and Refresh Token Rotation (short-lived stateless Access Tokens, long-lived hashed Refresh Tokens) defending against XSS. |
 
 ---
 
