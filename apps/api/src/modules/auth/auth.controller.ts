@@ -8,6 +8,8 @@ import { JwtRefreshGuard } from '../../common/auth/jwt-refresh.guard';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -128,6 +130,34 @@ export class AuthController {
 
     return {
       success: true,
+    };
+  }
+
+  @Public()
+  @ApiOperation({
+    summary: 'Request password reset',
+    description: 'Sends a password reset email if the user exists.',
+  })
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    const result = await this.authService.forgotPassword(dto);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Public()
+  @ApiOperation({
+    summary: 'Reset password',
+    description: 'Resets the password using a valid reset token.',
+  })
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    const result = await this.authService.resetPassword(dto);
+    return {
+      success: true,
+      data: result,
     };
   }
 }

@@ -83,6 +83,18 @@ export const apiClient = {
     });
   },
 
+  forgotPassword(email: string) {
+    return request<{ success: boolean }>("/auth/forgot-password", "POST", {
+      body: { email },
+    });
+  },
+
+  resetPassword(token: string, newPassword: string) {
+    return request<{ success: boolean }>("/auth/reset-password", "POST", {
+      body: { token, newPassword },
+    });
+  },
+
   me(token: string) {
     return request<CurrentUser>("/auth/me", "GET", { token });
   },

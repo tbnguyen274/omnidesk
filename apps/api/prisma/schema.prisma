@@ -127,9 +127,11 @@ model User {
   passwordHash       String     @map("password_hash")
   role               UserRole
   status             UserStatus @default(ACTIVE)
-  createdAt          DateTime   @default(now()) @map("created_at")
-  updatedAt          DateTime   @updatedAt @map("updated_at")
-  hashedRefreshToken String?    @map("hashed_refresh_token")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+  hashedRefreshToken   String?    @map("hashed_refresh_token")
+  passwordResetToken   String?    @map("password_reset_token")
+  passwordResetExpires DateTime?  @map("password_reset_expires")
 
   assignedConversations Conversation[]    @relation("ConversationAssignedAgent")
   assignedTickets       Ticket[]          @relation("TicketAssignedAgent")

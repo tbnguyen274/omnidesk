@@ -56,6 +56,9 @@ importers:
       '@prisma/client':
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      '@types/nodemailer':
+        specifier: ^8.0.1
+        version: 8.0.1
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -77,6 +80,9 @@ importers:
       ioredis:
         specifier: ^5.11.0
         version: 5.11.0
+      nodemailer:
+        specifier: ^9.0.3
+        version: 9.0.3
       passport:
         specifier: ^0.7.0
         version: 0.7.0
