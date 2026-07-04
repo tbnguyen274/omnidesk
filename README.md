@@ -37,7 +37,7 @@ OmniDesk standardizes every customer interaction into a unified `Conversation �
 | ⚡ **Real-time Sync** | WebSocket events keep the Inbox UI updated instantly across all connected agents. |
 | 🚦 **Concurrency Control** | Row-Level Locking in PostgreSQL serializes concurrent webhooks to prevent duplicate data generation. |
 | 🧪 **Mock Mode** | A fully mocked environment for demos without requiring live Facebook API credentials. |
-| 🔒 **Security** | Robust Auth with HttpOnly Cookies and Refresh Token Rotation (short-lived stateless Access Tokens, long-lived hashed Refresh Tokens) defending against XSS. |
+| 🔒 **Security** | Robust Auth with HttpOnly Cookies, Refresh Token Rotation, RBAC (`ADMIN`/`AGENT`), and password reset/invitation flows. |
 
 ---
 
@@ -112,7 +112,7 @@ stateDiagram-v2
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | Next.js 14, React 19, TailwindCSS 4, TypeScript |
+| **Frontend** | Next.js 16, React 19, TailwindCSS 4, TypeScript |
 | **Backend** | NestJS 11, TypeScript, Socket.io, Passport + JWT |
 | **ORM & Database** | Prisma ORM, PostgreSQL 16 |
 | **Queue & Scheduling** | BullMQ, Redis 7, IORedis |
@@ -205,6 +205,10 @@ Once running, visit: **http://localhost:3002**
 |---|---|---|
 | Admin | `admin@omnidesk.local` | `password` |
 | Agent | `agent@omnidesk.local` | `password` |
+
+Admin users can open the user management screen to create new `ADMIN`/`AGENT` accounts and activate or deactivate users. New users receive a setup-password link through SMTP when configured, or through API logs in mock email mode.
+
+The login page also supports forgot password. Reset links expire after 1 hour and invalidate the user's refresh token after a successful password change.
 
 ### Seed Demo Data
 
