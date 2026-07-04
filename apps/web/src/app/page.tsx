@@ -216,7 +216,7 @@ export default function Home() {
     if (!selectedConversation.messages.length) return;
 
     const oldestMessage = selectedConversation.messages[0];
-    const cursor = oldestMessage.createdAt;
+    const cursor = oldestMessage.id;
 
     await runConversationAction(async () => {
       const olderMessages = await apiClient.getConversationMessages(token, selectedConversation.id, cursor);
@@ -445,9 +445,9 @@ export default function Home() {
   }
 
   return (
-    <main className="h-screen w-full overflow-hidden bg-black p-4 text-neutral-200">
+    <main className="h-screen w-full overflow-hidden bg-[#F8F9FB] p-2 sm:p-4 text-slate-800">
       <div className="flex h-full flex-col gap-4">
-        <div className="shrink-0 rounded-xl overflow-hidden border border-[#333333]">
+        <div className="shrink-0 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
           <AppHeader
             apiBaseUrl={apiClient.baseUrl}
             currentUser={currentUser}
@@ -455,8 +455,8 @@ export default function Home() {
           />
         </div>
 
-        <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)_320px]">
-          <aside className="flex min-h-0 flex-col rounded-xl overflow-hidden border border-[#333333] bg-[#1f1f1f]">
+        <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)_320px]">
+          <aside className="flex min-h-0 flex-col rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
             <InboxFilters
               filters={filters}
               loading={listLoading}
@@ -472,7 +472,7 @@ export default function Home() {
             />
           </aside>
 
-          <section className="relative flex min-h-0 flex-col rounded-xl overflow-hidden border border-[#333333] bg-[#1f1f1f]">
+          <section className="relative flex min-h-0 flex-col rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
             {error ? <ErrorBanner message={error} /> : null}
             <ConversationDetailPanel
               key={selectedConversation?.id ?? "empty"}
@@ -487,7 +487,7 @@ export default function Home() {
             />
           </section>
 
-          <aside className="flex min-h-0 flex-col overflow-y-auto rounded-xl overflow-hidden border border-[#333333] bg-[#1f1f1f]">
+          <aside className="flex min-h-0 flex-col overflow-y-auto rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
             <SidePanel
               actionLoading={actionLoading}
               agents={agents}

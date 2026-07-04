@@ -14,6 +14,9 @@ import {
   Send,
   UserCheck,
   X,
+  Eye,
+  EyeOff,
+  Paperclip,
 } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useMemo, useState, useEffect, useRef, useLayoutEffect } from "react";
@@ -52,6 +55,7 @@ export function LoginScreen({
 }) {
   const [email, setEmail] = useState("agent@omnidesk.local");
   const [password, setPassword] = useState("password");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -62,54 +66,106 @@ export function LoginScreen({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f6f7f9] p-4 text-slate-950">
-      <form
-        className="w-full max-w-[420px] rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-        onSubmit={handleSubmit}
-      >
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-950 text-white">
-            <Inbox size={22} aria-hidden="true" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold">OmniDesk</h1>
-            <p className="text-sm text-slate-500">Agent workspace</p>
-          </div>
-        </div>
-
-        <label className="mb-2 block text-sm font-medium" htmlFor="email">
-          Email
-        </label>
-        <input
-          className="mb-4 h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-950"
-          id="email"
-          onChange={(event) => setEmail(event.target.value)}
-          type="email"
-          value={email}
-        />
-
-        <label className="mb-2 block text-sm font-medium" htmlFor="password">
-          Password
-        </label>
-        <input
-          className="mb-4 h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-slate-950"
-          id="password"
-          onChange={(event) => setPassword(event.target.value)}
-          type="password"
-          value={password}
-        />
-
-        {error ? <ErrorBanner message={error} /> : null}
-
-        <button
-          className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-400"
-          disabled={submitting}
-          type="submit"
+    <main className="relative flex min-h-screen items-center justify-center bg-[#F8F9FB] overflow-hidden p-4 font-sans">
+      {/* Dynamic Background Elements - Wavy lines and blurry blob */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex items-center justify-center">
+        {/* Blurry red blob behind the form */}
+        <div className="absolute h-[600px] w-[600px] rounded-full bg-[#EE0033]/10 blur-[100px]" />
+        
+        {/* SVG curved lines matching the reference */}
+        <svg className="absolute w-[150vw] h-[150vh] min-w-[1440px] opacity-70" preserveAspectRatio="none" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M-200 600 C 300 200, 800 800, 1600 300" stroke="#EE0033" strokeWidth="0.5" strokeOpacity="0.6" fill="none" />
+          <path d="M-200 650 C 400 300, 900 700, 1600 200" stroke="#EE0033" strokeWidth="0.5" strokeOpacity="0.4" fill="none" />
+          <path d="M-200 700 C 500 400, 1000 600, 1600 100" stroke="#EE0033" strokeWidth="0.5" strokeOpacity="0.2" fill="none" />
+          
+          <path d="M-200 300 C 400 -50, 900 1100, 1600 800" stroke="#9CA3AF" strokeWidth="0.5" strokeOpacity="0.5" fill="none" />
+          <path d="M-200 350 C 500 0, 1000 1000, 1600 700" stroke="#9CA3AF" strokeWidth="0.5" strokeOpacity="0.3" fill="none" />
+        </svg>
+      </div>
+      
+      <div className="relative z-10 w-full max-w-[440px]">
+        <form
+          className="rounded-[32px] border border-white/80 bg-white/60 backdrop-blur-2xl p-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] transition-all"
+          onSubmit={handleSubmit}
         >
-          <Check size={17} aria-hidden="true" />
-          Sign in
-        </button>
-      </form>
+          <div className="mb-8 flex flex-col items-center gap-3 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EE0033] text-white shadow-lg shadow-[#EE0033]/30">
+              <Inbox size={32} strokeWidth={2.5} aria-hidden="true" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">OmniDesk</h1>
+              <p className="text-sm text-slate-500 font-medium mt-1">Enterprise Agent Login</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="email">
+                Email Address
+              </label>
+              <input
+                className="h-12 w-full rounded-xl border border-[#EE0033] bg-slate-50/80 px-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:bg-white focus:ring-1 focus:ring-[#EE0033]"
+                id="email"
+                onChange={(event) => setEmail(event.target.value)}
+                type="email"
+                placeholder="agent@omnidesk.local"
+                value={email}
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="password">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  className="h-12 w-full rounded-xl border border-[#EE0033] bg-slate-50/80 pl-4 pr-11 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:bg-white focus:ring-1 focus:ring-[#EE0033]"
+                  id="password"
+                  onChange={(event) => setPassword(event.target.value)}
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                />
+                <button
+                  type="button"
+                  className="absolute right-0 top-0 flex h-12 w-12 cursor-pointer items-center justify-center text-[#EE0033] hover:text-[#c4002a] focus:outline-none"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {error ? (
+            <div className="mt-4 rounded-xl bg-red-50 border border-red-100 p-3 text-sm font-medium text-red-600">
+              {error}
+            </div>
+          ) : null}
+
+          <button
+            className="mt-8 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#EE0033] text-sm font-bold text-white transition-all hover:bg-[#d6002e] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100 shadow-md shadow-[#EE0033]/20"
+            disabled={submitting}
+            type="submit"
+          >
+            {submitting ? (
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <>
+                Sign in to Workspace
+              </>
+            )}
+          </button>
+
+          <div className="mt-5 text-center">
+            <button type="button" className="text-sm font-semibold text-[#EE0033] hover:underline">
+              Forgot Password?
+            </button>
+          </div>
+        </form>
+
+      </div>
     </main>
   );
 }
@@ -124,22 +180,22 @@ export function AppHeader({
   onLogout: () => void;
 }) {
   return (
-    <header className="flex min-h-16 items-center justify-between gap-4 bg-[#1f1f1f] border-b border-[#333333] px-4 sm:px-6">
+    <header className="flex min-h-16 items-center justify-between gap-4 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 shadow-sm z-10 relative">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-600 text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EE0033] text-white shadow-md shadow-[#EE0033]/20">
             <Inbox size={20} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-base font-semibold text-white">OmniDesk Inbox</h1>
-            <p className="text-xs text-neutral-400">{apiBaseUrl}</p>
+            <h1 className="text-base font-bold text-slate-900">OmniDesk Inbox</h1>
+            <p className="text-xs font-medium text-slate-500">{apiBaseUrl}</p>
           </div>
         </div>
-        <nav className="hidden sm:flex items-center gap-4 border-l border-[#333333] pl-6 h-10">
-          <Link href="/" className="text-sm font-medium text-neutral-300 hover:text-white transition-colors">
+        <nav className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-6 h-10">
+          <Link href="/" className="text-sm font-semibold text-slate-900 hover:text-[#EE0033] transition-colors">
             Inbox
           </Link>
-          <Link href="/dashboard" className="text-sm font-medium text-neutral-500 hover:text-white transition-colors">
+          <Link href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-[#EE0033] transition-colors">
             Dashboard
           </Link>
         </nav>
@@ -147,11 +203,11 @@ export function AppHeader({
 
       <div className="flex items-center gap-3">
         <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium text-white">{currentUser.name}</p>
-          <p className="text-xs text-neutral-400">{currentUser.role}</p>
+          <p className="text-sm font-bold text-slate-900">{currentUser.name}</p>
+          <p className="text-xs font-medium text-slate-500">{currentUser.role}</p>
         </div>
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-md border border-[#333333] text-neutral-400 cursor-pointer hover:bg-[#2a2a2a] hover:text-white transition-colors"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-500 cursor-pointer hover:bg-slate-50 hover:text-[#EE0033] hover:border-[#EE0033]/30 transition-colors bg-white shadow-sm"
           onClick={onLogout}
           title="Logout"
           type="button"
@@ -179,7 +235,7 @@ export function InboxFilters({
   const [search, setSearch] = useState(filters.search ?? "");
 
   return (
-    <div className="border-b border-[#333333] bg-[#1f1f1f] p-4">
+    <div className="border-b border-slate-200 bg-white p-4">
       <form
         className="mb-3 flex gap-2"
         onSubmit={(event) => {
@@ -189,19 +245,19 @@ export function InboxFilters({
       >
         <div className="relative flex-1">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             size={16}
             aria-hidden="true"
           />
           <input
-            className="h-10 w-full rounded-md border border-[#333333] bg-[#141414] pl-9 pr-3 text-sm text-neutral-200 outline-none placeholder:text-neutral-500 focus:border-[#555555] transition-colors"
+            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:bg-white focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033] transition-all shadow-sm"
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search conversations"
             value={search}
           />
         </div>
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-md border border-[#333333] bg-[#141414] text-neutral-400 cursor-pointer hover:bg-[#2a2a2a] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 cursor-pointer hover:bg-slate-50 hover:text-[#EE0033] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
           disabled={loading}
           title="Refresh inbox"
           type="button"
@@ -269,17 +325,17 @@ function FilterSelect({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-neutral-400">
+      <span className="mb-1 block text-xs font-semibold text-slate-700">
         {label}
       </span>
       <select
-        className="h-9 w-full rounded-md border border-[#333333] bg-[#141414] px-2 text-xs text-neutral-200 outline-none cursor-pointer focus:border-[#555555] transition-colors"
+        className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-700 outline-none cursor-pointer focus:border-[#EE0033] focus:bg-white focus:ring-1 focus:ring-[#EE0033] transition-colors shadow-sm"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >
-        <option value="" className="bg-[#1f1f1f]">All</option>
+        <option value="" className="bg-white text-slate-700">All</option>
         {options.map((option) => (
-          <option key={option.value} value={option.value} className="bg-[#1f1f1f]">
+          <option key={option.value} value={option.value} className="bg-white text-slate-700">
             {option.label}
           </option>
         ))}
@@ -308,47 +364,43 @@ export function ConversationList({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-2 bg-transparent">
+    <div className="flex-1 overflow-y-auto p-3 bg-[#F8F9FB] flex flex-col gap-2">
       {conversations.map((conversation) => (
         <button
-          className={`mb-2 w-full rounded-lg border p-3 text-left transition-colors cursor-pointer ${selectedId === conversation.id
-              ? "border-[#444444] bg-[#2a2a2a]"
-              : "border-[#333333] bg-transparent hover:bg-[#2a2a2a]/50"
-            }`}
+          className={`relative w-full border-l-[3px] p-4 text-left transition-all cursor-pointer ${
+            selectedId === conversation.id
+              ? "border-l-[#EE0033] bg-white shadow-sm ring-1 ring-slate-100/50"
+              : "border-l-transparent bg-white hover:border-l-slate-300 hover:bg-slate-50 border border-slate-100"
+          } rounded-r-xl rounded-l-md`}
           key={conversation.id}
           onClick={() => onSelect(conversation.id)}
           type="button"
         >
-          <div className="mb-2 flex items-start justify-between gap-2">
-            <div className="min-w-0 flex items-center gap-2">
-              {conversation.isRead === false && (
-                <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
-              )}
-              <p className="truncate text-sm font-semibold text-white">
-                {conversation.customer.name ??
-                  conversation.customer.email ??
-                  "Unknown customer"}
-              </p>
-              <p className="truncate text-xs text-neutral-400">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <p className="truncate text-sm font-bold text-slate-900 flex items-center gap-2">
+                  {conversation.isRead === false && (
+                    <span className="h-2 w-2 rounded-full bg-[#EE0033] shrink-0" />
+                  )}
+                  {conversation.customer.name ??
+                    conversation.customer.email ??
+                    "Unknown customer"}
+                </p>
+              </div>
+              <p className="truncate text-sm font-medium text-slate-500 mb-2.5">
                 {conversation.subject ?? "No subject"}
               </p>
+              <div className="flex items-center gap-1.5 mb-2.5 overflow-hidden">
+                <ChannelBadge channelType={conversation.channelType} />
+                <StatusBadge status={conversation.status} />
+                <PriorityBadge priority={conversation.priority} />
+              </div>
+              <p className={`line-clamp-2 min-h-[2.5rem] text-xs leading-5 ${selectedId === conversation.id ? "text-slate-600" : "text-slate-500"}`}>
+                {conversation.lastMessage?.content ?? "No messages yet"}
+              </p>
             </div>
-            <ChevronRight
-              className="mt-1 shrink-0 text-neutral-500"
-              size={16}
-              aria-hidden="true"
-            />
           </div>
-
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            <ChannelBadge channelType={conversation.channelType} />
-            <StatusBadge status={conversation.status} />
-            <PriorityBadge priority={conversation.priority} />
-          </div>
-
-          <p className="line-clamp-2 min-h-10 text-xs leading-5 text-neutral-400">
-            {conversation.lastMessage?.content ?? "No messages yet"}
-          </p>
         </button>
       ))}
     </div>
@@ -390,6 +442,17 @@ export function ConversationDetailPanel({
 
   const isAdjustingScrollRef = useRef(false);
 
+  const isInitialLoadRef = useRef(true);
+  const currentConversationIdRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (conversation?.id !== currentConversationIdRef.current) {
+      isInitialLoadRef.current = true;
+      currentConversationIdRef.current = conversation?.id ?? null;
+      setHasMoreMessages(true);
+    }
+  }, [conversation?.id]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReplyingToMessage(null);
@@ -403,10 +466,15 @@ export function ConversationDetailPanel({
         scrollRef.current.scrollTop = newScrollHeight - previousScrollHeightRef.current;
         isAdjustingScrollRef.current = false;
       } else if (
+        isInitialLoadRef.current ||
         scrollRef.current.scrollHeight - scrollRef.current.scrollTop - scrollRef.current.clientHeight < 100
       ) {
-        // Only auto-scroll to bottom if the user was already near the bottom
+        // Only auto-scroll to bottom if the user was already near the bottom OR it's the initial load
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        // If we successfully scrolled and have messages, we can mark initial load as done
+        if (sortedMessages.length > 0) {
+          isInitialLoadRef.current = false;
+        }
       }
     }
   }, [sortedMessages]);
@@ -439,24 +507,19 @@ export function ConversationDetailPanel({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-transparent">
-      <div className="border-b border-[#333333] p-4 shrink-0 bg-transparent flex justify-between items-start">
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
+    <div className="flex h-full min-h-0 flex-col bg-white">
+      <div className="border-b border-slate-200 px-5 py-3 shrink-0 bg-white flex justify-between items-start z-10 shadow-sm relative">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-slate-900 mb-1.5 truncate max-w-2xl">
+            {conversation.subject ?? "Untitled conversation"}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
             <ChannelBadge channelType={conversation.channelType} />
             <StatusBadge status={conversation.status} />
             <PriorityBadge priority={conversation.priority} />
           </div>
-          <h2 className="text-lg font-semibold text-white">
-            {conversation.subject ?? "Untitled conversation"}
-          </h2>
-          <p className="text-sm text-neutral-400">
-            {conversation.customer.name ??
-              conversation.customer.email ??
-              "Unknown customer"}
-          </p>
           {typingAgents && typingAgents.length > 0 && (
-            <p className="text-xs text-amber-500 mt-1">
+            <p className="text-xs text-[#EE0033] font-medium mt-2 animate-pulse">
               {typingAgents.join(", ")} {typingAgents.length === 1 ? 'is' : 'are'} typing...
             </p>
           )}
@@ -464,18 +527,22 @@ export function ConversationDetailPanel({
         {onReadStatusChange && (
           <button
             onClick={() => onReadStatusChange(!conversation.isRead)}
-            className="rounded-md border border-[#333333] px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-[#2a2a2a] hover:text-white transition-colors"
+            className={`rounded-[8px] px-3 py-1.5 text-xs font-bold shadow-sm cursor-pointer transition-colors ${
+              conversation.isRead 
+                ? "bg-[#EE0033] text-white hover:bg-[#CC002B]" 
+                : "border border-slate-200 bg-white text-slate-600 hover:border-[#EE0033] hover:text-[#EE0033] hover:bg-red-50"
+            }`}
           >
             {conversation.isRead ? "Mark unread" : "Mark read"}
           </button>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 bg-[#141414]" ref={scrollRef} onScroll={handleScroll}>
-        <div className="mx-auto flex max-w-3xl flex-col gap-3">
+      <div className="flex-1 overflow-y-auto p-4 bg-[#F8F9FB]" ref={scrollRef} onScroll={handleScroll}>
+        <div className="mx-auto flex max-w-3xl flex-col gap-4">
           {isLoadingOlder && (
-            <div className="text-center py-2">
-              <span className="text-xs text-neutral-500">Loading older messages...</span>
+            <div className="text-center py-3">
+              <span className="text-xs font-semibold text-slate-500 bg-slate-200/50 rounded-full px-3 py-1">Loading older messages...</span>
             </div>
           )}
           {sortedMessages.map((message) => (
@@ -530,17 +597,17 @@ function MessageBubble({
   return (
     <div className={`group flex ${outbound ? "justify-end" : "justify-start"} items-center gap-2`}>
       <div
-        className={`${message.contentType === "HTML" ? "max-w-[95%] w-full" : "max-w-[78%]"} rounded-lg border px-4 py-3 relative ${outbound
-            ? "border-blue-600 bg-blue-600 text-white"
-            : "border-[#444444] bg-[#2a2a2a] text-neutral-100"
+        className={`${message.contentType === "HTML" ? "max-w-[95%] w-full" : "max-w-[85%]"} rounded-2xl border px-4 py-3 relative shadow-sm ${outbound
+            ? "border-[#EE0033] bg-[#EE0033] text-white rounded-br-sm"
+            : "border-slate-200 bg-white text-slate-800 rounded-bl-sm"
           }`}
       >
-        <div className="mb-1 flex items-center gap-2 text-xs opacity-80">
+        <div className={`mb-1.5 flex items-center gap-2 text-[11px] font-semibold ${outbound ? "text-white/80" : "text-slate-500"}`}>
           <span>{formatEnum(message.senderType)}</span>
           <span>{formatTime(message.createdAt)}</span>
         </div>
         {repliedToMessage && (
-          <div className={`mb-2 flex items-center gap-2 border-l-2 pl-2 text-xs opacity-70 ${outbound ? "border-white" : "border-neutral-500"}`}>
+          <div className={`mb-2 flex items-center gap-2 border-l-[3px] pl-2 text-xs font-medium ${outbound ? "border-white/40 text-white/90" : "border-slate-300 text-slate-600"}`}>
             <span className="truncate">{repliedToMessage.content}</span>
           </div>
         )}
@@ -551,13 +618,13 @@ function MessageBubble({
             {linkify(message.content)}
           </p>
         )}
-        <p className="mt-2 text-xs opacity-70">
+        <p className={`mt-2 text-[10px] font-medium ${outbound ? "text-white/70" : "text-slate-400"}`}>
           {formatEnum(message.deliveryStatus)}
         </p>
       </div>
       {showReplyButton && !outbound && (
         <button
-          className="invisible group-hover:visible p-1.5 rounded-full text-neutral-500 hover:text-white hover:bg-[#2a2a2a] transition-colors cursor-pointer"
+          className="invisible group-hover:visible p-1.5 rounded-full text-slate-400 hover:text-[#EE0033] hover:bg-red-50 transition-colors cursor-pointer"
           title="Reply to this comment"
           onClick={onReply}
         >
@@ -585,9 +652,16 @@ export function ReplyComposer({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   useEffect(() => {
     onTypingChange?.(content.length > 0);
+    
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(scrollHeight, 120)}px`;
+    }
   }, [content, onTypingChange]);
 
   const trimmedContent = content.trim();
@@ -617,24 +691,24 @@ export function ReplyComposer({
   return (
     <form
       ref={formRef}
-      className="border-t border-[#333333] bg-transparent p-4 shrink-0"
+      className="border-t border-slate-200 bg-white p-4 shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] z-10"
       onSubmit={handleSubmit}
     >
       {replyingToMessage && (
-        <div className="mb-2 flex items-center justify-between rounded-md bg-[#141414] border border-[#333333] p-2 text-xs text-neutral-300">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-2 text-xs text-slate-600 shadow-sm">
           <div className="flex items-center gap-2 truncate">
-            <Reply size={14} className="text-neutral-500" />
-            <span className="font-semibold text-white">
+            <Reply size={14} className="text-slate-400" />
+            <span className="font-semibold text-slate-800">
               Replying to:
             </span>
-            <span className="truncate opacity-80">
+            <span className="truncate font-medium">
               {replyingToMessage.content}
             </span>
           </div>
           {onCancelReply && (
             <button
               type="button"
-              className="p-1 hover:bg-[#2a2a2a] rounded-md cursor-pointer transition-colors"
+              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md cursor-pointer transition-colors"
               onClick={onCancelReply}
             >
               <X size={14} />
@@ -642,9 +716,18 @@ export function ReplyComposer({
           )}
         </div>
       )}
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
+        <button
+          type="button"
+          className="flex shrink-0 items-center justify-center h-10 w-10 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+          title="Attach file"
+        >
+          <Paperclip size={20} />
+        </button>
         <textarea
-          className="min-h-20 flex-1 resize-none rounded-md border border-[#333333] bg-[#141414] p-3 text-sm text-neutral-200 outline-none focus:border-[#555555] placeholder:text-neutral-500 transition-colors"
+          ref={textareaRef}
+          rows={1}
+          className="min-h-[42px] max-h-[120px] py-2.5 flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:bg-white focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033] placeholder:text-slate-400 transition-all shadow-sm"
           disabled={submitting}
           onChange={(event) => setContent(event.target.value)}
           onKeyDown={(event) => {
@@ -657,12 +740,12 @@ export function ReplyComposer({
           value={content}
         />
         <button
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-neutral-700 text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-[#2a2a2a] disabled:text-neutral-600 hover:bg-[#555555] transition-colors"
+          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-[#EE0033] text-white cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 hover:bg-[#d6002e] shadow-md shadow-[#EE0033]/20 transition-all active:scale-95"
           disabled={disabled}
           title={disabledReason ?? "Send reply"}
           type="submit"
         >
-          <Send size={17} aria-hidden="true" />
+          <Send size={18} aria-hidden="true" className="ml-0.5" />
         </button>
       </div>
       {disabledReason ? (
@@ -719,20 +802,20 @@ function TagsSection({
   return (
     <section className="p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">Tags</h3>
+        <h3 className="text-sm font-bold text-slate-900">Tags</h3>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {conversationTags.map((tag) => (
           <span
-            className="group flex items-center gap-1 rounded-md border border-[#444444] bg-[#2a2a2a] pl-2 pr-1 py-1 text-xs text-neutral-300"
+            className="group flex items-center gap-1 rounded-md border border-slate-200 bg-slate-100 pl-2 pr-1 py-1 text-xs font-semibold text-slate-700"
             key={tag.id}
           >
             {tag.name}
             <button
               onClick={() => onRemoveTag?.(tag.id)}
               disabled={actionLoading}
-              className="text-neutral-500 hover:text-red-400 focus:outline-none disabled:opacity-50 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="text-slate-400 hover:text-[#EE0033] focus:outline-none disabled:opacity-50 opacity-0 group-hover:opacity-100 transition-opacity"
               title="Remove tag"
             >
               <X size={12} />
@@ -740,14 +823,14 @@ function TagsSection({
           </span>
         ))}
         {conversationTags.length === 0 && !isAdding && (
-          <p className="text-sm text-neutral-500">No tags</p>
+          <p className="text-xs font-medium text-slate-400">No tags</p>
         )}
         
         {!isAdding ? (
           <button
             onClick={() => setIsAdding(true)}
             disabled={actionLoading}
-            className="flex items-center gap-1 rounded-md bg-transparent border border-dashed border-[#555] px-2 py-1 text-xs font-medium text-neutral-400 hover:text-white hover:border-neutral-400 hover:bg-[#2a2a2a] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 rounded-md bg-transparent border border-dashed border-slate-300 px-2 py-1 text-xs font-medium text-slate-500 hover:text-[#EE0033] hover:border-[#EE0033] hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Add tag
           </button>
@@ -769,14 +852,14 @@ function TagsSection({
                 }, 150);
               }}
               disabled={actionLoading}
-              className="w-32 rounded-md border border-[#555] bg-[#141414] px-2 py-1 text-xs text-white outline-none focus:border-indigo-500 disabled:cursor-not-allowed transition-colors"
+              className="w-32 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-800 outline-none focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033] disabled:cursor-not-allowed transition-colors"
             />
             {inputValue.trim() && (
-              <div className="absolute top-full left-0 z-10 w-48 mt-1 max-h-40 overflow-y-auto rounded-md border border-[#333333] bg-[#1a1a1a] shadow-lg">
+              <div className="absolute top-full left-0 z-10 w-48 mt-1 max-h-40 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
                 {filteredTags.map((t) => (
                   <button
                     key={t.id}
-                    className="block w-full text-left px-2 py-1.5 text-xs text-neutral-300 hover:bg-[#333333]"
+                    className="block w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                     onMouseDown={(e) => {
                       e.preventDefault();
                       onAddTag?.(t.id);
@@ -789,7 +872,7 @@ function TagsSection({
                 ))}
                 {!exactMatch && (
                   <button
-                    className="block w-full text-left px-2 py-1.5 text-xs text-indigo-300 hover:bg-[#333333]"
+                    className="block w-full text-left px-3 py-2 text-xs font-semibold text-[#EE0033] hover:bg-red-50 transition-colors"
                     onMouseDown={(e) => {
                       e.preventDefault();
                       onCreateTag?.(inputValue.trim().toLowerCase());
@@ -843,20 +926,20 @@ export function SidePanel({
   }
 
   return (
-    <div className="flex h-full min-h-[560px] flex-col bg-transparent text-neutral-300 border-l border-[#333333]">
-      <section className="border-b border-[#333333] p-4">
-        <h3 className="mb-3 text-sm font-semibold text-white">Customer Information</h3>
+    <div className="flex h-full min-h-[560px] flex-col bg-white text-slate-800 border-l border-slate-200 shadow-sm z-10">
+      <section className="border-b border-slate-200 p-4">
+        <h3 className="mb-3 text-xs uppercase tracking-wider font-bold text-slate-500">Customer Information</h3>
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#2a2a2a] border border-[#444444] text-sm font-semibold text-white">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-sm font-bold text-slate-700 shadow-sm">
             {getInitials(
               conversation.customer.name ?? conversation.customer.email,
             )}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-white">
+            <p className="truncate text-sm font-bold text-slate-900">
               {conversation.customer.name ?? "Unknown customer"}
             </p>
-            <p className="truncate text-xs text-neutral-400">
+            <p className="truncate text-xs font-medium text-slate-500">
               {conversation.customer.email ??
                 conversation.customer.externalFacebookId ??
                 "No external id"}
@@ -865,15 +948,15 @@ export function SidePanel({
         </div>
       </section>
 
-      <section className="border-b border-[#333333] p-4">
-        <h3 className="mb-3 text-sm font-semibold text-white">Ticket Details</h3>
-        <div className="space-y-3">
+      <section className="border-b border-slate-200 p-4">
+        <h3 className="mb-3 text-xs uppercase tracking-wider font-bold text-slate-500">Ticket Details</h3>
+        <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-neutral-400">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-700">
               Status
             </span>
             <select
-              className="h-10 w-full rounded-md border border-[#333333] bg-[#141414] px-2 text-sm outline-none cursor-pointer focus:border-[#555555] disabled:cursor-not-allowed transition-colors"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-medium text-slate-800 outline-none cursor-pointer focus:bg-white focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033] disabled:cursor-not-allowed transition-colors shadow-sm"
               disabled={actionLoading}
               onChange={(event) =>
                 onStatusChange(event.target.value as ConversationStatus)
@@ -881,7 +964,7 @@ export function SidePanel({
               value={conversation.status}
             >
               {statusOptions.map((status) => (
-                <option key={status} value={status} className="bg-[#1f1f1f]">
+                <option key={status} value={status} className="bg-white">
                   {formatEnum(status)}
                 </option>
               ))}
@@ -889,11 +972,11 @@ export function SidePanel({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-neutral-400">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-700">
               Priority
             </span>
             <select
-              className="h-10 w-full rounded-md border border-[#333333] bg-[#141414] px-2 text-sm outline-none cursor-pointer focus:border-[#555555] disabled:cursor-not-allowed transition-colors"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-medium text-slate-800 outline-none cursor-pointer focus:bg-white focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033] disabled:cursor-not-allowed transition-colors shadow-sm"
               disabled={actionLoading}
               onChange={(event) =>
                 onPriorityChange(event.target.value as Priority)
@@ -901,7 +984,7 @@ export function SidePanel({
               value={conversation.priority}
             >
               {priorityOptions.map((priority) => (
-                <option key={priority} value={priority} className="bg-[#1f1f1f]">
+                <option key={priority} value={priority} className="bg-white">
                   {formatEnum(priority)}
                 </option>
               ))}
@@ -910,13 +993,13 @@ export function SidePanel({
 
           {conversation.assignedAgent ? (
             <div className="flex flex-col gap-2">
-              <div className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-[#2a2a2a] border border-[#444444] text-sm font-medium text-neutral-300">
+              <div className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 shadow-sm">
                 <UserCheck size={16} aria-hidden="true" className="text-emerald-500" />
                 Assigned to {conversation.assignedAgent.name || "Agent"}
               </div>
               {(currentUser.role === "ADMIN" || currentUser.id === conversation.assignedAgent.id) && onUnassign && (
                 <button
-                  className="flex h-8 w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-red-600 text-xs font-medium text-white hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex h-8 w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-transparent border border-rose-200 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={actionLoading}
                   onClick={onUnassign}
                   type="button"
@@ -927,11 +1010,11 @@ export function SidePanel({
             </div>
           ) : currentUser.role === "ADMIN" ? (
             <div className="block pt-2">
-              <span className="mb-1 block text-xs font-medium text-neutral-400">
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700">
                 Assign to Agent
               </span>
               <select
-                className="h-10 w-full rounded-md border border-[#333333] bg-[#141414] px-2 text-sm outline-none cursor-pointer focus:border-[#555555] disabled:cursor-not-allowed transition-colors"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-medium text-slate-800 outline-none cursor-pointer focus:bg-white focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033] disabled:cursor-not-allowed transition-colors shadow-sm"
                 disabled={actionLoading}
                 onChange={(event) => {
                   if (event.target.value && onAssignAgent) {
@@ -940,9 +1023,9 @@ export function SidePanel({
                 }}
                 value=""
               >
-                <option value="" disabled className="bg-[#1f1f1f]">Select an agent...</option>
+                <option value="" disabled className="bg-white">Select an agent...</option>
                 {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id} className="bg-[#1f1f1f]">
+                  <option key={agent.id} value={agent.id} className="bg-white">
                     {agent.name}
                   </option>
                 ))}
@@ -950,7 +1033,7 @@ export function SidePanel({
             </div>
           ) : (
             <button
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-[#444444] bg-[#2a2a2a] text-sm font-medium cursor-pointer hover:bg-[#333333] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white shadow-sm text-sm font-semibold cursor-pointer text-slate-700 hover:bg-slate-50 hover:text-[#EE0033] hover:border-[#EE0033]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={actionLoading}
               onClick={onAssignToMe}
               type="button"
@@ -983,11 +1066,11 @@ function ChannelBadge({ channelType }: { channelType: ChannelType }) {
   );
 
   const colors = isEmail
-    ? "bg-fuchsia-600 text-white border-fuchsia-600"
-    : "bg-indigo-600 text-white border-indigo-600";
+    ? "bg-slate-700 text-white border-transparent"
+    : "bg-indigo-600 text-white border-transparent";
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] leading-none font-medium border ${colors}`}>
+    <span className={`inline-flex items-center justify-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${colors}`}>
       {icon}
       {channelOptions.find((option) => option.value === channelType)?.label}
     </span>
@@ -996,15 +1079,15 @@ function ChannelBadge({ channelType }: { channelType: ChannelType }) {
 
 function StatusBadge({ status }: { status: ConversationStatus }) {
   const colors = {
-    NEW: "bg-violet-600 text-white border-violet-600",
-    IN_PROGRESS: "bg-blue-600 text-white border-blue-600",
-    WAITING_CUSTOMER: "bg-amber-600 text-white border-amber-600",
-    RESOLVED: "bg-emerald-600 text-white border-emerald-600",
-    CLOSED: "bg-neutral-700 text-neutral-300 border-neutral-700",
-  }[status] || "bg-neutral-700 text-neutral-300 border-neutral-700";
+    NEW: "bg-[#EE0033] text-white border-transparent",
+    IN_PROGRESS: "bg-blue-600 text-white border-transparent",
+    WAITING_CUSTOMER: "bg-amber-500 text-white border-transparent",
+    RESOLVED: "bg-emerald-600 text-white border-transparent",
+    CLOSED: "bg-slate-500 text-white border-transparent",
+  }[status] || "bg-slate-500 text-white border-transparent";
 
   return (
-    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] leading-none font-medium border ${colors}`}>
+    <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${colors}`}>
       {formatEnum(status)}
     </span>
   );
@@ -1013,16 +1096,16 @@ function StatusBadge({ status }: { status: ConversationStatus }) {
 function PriorityBadge({ priority }: { priority: Priority }) {
   const className =
     priority === "URGENT"
-      ? "bg-rose-600 text-white border-rose-600"
+      ? "bg-rose-600 text-white border-transparent"
       : priority === "HIGH"
-        ? "bg-orange-600 text-white border-orange-600"
+        ? "bg-orange-600 text-white border-transparent"
         : priority === "MEDIUM"
-          ? "bg-sky-600 text-white border-sky-600"
-          : "bg-neutral-600 text-white border-neutral-600";
+          ? "bg-amber-600 text-white border-transparent"
+          : "bg-slate-500 text-white border-transparent";
 
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] leading-none font-medium border ${className}`}
+      className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${className}`}
     >
       {formatEnum(priority)}
     </span>
