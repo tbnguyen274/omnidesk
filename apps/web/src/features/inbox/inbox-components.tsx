@@ -2,8 +2,6 @@
 
 import {
   AlertCircle,
-  Check,
-  ChevronRight,
   Inbox,
   LogOut,
   Mail,
