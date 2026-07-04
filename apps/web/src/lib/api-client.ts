@@ -12,6 +12,7 @@ import type {
   Priority,
   DashboardSummary,
   AgentPerformance,
+  UserRole,
 } from "./api-types";
 import { API_BASE_URL } from "./app-config";
 
@@ -189,6 +190,26 @@ export const apiClient = {
   getAgentPerformance(token: string) {
     return request<AgentPerformance[]>("/dashboard/agent-performance", "GET", {
       token,
+    });
+  },
+
+  getUsers(token: string) {
+    return request<CurrentUser[]>("/users", "GET", {
+      token,
+    });
+  },
+
+  createUser(token: string, data: { name: string; email: string; role: UserRole }) {
+    return request<CurrentUser>("/users", "POST", {
+      token,
+      body: data,
+    });
+  },
+
+  updateUserStatus(token: string, id: string, status: string) {
+    return request<CurrentUser>(`/users/${id}/status`, "PATCH", {
+      token,
+      body: { status },
     });
   },
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
 import { REALTIME_EVENT_TYPES, type RealtimeEvent, type AgentTypingRealtimeEvent } from "@omnidesk/shared";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useRealtime } from "@/lib/use-realtime";
@@ -10,28 +11,19 @@ import type {
   ConversationListItem,
   ConversationStatus,
   CreateOutboundMessagePayload,
-  CurrentUser,
   Priority,
 } from "@/lib/api-types";
 import {
-  AppHeader,
   ConversationDetailPanel,
   ConversationList,
   ErrorBanner,
   InboxFilters,
-  LoadingScreen,
-  LoginScreen,
   SidePanel,
 } from "@/features/inbox/inbox-components";
 
 
-const TOKEN_STORAGE_KEY = "omnidesk.accessToken";
-
 export default function Home() {
-  const [token, setToken] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const { token, currentUser } = useAuth();
   const [conversations, setConversations] = useState<ConversationListItem[]>(
     [],
   );
@@ -58,33 +50,15 @@ export default function Home() {
   const realtimeFallbackActive =
     connectionState === "disconnected" || connectionState === "error";
 
-  useEffect(() => {
-    const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
 
-    if (!storedToken) {
-      return;
-    }
-
-    apiClient
-      .me(storedToken)
-      .then((user) => {
-        setToken(storedToken);
-        setCurrentUser(user);
-        void loadAgents(storedToken);
-        void loadTags(storedToken);
-      })
-      .catch(() => {
-        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-        setToken(null);
-      })
-      .finally(() => setAuthLoading(false));
-  }, []);
 
   useEffect(() => {
     if (!token || !currentUser) {
       return;
     }
 
+    void loadAgents(token);
+    void loadTags(token);
     void loadConversations(token, filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, currentUser, filters.channelType, filters.status, filters.priority]);
@@ -123,33 +97,7 @@ export default function Home() {
     selectedId,
   ]);
 
-  async function handleLogin(email: string, password: string) {
-    setAuthError(null);
-    setAuthLoading(true);
 
-    try {
-      const data = await apiClient.login(email, password);
-      const dummyToken = "cookie-auth"; // Tokens are now handled via HttpOnly Cookies
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, dummyToken);
-      setToken(dummyToken);
-      setCurrentUser(data.user);
-      void loadAgents(dummyToken);
-      void loadTags(dummyToken);
-    } catch (caught) {
-      setAuthError(getErrorMessage(caught));
-    } finally {
-      setAuthLoading(false);
-    }
-  }
-
-  function handleLogout() {
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-    setToken(null);
-    setCurrentUser(null);
-    setConversations([]);
-    setSelectedId(null);
-    setSelectedConversation(null);
-  }
 
   async function loadAgents(accessToken: string) {
     try {
@@ -436,26 +384,10 @@ export default function Home() {
     }
   }
 
-  if (authLoading && !currentUser) {
-    return <LoadingScreen />;
-  }
-
-  if (!token || !currentUser) {
-    return <LoginScreen error={authError} onLogin={handleLogin} />;
-  }
+  if (!currentUser) return null;
 
   return (
-    <main className="h-screen w-full overflow-hidden bg-[#F8F9FB] p-2 sm:p-4 text-slate-800">
-      <div className="flex h-full flex-col gap-4">
-        <div className="shrink-0 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-          <AppHeader
-            apiBaseUrl={apiClient.baseUrl}
-            currentUser={currentUser}
-            onLogout={handleLogout}
-          />
-        </div>
-
-        <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)_320px]">
+    <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)_320px]">
           <aside className="flex min-h-0 flex-col rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
             <InboxFilters
               filters={filters}
@@ -505,8 +437,6 @@ export default function Home() {
             />
           </aside>
         </section>
-      </div>
-    </main>
   );
 }
 

@@ -18,6 +18,7 @@ import {
   Paperclip,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { FormEvent, useMemo, useState, useEffect, useRef, useLayoutEffect } from "react";
 import { apiClient } from "@/lib/api-client";
 import type {
@@ -272,6 +273,8 @@ export function AppHeader({
   currentUser: CurrentUser;
   onLogout: () => void;
 }) {
+  const pathname = usePathname();
+
   return (
     <header className="flex min-h-16 items-center justify-between gap-4 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 shadow-sm z-10 relative">
       <div className="flex items-center gap-6">
@@ -285,12 +288,40 @@ export function AppHeader({
           </div>
         </div>
         <nav className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-6 h-10">
-          <Link href="/" className="text-sm font-semibold text-slate-900 hover:text-[#EE0033] transition-colors">
+          <Link 
+            href="/" 
+            className={`text-sm transition-colors ${
+              pathname === "/" || pathname?.startsWith("/inbox") 
+                ? "font-semibold text-slate-900" 
+                : "font-medium text-slate-500 hover:text-[#EE0033]"
+            }`}
+          >
             Inbox
           </Link>
-          <Link href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-[#EE0033] transition-colors">
-            Dashboard
-          </Link>
+          {currentUser.role === "ADMIN" && (
+            <>
+              <Link 
+                href="/dashboard" 
+                className={`text-sm transition-colors ${
+                  pathname === "/dashboard" 
+                    ? "font-semibold text-slate-900" 
+                    : "font-medium text-slate-500 hover:text-[#EE0033]"
+                }`}
+              >
+                Dashboard
+              </Link>
+              <Link 
+                href="/user" 
+                className={`text-sm transition-colors ${
+                  pathname === "/user" || pathname?.startsWith("/user/") 
+                    ? "font-semibold text-slate-900" 
+                    : "font-medium text-slate-500 hover:text-[#EE0033]"
+                }`}
+              >
+                Users
+              </Link>
+            </>
+          )}
         </nav>
       </div>
 
