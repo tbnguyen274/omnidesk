@@ -11,6 +11,9 @@ import { FacebookOutboundService } from '../facebook/services/facebook-outbound.
 import { EmailSyncProcessor } from '../processors/email-sync.processor';
 import { EmailActionsProcessor } from '../processors/email-actions.processor';
 import { EmailActionsService } from '../email/email-actions.service';
+import { EmailOutboundAdapter } from '../outbound/adapters/email-outbound.adapter';
+import { FacebookOutboundAdapter } from '../outbound/adapters/facebook-outbound.adapter';
+import { OutboundAdapterRegistry } from '../outbound/adapters/outbound-adapter.registry';
 import { InboundEventsProcessor } from '../processors/inbound-events.processor';
 import { OutboundMessagesProcessor } from '../processors/outbound-messages.processor';
 import { SlaCheckProcessor } from '../processors/sla-check.processor';
@@ -32,6 +35,9 @@ import { QueueService } from './queue.service';
     FacebookInboundService,
     FacebookOutboundRepository,
     FacebookOutboundService,
+    EmailOutboundAdapter,
+    FacebookOutboundAdapter,
+    OutboundAdapterRegistry,
     InboundEventsProcessor,
     OutboundMessagesProcessor,
     EmailSyncProcessor,

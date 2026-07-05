@@ -4,10 +4,9 @@ import {
   OutboundMessageJobPayload,
   REALTIME_EVENT_TYPES,
 } from '@omnidesk/shared';
-import { OutboundMessageStatus, OutboundProvider } from '@prisma/client';
+import { OutboundMessageStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
-import { EmailOutboundService } from '../email/email-outbound.service';
-import { FacebookOutboundService } from '../facebook/services/facebook-outbound.service';
+import { OutboundAdapterRegistry } from '../outbound/adapters/outbound-adapter.registry';
 import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
 
 @Injectable()
@@ -16,8 +15,7 @@ export class OutboundMessagesProcessor {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly emailOutbound: EmailOutboundService,
-    private readonly facebookOutbound: FacebookOutboundService,
+    private readonly outboundAdapters: OutboundAdapterRegistry,
     private readonly realtimeEventsPublisher: RealtimeEventsPublisher,
   ) {}
 
@@ -51,24 +49,12 @@ export class OutboundMessagesProcessor {
         throw new Error('Mock outbound provider failure');
       }
 
-      let sentAt = new Date();
-      let externalMessageId = `mock_${outboundMessage.id}`;
-
-      if (outboundMessage.provider === OutboundProvider.EMAIL) {
-        const sentEmail = await this.emailOutbound.sendOutboundMessage(
-          outboundMessage.id,
-        );
-        externalMessageId = sentEmail.externalMessageId;
-        sentAt = sentEmail.sentAt;
-      }
-
-      if (outboundMessage.provider === OutboundProvider.FACEBOOK) {
-        const sentFb = await this.facebookOutbound.sendOutboundMessage(
-          outboundMessage.id,
-        );
-        externalMessageId = sentFb.externalMessageId;
-        sentAt = sentFb.sentAt;
-      }
+      const outboundAdapter = this.outboundAdapters.get(
+        outboundMessage.provider,
+      );
+      const { externalMessageId, sentAt } = await outboundAdapter.send(
+        outboundMessage.id,
+      );
 
       const sentMessage = await this.prisma.outboundMessage.update({
         where: { id: outboundMessage.id },
@@ -85,13 +71,7 @@ export class OutboundMessagesProcessor {
         sentMessage.status,
       );
 
-      if (outboundMessage.provider === OutboundProvider.EMAIL) {
-        await this.emailOutbound.createTimelineMessage(outboundMessage.id);
-      }
-
-      if (outboundMessage.provider === OutboundProvider.FACEBOOK) {
-        await this.facebookOutbound.createTimelineMessage(outboundMessage.id);
-      }
+      await outboundAdapter.createTimelineMessage(outboundMessage.id);
     } catch (error) {
       const attempts = Number(job.opts.attempts ?? 1);
       const finalAttempt = job.attemptsMade + 1 >= attempts;

@@ -19,7 +19,7 @@
 
 OmniDesk is a modern helpdesk platform that solves the problem of fragmented customer communications. Businesses managing multiple support channels - Facebook Messenger, Facebook Comments, and Email-often lose track of requests across different tabs and tools.
 
-OmniDesk standardizes every customer interaction into a unified `Conversation → Message → Ticket` hierarchy, giving support agents a single place to read, respond, and manage all requests. It features real-time updates via WebSockets, automated ticket lifecycle workflows, and a queue-based background processing architecture designed for reliability at scale.
+OmniDesk standardizes every customer interaction into a unified `Conversation → Message → Ticket` hierarchy, giving support agents a single place to read, respond, and manage all requests. The primary integration path is live Facebook Webhooks/Graph API and live IMAP/SMTP email; mock providers remain available as a local/demo fallback. It features real-time updates via WebSockets, automated ticket lifecycle workflows, and a queue-based background processing architecture designed for reliability at scale.
 
 ---
 
@@ -33,10 +33,11 @@ OmniDesk standardizes every customer interaction into a unified `Conversation �
 | 🔄 **Auto-Reopen** | Reopens resolved tickets and restores full SLA if a customer replies. |
 | 🔒 **Auto-Close** | Permanently closes tickets that have been in `RESOLVED` state for more than 3 days. |
 | 🛡 **Idempotency** | Dedup keys on all inbound events prevent duplicate processing when webhooks are retried. |
-| 📤 **Outbox Pattern** | Outbound messages are persisted before sending, enabling automatic retry on provider failure. |
+| 📤 **Outbox + Provider Adapters** | Outbound messages are persisted before sending; worker adapters isolate SMTP and Facebook Graph API delivery logic. |
 | ⚡ **Real-time Sync** | WebSocket events keep the Inbox UI updated instantly across all connected agents. |
-| 🚦 **Concurrency Control** | Row-Level Locking in PostgreSQL serializes concurrent webhooks to prevent duplicate data generation. |
-| 🧪 **Mock Mode** | A fully mocked environment for demos without requiring live Facebook API credentials. |
+| 🚦 **Concurrency Control** |Inbound dedup keys, customer row-level locking, and optimistic version checks reduce duplicate processing and stale agent updates. |
+| 🔌 **Live Provider Integration** | Connects to Facebook Webhooks/Graph API and IMAP/SMTP email for real inbound/outbound flows. |
+| 🧪 **Fallback Mock Mode** | Mock adapters and dev endpoints remain available for local development and demo fallback when external providers are unavailable. |
 | 🔒 **Security** | Robust Auth with HttpOnly Cookies, Refresh Token Rotation, RBAC (`ADMIN`/`AGENT`), and password reset/invitation flows. |
 
 ---
@@ -210,9 +211,13 @@ Admin users can open the user management screen to create new `ADMIN`/`AGENT` ac
 
 The login page also supports forgot password. Reset links expire after 1 hour and invalidate the user's refresh token after a successful password change.
 
-### Seed Demo Data
+### Live Provider Smoke Test
 
-To instantly populate the inbox with mock conversations (no live Facebook connection required):
+For a live-ready run, configure the Facebook Page access token, webhook verify token, app secret, and IMAP/SMTP credentials. Then send a real Messenger message/comment to the connected Page and a real email to the support mailbox; both should appear in the Unified Inbox, and agent replies should be delivered back through the original provider.
+
+### Fallback Demo Data
+
+To instantly populate the inbox with mock conversations when external providers are unavailable:
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/dev/seed-demo-data
@@ -239,8 +244,14 @@ Copy `.env.docker.example` to `.env.docker` (for Docker) or `.env` (for local de
 | `JWT_SECRET` | Secret key used to sign auth tokens. Change this in production. | ✅ |
 | `API_PORT` | Port the API server listens on. Defaults to `3000`. | ✅ |
 | `NEXT_PUBLIC_API_BASE_URL` | Base URL of the API, accessible from the browser. | ✅ |
+| `FACEBOOK_PROVIDER_MODE` | `live` for Meta integration, `mock` for local fallback. | Production |
 | `FACEBOOK_APP_SECRET` | Used to verify incoming webhook signatures from Meta. | Production |
+| `FACEBOOK_VERIFY_TOKEN` | Token configured in Meta Webhooks for callback verification. | Production |
 | `PAGE_ACCESS_TOKEN` | Used to send outbound messages via Meta Graph API. | Production |
+| `EMAIL_INBOUND_MODE` | `live` to poll IMAP, `mock` for dev fallback. | Production |
+| `EMAIL_OUTBOUND_MODE` | `live` to send SMTP, `mock` to log outbound links/messages. | Production |
+| `EMAIL_IMAP_*` | IMAP host, port, auth and mailbox settings for inbound email. | Production |
+| `EMAIL_SMTP_*` | SMTP host, port and auth settings for outbound email and auth emails. | Production |
 
 ---
 
