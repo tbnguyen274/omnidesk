@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api-client";
 import type { CurrentUser } from "@/lib/api-types";
 
 const TOKEN_STORAGE_KEY = "omnidesk.accessToken";
+const COOKIE_AUTH_MARKER = "cookie-auth";
 
 interface AuthContextType {
   token: string | null;
@@ -12,7 +13,7 @@ interface AuthContextType {
   authLoading: boolean;
   authError: string | null;
   handleLogin: (email: string, password: string) => Promise<void>;
-  handleLogout: () => void;
+  handleLogout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,28 +29,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+  async function restoreSession(sessionMarker: string, hadStoredSession: boolean) {
+    try {
+      const user = await apiClient.me(sessionMarker);
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, sessionMarker);
+      setToken(sessionMarker);
+      setCurrentUser(user);
+      setAuthError(null);
+    } catch {
+      window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+      setToken(null);
+      setCurrentUser(null);
 
-    if (!storedToken) {
+      setAuthError(
+        hadStoredSession ? "Session expired. Please log in again." : null,
+      );
+    } finally {
       setTimeout(() => {
         setAuthLoading(false);
       }, 0);
-      return;
     }
+  }
 
-    apiClient
-      .me(storedToken)
-      .then((user) => {
-        setToken(storedToken);
-        setCurrentUser(user);
-      })
-      .catch(() => {
-        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-        setToken(null);
-        setAuthError("Session expired. Please log in again.");
-      })
-      .finally(() => setAuthLoading(false));
+  useEffect(() => {
+    const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+
+    // Session restoration synchronizes cookie/localStorage auth state on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void restoreSession(storedToken ?? COOKIE_AUTH_MARKER, Boolean(storedToken));
   }, []);
 
   async function handleLogin(email: string, password: string) {
@@ -58,11 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const data = await apiClient.login(email, password);
-      // Tokens are now handled via HttpOnly Cookies or localStorage depending on setup
-      // We keep dummy token for client side checks as per existing code
-      const dummyToken = data.accessToken || "cookie-auth"; 
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, dummyToken);
-      setToken(dummyToken);
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, COOKIE_AUTH_MARKER);
+      setToken(COOKIE_AUTH_MARKER);
       setCurrentUser(data.user);
     } catch (caught) {
       setAuthError(getErrorMessage(caught));
@@ -71,10 +75,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await apiClient.logout();
+    } catch {
+      // Local logout should still clear the client session if the API is unreachable.
+    }
+
     window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken(null);
     setCurrentUser(null);
+    setAuthError(null);
   }
 
   return (

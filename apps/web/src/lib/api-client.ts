@@ -20,6 +20,7 @@ type RequestOptions = {
   token?: string;
   body?: unknown;
   query?: Record<string, string | number | undefined>;
+  skipAuthRefresh?: boolean;
 };
 
 export class ApiError extends Error {
@@ -29,6 +30,18 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
+}
+
+let refreshPromise: Promise<unknown> | null = null;
+
+async function refreshSession() {
+  refreshPromise ??= request<{ success: boolean }>("/auth/refresh", "POST", {
+    skipAuthRefresh: true,
+  }).finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
 }
 
 async function request<T>(
@@ -60,6 +73,18 @@ async function request<T>(
     | { message?: string; error?: { message?: string } }
     | null;
 
+  if (
+    response.status === 401 &&
+    !options.skipAuthRefresh &&
+    path !== "/auth/refresh"
+  ) {
+    await refreshSession();
+    return request<T>(path, method, {
+      ...options,
+      skipAuthRefresh: true,
+    });
+  }
+
   if (!response.ok) {
     const message =
       payload && "error" in payload
@@ -82,6 +107,14 @@ export const apiClient = {
     return request<LoginResponse>("/auth/login", "POST", {
       body: { email, password },
     });
+  },
+
+  refresh() {
+    return refreshSession();
+  },
+
+  logout() {
+    return request<{ success: boolean }>("/auth/logout", "POST");
   },
 
   forgotPassword(email: string) {

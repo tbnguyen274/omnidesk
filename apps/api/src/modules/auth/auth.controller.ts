@@ -11,6 +11,8 @@ import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
+const REFRESH_COOKIE_PATH = '/api/v1/auth/refresh';
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
@@ -46,7 +48,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/api/auth/refresh', // only sent to the refresh endpoint
+      path: REFRESH_COOKIE_PATH,
     });
 
     return {
@@ -104,7 +106,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/api/auth/refresh',
+      path: REFRESH_COOKIE_PATH,
     });
 
     return {
@@ -126,6 +128,7 @@ export class AuthController {
     await this.authService.logout(user.id);
 
     res.clearCookie('Authentication');
+    res.clearCookie('Refresh', { path: REFRESH_COOKIE_PATH });
     res.clearCookie('Refresh', { path: '/api/auth/refresh' });
 
     return {
