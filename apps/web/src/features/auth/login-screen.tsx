@@ -1,8 +1,8 @@
 "use client";
 
-import { Check, Eye, EyeOff, Inbox, X } from "lucide-react";
+import { Eye, EyeOff, Inbox } from "lucide-react";
 import { type FormEvent, useState } from "react";
-import { apiClient } from "@/lib/api-client";
+import { ForgotPasswordModal } from "@/features/auth/forgot-password-modal";
 
 export function LoginScreen({
   error,
@@ -16,29 +16,12 @@ export function LoginScreen({
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [forgotPasswordModalOpen, setForgotPasswordModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotStatus, setForgotStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [forgotError, setForgotError] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     await onLogin(email, password);
     setSubmitting(false);
-  }
-
-  async function handleForgotPassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setForgotStatus("loading");
-    setForgotError("");
-
-    try {
-      await apiClient.forgotPassword(forgotEmail);
-      setForgotStatus("success");
-    } catch (err) {
-      setForgotError(err instanceof Error ? err.message : "An error occurred");
-      setForgotStatus("error");
-    }
   }
 
   return (
@@ -147,75 +130,8 @@ export function LoginScreen({
 
       </div>
 
-      {/* Forgot Password Modal */}
       {forgotPasswordModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-[400px] rounded-2xl bg-white p-8 shadow-2xl">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900">Reset Password</h2>
-              <button
-                type="button"
-                className="text-slate-400 hover:text-slate-600"
-                onClick={() => setForgotPasswordModalOpen(false)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {forgotStatus === "success" ? (
-              <div className="text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                  <Check size={24} />
-                </div>
-                <h3 className="mb-2 text-lg font-medium text-slate-900">Check your email</h3>
-                <p className="text-sm text-slate-500">
-                  We sent a password reset link to <span className="font-medium text-slate-800">{forgotEmail}</span>
-                </p>
-                <button
-                  type="button"
-                  className="mt-6 w-full rounded-xl bg-slate-100 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-200"
-                  onClick={() => setForgotPasswordModalOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleForgotPassword}>
-                <p className="mb-4 text-sm text-slate-500">
-                  Enter your email address and we&apos;ll send you a link to reset your password.
-                </p>
-                <div className="mb-6">
-                  <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="forgot-email">
-                    Email Address
-                  </label>
-                  <input
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:bg-white focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033]"
-                    id="forgot-email"
-                    type="email"
-                    required
-                    placeholder="Enter your email"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                  />
-                </div>
-
-                {forgotStatus === "error" && (
-                  <div className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-600 border border-red-100">
-                    {forgotError}
-                  </div>
-                )}
-
-                <button
-                  className="flex h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-[#EE0033] text-sm font-bold text-white shadow-md shadow-[#EE0033]/20 hover:bg-[#c4002a] hover:shadow-lg hover:shadow-[#EE0033]/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-                  type="submit"
-                  disabled={forgotStatus === "loading" || !forgotEmail}
-                >
-                  {forgotStatus === "loading" ? "Sending..." : "Send Reset Link"}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
+        <ForgotPasswordModal onClose={() => setForgotPasswordModalOpen(false)} />
       )}
     </main>
   );

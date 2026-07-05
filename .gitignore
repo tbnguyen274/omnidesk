@@ -78,7 +78,7 @@ desktop.ini
 node_modules/
 docs/
 plans/
-utils/
+/utils/
 
 # .github/
 .postman/
