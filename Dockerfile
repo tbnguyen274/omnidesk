@@ -22,6 +22,11 @@ RUN pnpm install --frozen-lockfile
 # Copy all source code (node_modules already excluded via .dockerignore)
 COPY . .
 
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api/v1
+ARG NEXT_PUBLIC_REALTIME_URL=http://localhost:3000/notifications
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_REALTIME_URL=$NEXT_PUBLIC_REALTIME_URL
+
 # Generate Prisma client and build all apps (sequential for clear errors)
 RUN pnpm --filter @omnidesk/shared build
 RUN pnpm --filter api exec prisma generate --schema prisma/schema.prisma
@@ -36,6 +41,7 @@ FROM base AS web
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3002
+ENV HOSTNAME=0.0.0.0
 COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
