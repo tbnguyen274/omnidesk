@@ -22,9 +22,9 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/api/v1 (GET)', () => {
+  it('/api (GET)', () => {
     return request(app.getHttpServer())
-      .get('/api/v1')
+      .get('/api')
       .expect(200)
       .expect('OmniDesk API is running');
   });
