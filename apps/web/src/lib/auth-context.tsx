@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { apiClient } from "@/lib/api-client";
+import { ApiError, apiClient } from "@/lib/api-client";
 import type { CurrentUser } from "@/lib/api-types";
 
 const TOKEN_STORAGE_KEY = "omnidesk.accessToken";
@@ -21,6 +21,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function getLoginErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.status === 401) {
+    return "Invalid email or password.";
+  }
+
+  return getErrorMessage(error);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -69,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(COOKIE_AUTH_MARKER);
       setCurrentUser(data.user);
     } catch (caught) {
-      setAuthError(getErrorMessage(caught));
+      setAuthError(getLoginErrorMessage(caught));
     } finally {
       setAuthLoading(false);
     }

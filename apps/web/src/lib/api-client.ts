@@ -34,6 +34,30 @@ export class ApiError extends Error {
 
 let refreshPromise: Promise<unknown> | null = null;
 
+type ErrorPayload = {
+  message?: string | string[];
+  error?: string | { message?: string | string[] };
+};
+
+function formatErrorMessage(message: unknown) {
+  if (Array.isArray(message)) return message.join(", ");
+  if (typeof message === "string" && message.trim() !== "") return message;
+  return null;
+}
+
+function getApiErrorMessage(payload: ErrorPayload | null) {
+  if (!payload) return null;
+
+  const topLevelMessage = formatErrorMessage(payload.message);
+  if (topLevelMessage) return topLevelMessage;
+
+  if (typeof payload.error === "object" && payload.error !== null) {
+    return formatErrorMessage(payload.error.message);
+  }
+
+  return formatErrorMessage(payload.error);
+}
+
 async function refreshSession() {
   refreshPromise ??= request<{ success: boolean }>("/auth/refresh", "POST", {
     skipAuthRefresh: true,
@@ -70,7 +94,7 @@ async function request<T>(
 
   const payload = (await response.json().catch(() => null)) as
     | ApiResponse<T>
-    | { message?: string; error?: { message?: string } }
+    | ErrorPayload
     | null;
 
   if (
@@ -86,10 +110,7 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    const message =
-      payload && "error" in payload
-        ? payload.error?.message
-        : payload?.message;
+    const message = getApiErrorMessage(payload);
     throw new ApiError(message ?? "Request failed", response.status);
   }
 
@@ -106,6 +127,7 @@ export const apiClient = {
   login(email: string, password: string) {
     return request<LoginResponse>("/auth/login", "POST", {
       body: { email, password },
+      skipAuthRefresh: true,
     });
   },
 

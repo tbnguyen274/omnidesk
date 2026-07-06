@@ -11,8 +11,8 @@ export function LoginScreen({
   error: string | null;
   onLogin: (email: string, password: string) => Promise<void>;
 }) {
-  const [email, setEmail] = useState("agent@omnidesk.local");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [forgotPasswordModalOpen, setForgotPasswordModalOpen] = useState(false);
@@ -60,14 +60,14 @@ export function LoginScreen({
           <div className="space-y-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="email">
-                Email Address
+                Email
               </label>
               <input
                 className="h-12 w-full rounded-xl border border-[#EE0033] bg-slate-50/80 px-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:bg-white focus:ring-1 focus:ring-[#EE0033]"
                 id="email"
                 onChange={(event) => setEmail(event.target.value)}
                 type="email"
-                placeholder="agent@omnidesk.local"
+                placeholder="you@example.com"
                 value={email}
               />
             </div>
@@ -120,7 +120,7 @@ export function LoginScreen({
           <div className="mt-5 text-center">
             <button
               type="button"
-              className="text-sm font-semibold text-[#EE0033] hover:underline"
+              className="text-sm font-semibold text-[#EE0033] hover:underline cursor-pointer transition-colors"
               onClick={() => setForgotPasswordModalOpen(true)}
             >
               Forgot Password?

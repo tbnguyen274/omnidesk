@@ -30,7 +30,7 @@ export function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
           <h2 className="text-xl font-bold text-slate-900">Reset Password</h2>
           <button
             type="button"
-            className="text-slate-400 hover:text-slate-600"
+            className="text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
             onClick={onClose}
           >
             <X size={20} />
@@ -62,7 +62,7 @@ export function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
             </p>
             <div className="mb-6">
               <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="forgot-email">
-                Email Address
+                Email
               </label>
               <input
                 className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-[#EE0033] focus:bg-white focus:ring-1 focus:ring-[#EE0033]"

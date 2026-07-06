@@ -3,8 +3,6 @@
 import { useAuth } from "@/lib/auth-context";
 import { AppHeader, LoginScreen } from "@/features/inbox/inbox-components";
 
-const API_BASE_URL = "http://localhost:3000/api/v1";
-
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const { token, currentUser, authLoading, authError, handleLogin, handleLogout } = useAuth();
 
@@ -26,7 +24,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         {/* Floating Header used globally */}
         <div className="shrink-0 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
           <AppHeader
-            apiBaseUrl={API_BASE_URL}
             currentUser={currentUser}
             onLogout={handleLogout}
           />
