@@ -48,7 +48,9 @@ jobs:
         run: pnpm --filter api test:e2e
 
       - name: Validate Docker Compose
-        run: docker compose --env-file .env.docker.example config --quiet
+        run: |
+          cp .env.docker.example .env.docker
+          docker compose --env-file .env.docker config --quiet
 
       - name: Build Applications
         run: pnpm build
