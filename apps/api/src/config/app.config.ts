@@ -24,8 +24,14 @@ function getNumberEnv(name: string) {
 function getJwtSecret() {
   const secret = getEnv('JWT_SECRET');
 
-  if (process.env.NODE_ENV === 'production' && !secret) {
-    throw new Error('JWT_SECRET is required in production');
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret) {
+      throw new Error('JWT_SECRET is required in production');
+    }
+
+    if (isInsecureSecret(secret, DEFAULT_JWT_SECRET)) {
+      throw new Error('JWT_SECRET must be changed for production');
+    }
   }
 
   return secret ?? DEFAULT_JWT_SECRET;
@@ -34,11 +40,28 @@ function getJwtSecret() {
 function getJwtRefreshSecret() {
   const secret = getEnv('JWT_REFRESH_SECRET');
 
-  if (process.env.NODE_ENV === 'production' && !secret) {
-    throw new Error('JWT_REFRESH_SECRET is required in production');
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret) {
+      throw new Error('JWT_REFRESH_SECRET is required in production');
+    }
+
+    if (isInsecureSecret(secret, DEFAULT_JWT_REFRESH_SECRET)) {
+      throw new Error('JWT_REFRESH_SECRET must be changed for production');
+    }
   }
 
   return secret ?? DEFAULT_JWT_REFRESH_SECRET;
+}
+
+function isInsecureSecret(secret: string, defaultValue: string) {
+  const normalized = secret.trim().toLowerCase();
+
+  return (
+    normalized === defaultValue ||
+    normalized.includes('change-me') ||
+    normalized.includes('local-env') ||
+    normalized.length < 32
+  );
 }
 
 export const appConfig = {

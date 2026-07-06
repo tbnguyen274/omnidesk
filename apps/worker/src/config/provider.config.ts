@@ -100,6 +100,7 @@ export const providerConfig = {
 
 export function validateProviderConfig() {
   const errors: string[] = [];
+  const isProduction = process.env.NODE_ENV === 'production';
 
   if (providerConfig.email.inboundMode === 'live') {
     requireFields(errors, 'EMAIL live inbound', {
@@ -120,11 +121,16 @@ export function validateProviderConfig() {
 
   if (providerConfig.facebook.providerMode === 'live') {
     requireFields(errors, 'FACEBOOK live provider', {
+      FACEBOOK_APP_ID: providerConfig.facebook.appId,
       FACEBOOK_APP_SECRET: providerConfig.facebook.appSecret,
       FACEBOOK_VERIFY_TOKEN: providerConfig.facebook.verifyToken,
       FACEBOOK_PAGE_ID: providerConfig.facebook.pageId,
       FACEBOOK_PAGE_ACCESS_TOKEN: providerConfig.facebook.pageAccessToken,
     });
+  }
+
+  if (isProduction) {
+    requireProductionLiveMode(errors);
   }
 
   if (errors.length > 0) {
@@ -142,4 +148,39 @@ function requireFields(
       errors.push(`${scope} requires ${name}`);
     }
   }
+}
+
+function requireProductionLiveMode(errors: string[]) {
+  if (providerConfig.email.inboundMode !== 'live') {
+    errors.push('production requires EMAIL_INBOUND_MODE=live');
+  }
+
+  if (providerConfig.email.outboundMode !== 'live') {
+    errors.push('production requires EMAIL_OUTBOUND_MODE=live');
+  }
+
+  if (providerConfig.facebook.providerMode !== 'live') {
+    errors.push('production requires FACEBOOK_PROVIDER_MODE=live');
+  }
+
+  requireFields(errors, 'production EMAIL inbound', {
+    EMAIL_IMAP_HOST: providerConfig.email.imap.host,
+    EMAIL_IMAP_USER: providerConfig.email.imap.user,
+    EMAIL_IMAP_PASSWORD: providerConfig.email.imap.password,
+  });
+
+  requireFields(errors, 'production EMAIL outbound', {
+    EMAIL_SMTP_HOST: providerConfig.email.smtp.host,
+    EMAIL_SMTP_USER: providerConfig.email.smtp.user,
+    EMAIL_SMTP_PASSWORD: providerConfig.email.smtp.password,
+    EMAIL_FROM_ADDRESS: providerConfig.email.smtp.fromAddress,
+  });
+
+  requireFields(errors, 'production FACEBOOK provider', {
+    FACEBOOK_APP_ID: providerConfig.facebook.appId,
+    FACEBOOK_APP_SECRET: providerConfig.facebook.appSecret,
+    FACEBOOK_VERIFY_TOKEN: providerConfig.facebook.verifyToken,
+    FACEBOOK_PAGE_ID: providerConfig.facebook.pageId,
+    FACEBOOK_PAGE_ACCESS_TOKEN: providerConfig.facebook.pageAccessToken,
+  });
 }

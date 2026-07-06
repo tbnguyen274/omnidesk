@@ -161,9 +161,15 @@ cp .env.docker.example .env.docker
 
 **2. Start the system:**
 ```bash
-docker compose up --build -d
+pnpm docker:up
 ```
-> Docker will install dependencies, build all apps, and automatically run database migrations on first start.
+> Docker builds all apps, waits for PostgreSQL/Redis health checks, and runs database migrations when the API starts.
+
+**Optional database commands:**
+```bash
+pnpm docker:migrate  # run Prisma migrate deploy explicitly
+pnpm docker:seed     # seed initial demo/admin data
+```
 
 **3. Access the application:**
 - Web UI: **http://localhost:3002**
@@ -230,11 +236,15 @@ To reset demo data:
 curl -X POST http://localhost:3000/api/v1/dev/reset-demo-data
 ```
 
+> `/dev/*` endpoints are available only when `NODE_ENV` is not `production`. In production, use live Facebook Webhooks/Graph API and IMAP/SMTP provider configuration.
+
 ---
 
 ## ⚙️ Environment Variables
 
 Copy `.env.docker.example` to `.env.docker` (for Docker) or `.env` (for local dev) and fill in the values.
+
+Local Docker defaults to `NODE_ENV=development` and mock provider modes so the stack can run without external credentials. For production, set `NODE_ENV=production`, replace both JWT secrets with long random values, set Email/Facebook provider modes to `live`, and provide all IMAP/SMTP/Facebook credentials. The API and Worker fail fast if production is started with mock modes, missing provider credentials, or insecure `change-me` secrets.
 
 | Variable | Description | Required |
 |---|---|---|
@@ -242,16 +252,19 @@ Copy `.env.docker.example` to `.env.docker` (for Docker) or `.env` (for local de
 | `REDIS_HOST` | Hostname of the Redis server. | ✅ |
 | `REDIS_PORT` | Port of the Redis server. | ✅ |
 | `JWT_SECRET` | Secret key used to sign auth tokens. Change this in production. | ✅ |
+| `JWT_REFRESH_SECRET` | Secret key used to sign refresh tokens. Change this in production. | ✅ |
 | `API_PORT` | Port the API server listens on. Defaults to `3000`. | ✅ |
 | `NEXT_PUBLIC_API_BASE_URL` | Base URL of the API, accessible from the browser. | ✅ |
 | `FACEBOOK_PROVIDER_MODE` | `live` for Meta integration, `mock` for local fallback. | Production |
+| `FACEBOOK_APP_ID` | Meta application id for the connected Facebook app. | Production |
 | `FACEBOOK_APP_SECRET` | Used to verify incoming webhook signatures from Meta. | Production |
 | `FACEBOOK_VERIFY_TOKEN` | Token configured in Meta Webhooks for callback verification. | Production |
-| `PAGE_ACCESS_TOKEN` | Used to send outbound messages via Meta Graph API. | Production |
+| `FACEBOOK_PAGE_ACCESS_TOKEN` | Used to send outbound messages via Meta Graph API. | Production |
 | `EMAIL_INBOUND_MODE` | `live` to poll IMAP, `mock` for dev fallback. | Production |
 | `EMAIL_OUTBOUND_MODE` | `live` to send SMTP, `mock` to log outbound links/messages. | Production |
 | `EMAIL_IMAP_*` | IMAP host, port, auth and mailbox settings for inbound email. | Production |
 | `EMAIL_SMTP_*` | SMTP host, port and auth settings for outbound email and auth emails. | Production |
+| `NGROK_DOMAIN` | Optional custom ngrok domain used by `pnpm dev:ngrok`. | Local |
 
 ---
 

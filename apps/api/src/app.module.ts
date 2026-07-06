@@ -51,7 +51,7 @@ import { RedisModule } from './common/redis/redis.module';
     SlaModule,
     AnalyticsModule,
     EventsModule,
-    DevModule,
+    ...(process.env.NODE_ENV === 'production' ? [] : [DevModule]),
     DashboardModule,
     EmailModule,
     FacebookModule,
