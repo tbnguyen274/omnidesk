@@ -6,11 +6,9 @@ import { usePathname } from "next/navigation";
 import type { CurrentUser } from "@/lib/api-types";
 
 export function AppHeader({
-  apiBaseUrl,
   currentUser,
   onLogout,
 }: {
-  apiBaseUrl: string;
   currentUser: CurrentUser;
   onLogout: () => void;
 }) {
@@ -24,8 +22,7 @@ export function AppHeader({
             <Inbox size={20} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-900">OmniDesk Inbox</h1>
-            <p className="text-xs font-medium text-slate-500">{apiBaseUrl}</p>
+            <h1 className="text-base font-bold text-slate-900">OmniDesk</h1>
           </div>
         </div>
         <nav className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-6 h-10">
