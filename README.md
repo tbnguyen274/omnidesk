@@ -27,18 +27,18 @@ OmniDesk standardizes every customer interaction into a unified `Conversation �
 
 | Feature | Description |
 |---|---|
-| 🗂 **Unified Inbox** | Manage Facebook Messenger, Facebook Comments, and Email from a single dashboard. |
-| 📊 **SLA Tracking** | Automatic countdown based on ticket priority (Urgent: 2h, High: 8h, Medium: 24h, Low: 72h). |
-| ⏸ **SLA Pause** | Automatically freezes the SLA timer when awaiting a customer reply (`WAITING_CUSTOMER` status). |
-| 🔄 **Auto-Reopen** | Reopens resolved tickets and restores full SLA if a customer replies. |
-| 🔒 **Auto-Close** | Permanently closes tickets that have been in `RESOLVED` state for more than 3 days. |
-| 🛡 **Idempotency** | Dedup keys on all inbound events prevent duplicate processing when webhooks are retried. |
-| 📤 **Outbox + Provider Adapters** | Outbound messages are persisted before sending; worker adapters isolate SMTP and Facebook Graph API delivery logic. |
-| ⚡ **Real-time Sync** | WebSocket events keep the Inbox UI updated instantly across all connected agents. |
-| 🚦 **Concurrency Control** |Inbound dedup keys, customer row-level locking, and optimistic version checks reduce duplicate processing and stale agent updates. |
-| 🔌 **Live Provider Integration** | Connects to Facebook Webhooks/Graph API and IMAP/SMTP email for real inbound/outbound flows. |
-| 🧪 **Fallback Mock Mode** | Mock adapters and dev endpoints remain available for local development and demo fallback when external providers are unavailable. |
-| 🔒 **Security** | Robust Auth with HttpOnly Cookies, Refresh Token Rotation, RBAC (`ADMIN`/`AGENT`), and password reset/invitation flows. |
+| **Unified Inbox** | Manage Facebook Messenger, Facebook Comments, and Email from a single dashboard. |
+| **SLA Tracking** | Automatic countdown based on ticket priority (Urgent: 2h, High: 8h, Medium: 24h, Low: 72h). |
+| **SLA Pause** | Automatically freezes the SLA timer when awaiting a customer reply (`WAITING_CUSTOMER` status). |
+| **Auto-Reopen** | Reopens resolved tickets and restores full SLA if a customer replies. |
+| **Auto-Close** | Permanently closes tickets that have been in `RESOLVED` state for more than 3 days. |
+| **Idempotency** | Dedup keys on all inbound events prevent duplicate processing when webhooks are retried. |
+| **Outbox + Provider Adapters** | Outbound messages are persisted before sending; worker adapters isolate SMTP and Facebook Graph API delivery logic. |
+| **Real-time Sync** | WebSocket events keep the Inbox UI updated instantly across all connected agents. |
+| **Concurrency Control** |Inbound dedup keys, customer row-level locking, and optimistic version checks reduce duplicate processing and stale agent updates. |
+| **Live Provider Integration** | Connects to Facebook Webhooks/Graph API and IMAP/SMTP email for real inbound/outbound flows. |
+| **Fallback Mock Mode** | Mock adapters and dev endpoints remain available for local development and demo fallback when external providers are unavailable. |
+| **Security** | Robust Auth with HttpOnly Cookies, Refresh Token Rotation, RBAC (`ADMIN`/`AGENT`), and password reset/invitation flows. |
 
 ---
 
@@ -47,6 +47,8 @@ OmniDesk standardizes every customer interaction into a unified `Conversation �
 OmniDesk is built as a **Modular Monolith** with a dedicated background Worker process, communicating through a Redis queue. Module boundaries are intentionally defined to be **Microservice-Ready** — each module can be extracted into an independent service in a future phase.
 
 ### System Overview
+
+This diagram shows the runtime shape of OmniDesk: Web handles the agent UI, API handles REST/auth/webhooks/realtime gateway, Worker handles slow jobs, Redis carries queue traffic, and PostgreSQL stores the core domain state.
 
 ```mermaid
 graph TD
@@ -70,7 +72,9 @@ graph TD
     API -- "WS emit" --> Browser
 ```
 
-### Inbound Message Flow
+### Facebook Inbound Webhook Flow
+
+This sequence focuses on the Facebook-specific inbound path. Meta calls the API webhook, the API verifies the request and persists the raw event quickly, then Worker normalizes it into the shared conversation model.
 
 ```mermaid
 sequenceDiagram
@@ -93,7 +97,88 @@ sequenceDiagram
     WS-->>API: Push to connected clients
 ```
 
+### Email Polling Flow
+
+This sequence highlights why email is separate from Facebook inbound. Instead of receiving a generic webhook, Worker polls the mailbox over IMAP, parses MIME content, and then enters the same internal processing pipeline.
+
+```mermaid
+sequenceDiagram
+    participant Mailbox as Support Mailbox
+    participant Worker as Worker Email Sync
+    participant Parser as Mail Parser
+    participant DB as PostgreSQL
+    participant Q as Redis Queue
+    participant WS as Realtime Gateway
+    participant Web as Agent Web UI
+
+    Worker->>Mailbox: Poll unseen messages via IMAP
+    Mailbox-->>Worker: Raw MIME messages
+    Worker->>Parser: Parse sender, subject, body, Message-ID
+    Parser-->>Worker: Normalized email payload
+    Worker->>DB: Store InboundEvent with dedupKey
+    Worker->>Q: Enqueue inbound processing job
+    Q->>Worker: Process normalized email
+    Worker->>DB: Upsert Customer, Conversation, Message, Ticket
+    Worker->>WS: Publish conversation.updated
+    WS-->>Web: Update inbox in real time
+```
+
+### Unified Inbound Processing Flow
+
+This diagram merges both inbound channels after their provider-specific entry points. Facebook and Email differ at the edge, but both become `InboundEvent` records and then flow through the same queue, worker, domain model, and realtime UI update.
+
+```mermaid
+flowchart LR
+    FB["Facebook<br/>Messenger / Comment"] -->|Webhook POST| API["API<br/>Webhook Controller"]
+    Mailbox["Support Mailbox"] -->|IMAP Polling| EmailSync["Worker<br/>Email Sync"]
+
+    API --> FBParser["Facebook Parser<br/>Verify + Normalize"]
+    EmailSync --> EmailParser["Email Parser<br/>MIME + Threading"]
+
+    FBParser --> EventLog[("InboundEvent<br/>dedupKey + rawPayload")]
+    EmailParser --> EventLog
+
+    EventLog --> Queue["Redis / BullMQ<br/>Inbound Job"]
+    Queue --> Worker["Worker<br/>Inbound Processor"]
+    Worker --> Domain["Normalize to Core Domain"]
+    Domain --> DB[("PostgreSQL<br/>Customer / Conversation / Message / Ticket")]
+    Worker --> Realtime["Realtime Event<br/>conversation.updated"]
+    Realtime --> Web["Next.js Web<br/>Unified Inbox"]
+```
+
+### Outbound Reply + Adapter Flow
+
+This sequence shows the Outbox + Adapter pattern. API only persists and queues the reply; Worker chooses the correct adapter so Facebook Graph API and SMTP stay outside the core outbound processor.
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Web as Next.js Web
+    participant API as API Service
+    participant DB as PostgreSQL
+    participant Q as Redis / BullMQ
+    participant Worker
+    participant Adapter as OutboundProviderAdapter
+    participant Provider as Facebook Graph API / SMTP
+
+    Agent->>Web: Write reply and click Send
+    Web->>API: POST /api/v1/outbound/messages
+    API->>DB: Create OutboundMessage PENDING
+    API->>Q: Enqueue outbound-messages job
+    API-->>Web: Return queued response
+    Q->>Worker: Consume send-outbound-message job
+    Worker->>DB: Mark OutboundMessage SENDING
+    Worker->>Adapter: send(outboundMessageId)
+    Adapter->>Provider: Send through Graph API or SMTP
+    Provider-->>Adapter: Provider message id / error
+    Adapter-->>Worker: Send result
+    Worker->>DB: Mark SENT / FAILED / RETRYING
+    Worker->>Adapter: createTimelineMessage(outboundMessageId)
+```
+
 ### Automated Ticket Lifecycle
+
+This state diagram describes the business lifecycle of a support request after messages have been normalized into a conversation and ticket.
 
 ```mermaid
 stateDiagram-v2
@@ -105,6 +190,127 @@ stateDiagram-v2
     RESOLVED --> IN_PROGRESS : Customer replies<br>(Auto-Reopen)
     RESOLVED --> CLOSED : No reply for 3 days<br>(AutoCloseScheduler)
     CLOSED --> [*]
+```
+
+### Auth, Refresh Token, and RBAC Flow
+
+This sequence explains authentication and authorization. Access/refresh tokens are stored in HttpOnly cookies, refresh tokens rotate through the database, and protected endpoints are checked by JWT and role guards.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Web as Web App
+    participant API as Auth API
+    participant Guard as JwtAuthGuard / RolesGuard
+    participant DB as PostgreSQL
+
+    User->>Web: Submit email and password
+    Web->>API: POST /api/v1/auth/login
+    API->>DB: Validate user and password hash
+    API-->>Web: Set HttpOnly auth and refresh cookies
+    Web->>API: Request protected endpoint
+    API->>Guard: Validate access token cookie
+    Guard->>Guard: Check required role metadata
+    Guard-->>API: Allow ADMIN / AGENT action
+    API-->>Web: Protected resource
+    Web->>API: POST /api/v1/auth/refresh when access expires
+    API->>DB: Compare hashed refresh token
+    API-->>Web: Rotate refresh token cookie
+```
+
+### Core Data Model
+
+This ER diagram is a compact map of the main persistence model used by the inbox, ticket workflow, inbound deduplication, outbound outbox, and user assignment features.
+
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ CONVERSATION : owns
+    CHANNEL_ACCOUNT ||--o{ CONVERSATION : receives
+    CHANNEL_ACCOUNT ||--o{ EMAIL_SYNC_LOG : records
+    CONVERSATION ||--o{ MESSAGE : contains
+    CONVERSATION ||--o| TICKET : tracks
+    CONVERSATION ||--o{ OUTBOUND_MESSAGE : sends
+    INBOUND_EVENT ||--o{ MESSAGE : normalizes
+    USER ||--o{ CONVERSATION : assigned
+    USER ||--o{ TICKET : assigned
+    USER ||--o{ MESSAGE : sends
+    USER ||--o{ OUTBOUND_MESSAGE : creates
+    USER ||--o{ AUDIT_LOG : performs
+    CONVERSATION ||--o{ CONVERSATION_TAG : has
+    TAG ||--o{ CONVERSATION_TAG : labels
+
+    CUSTOMER {
+      string id
+      string externalFacebookId
+      string email
+      string name
+    }
+    CHANNEL_ACCOUNT {
+      string id
+      enum type
+      string displayName
+      string externalId
+      enum status
+    }
+    CONVERSATION {
+      string id
+      enum channelType
+      enum status
+      enum priority
+      string assignedAgentId
+      int version
+      boolean isRead
+    }
+    MESSAGE {
+      string id
+      enum direction
+      enum senderType
+      string content
+      string externalMessageId
+      datetime createdAt
+    }
+    TICKET {
+      string id
+      enum status
+      enum priority
+      datetime slaDueAt
+    }
+    OUTBOUND_MESSAGE {
+      string id
+      enum provider
+      enum status
+      string externalMessageId
+    }
+    INBOUND_EVENT {
+      string id
+      enum provider
+      string dedupKey
+      json rawPayload
+    }
+    CONVERSATION_TAG {
+      string conversationId
+      string tagId
+    }
+    TAG {
+      string id
+      string name
+      string color
+    }
+    EMAIL_SYNC_LOG {
+      string id
+      enum status
+      int fetchedCount
+      int processedCount
+    }
+    AUDIT_LOG {
+      string id
+      string actorId
+      string action
+      string targetType
+      string targetId
+      json metadata
+      datetime createdAt
+    }
 ```
 
 ---
@@ -272,6 +478,7 @@ Local Docker defaults to `NODE_ENV=development` and mock provider modes so the s
 
 This project was developed as an academic graduation project and portfolio showcase.
 
-- Integration guidelines reference [Meta for Developers — Webhooks](https://developers.facebook.com/docs/messenger-platform/webhooks).
-- Background job architecture inspired by [BullMQ Documentation](https://docs.bullmq.io).
+- Integration guidelines reference [Meta for Developers - Webhooks](https://developers.facebook.com/docs/messenger-platform/webhooks), [Meta for Developers - Graph API](https://developers.facebook.com/docs/graph-api), and [Meta for Developers - Messenger Platform](https://developers.facebook.com/docs/messenger-platform).
+- Background job architecture inspired by [BullMQ Documentation](https://docs.bullmq.io), [Redis Documentation](https://redis.io/docs/), and [NestJS Bull Module](https://docs.nestjs.com/techniques/queues).
 - Outbox pattern concept from [microservices.io](https://microservices.io/patterns/data/transactional-outbox.html).
+- IMAP and SMTP handling references [IMAPFlow](https://imapflow.com/) and [Nodemailer](https://nodemailer.com/about/).
