@@ -2,15 +2,33 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, VersioningType } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { AppController } from './../src/app.controller';
+import { AppService } from './../src/app.service';
 import { providerConfig } from './../src/config/provider.config';
+import { EventsService } from './../src/modules/events/events.service';
+import { FacebookController } from './../src/modules/facebook/facebook.controller';
+import { FacebookService } from './../src/modules/facebook/facebook.service';
+import { FacebookSignatureService } from './../src/modules/facebook/services/facebook-signature.service';
+import { FacebookWebhookParserService } from './../src/modules/facebook/services/facebook-webhook-parser.service';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      controllers: [AppController, FacebookController],
+      providers: [
+        AppService,
+        FacebookService,
+        FacebookSignatureService,
+        FacebookWebhookParserService,
+        {
+          provide: EventsService,
+          useValue: {
+            createInbound: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
