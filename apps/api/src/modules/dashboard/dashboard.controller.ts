@@ -1,9 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
+import { Roles } from '../../common/auth/roles.decorator';
 import { DashboardService } from './dashboard.service';
 
 @ApiTags('Dashboard')
 @ApiCookieAuth()
+@Roles(UserRole.ADMIN)
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}

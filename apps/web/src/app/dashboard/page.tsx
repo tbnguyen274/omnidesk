@@ -27,7 +27,7 @@ export default function Dashboard() {
   const [performance, setPerformance] = useState<AgentPerformance[]>([]);
   const [loading, setLoading] = useState(true);
 
-        useEffect(() => {
+  useEffect(() => {
     if (!token) return;
 
     async function loadData() {
@@ -92,6 +92,7 @@ export default function Dashboard() {
     name: p.name,
     resolved: p.resolvedTickets,
   }));
+  const hasResolvedTicketData = barData.some((item) => item.resolved > 0);
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm p-4 sm:p-6 lg:p-8">
@@ -131,7 +132,7 @@ export default function Dashboard() {
                   Agent Performance
                 </h3>
               </div>
-              <div className="p-6 h-[350px] flex-1">
+              <div className="p-6 min-h-[350px] flex-1" style={{ height: 350 }}>
                 {performance.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -142,7 +143,7 @@ export default function Dashboard() {
                         cursor={{ fill: '#f1f5f9' }}
                         contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                       />
-                      <Bar dataKey="resolved" name="Resolved Tickets" fill="#EE0033" radius={[6, 6, 0, 0]} barSize={36} />
+                      <Bar dataKey="resolved" name="Resolved Tickets" fill="#EE0033" radius={[6, 6, 0, 0]} barSize={36} minPointSize={hasResolvedTicketData ? 0 : 4} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -163,7 +164,7 @@ export default function Dashboard() {
                   Tickets by Channel
                 </h3>
               </div>
-              <div className="p-6 h-[350px] flex-1">
+              <div className="p-6 min-h-[350px] flex-1" style={{ height: 350 }}>
                 {pieData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
