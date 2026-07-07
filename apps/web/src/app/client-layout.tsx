@@ -1,10 +1,23 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { AppHeader, LoginScreen } from "@/features/inbox/inbox-components";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const { token, currentUser, authLoading, authError, handleLogin, handleLogout } = useAuth();
+  const isAuthRoute = pathname?.startsWith("/auth/");
+
+  async function handleAppLogout() {
+    await handleLogout();
+    router.replace("/");
+  }
+
+  if (isAuthRoute) {
+    return <>{children}</>;
+  }
 
   if (authLoading) {
     return (
@@ -25,7 +38,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         <div className="shrink-0 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
           <AppHeader
             currentUser={currentUser}
-            onLogout={handleLogout}
+            onLogout={handleAppLogout}
           />
         </div>
         
