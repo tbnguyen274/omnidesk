@@ -4,6 +4,7 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { requestLoggerMiddleware } from './common/observability/request-logger.middleware';
 import { appConfig } from './config/app.config';
 import { validateProviderConfig } from './config/provider.config';
 
@@ -15,6 +16,7 @@ async function bootstrap() {
   });
   app.use(helmet());
   app.use(cookieParser());
+  app.use(requestLoggerMiddleware);
   app.setGlobalPrefix('api');
   app.enableVersioning({
     type: VersioningType.URI,

@@ -61,7 +61,7 @@ export class QueuesService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Queue ${queueName} is not registered`);
     }
 
-    return queue.add(jobName, payload, {
+    const job = await queue.add(jobName, payload, {
       attempts: 3,
       backoff: {
         type: 'exponential',
@@ -75,5 +75,38 @@ export class QueuesService implements OnModuleInit, OnModuleDestroy {
         age: 24 * 60 * 60,
       },
     });
+
+    this.logger.log(
+      [
+        'enqueue',
+        `queue=${queueName}`,
+        `jobName=${jobName}`,
+        `jobId=${job.id ?? 'unknown'}`,
+        `payload=${JSON.stringify(this.getObservablePayload(payload))}`,
+      ].join(' '),
+    );
+
+    return job;
+  }
+
+  private getObservablePayload(payload: Record<string, unknown>) {
+    const keys = [
+      'inboundEventId',
+      'outboundMessageId',
+      'conversationId',
+      'channelAccountId',
+      'syncLogId',
+      'messageId',
+      'provider',
+      'eventType',
+      'action',
+      'requestedBy',
+    ];
+
+    return Object.fromEntries(
+      keys
+        .filter((key) => payload[key] !== undefined)
+        .map((key) => [key, payload[key]]),
+    );
   }
 }

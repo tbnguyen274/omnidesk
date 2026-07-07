@@ -97,7 +97,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`Queue ${queueName} is not initialized`);
     }
 
-    return queue.add(jobName, payload, {
+    const job = await queue.add(jobName, payload, {
       removeOnComplete: {
         age: 60 * 60,
         count: 1000,
@@ -106,6 +106,18 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         age: 24 * 60 * 60,
       },
     });
+
+    this.logger.log(
+      [
+        'enqueue',
+        `queue=${queueName}`,
+        `jobName=${jobName}`,
+        `jobId=${job.id ?? 'unknown'}`,
+        `payload=${JSON.stringify(this.getObservablePayload(payload))}`,
+      ].join(' '),
+    );
+
+    return job;
   }
 
   async ping() {
@@ -197,13 +209,56 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
     for (const [queueName, worker] of this.workers.entries()) {
       worker.on('completed', (job) => {
-        this.logger.log(`${queueName} completed job ${job.id}`);
+        this.logger.log(
+          [
+            'job_completed',
+            `queue=${queueName}`,
+            `jobName=${job.name}`,
+            `jobId=${job.id ?? 'unknown'}`,
+            `attemptsMade=${job.attemptsMade}`,
+            `payload=${JSON.stringify(this.getObservablePayload(job.data))}`,
+          ].join(' '),
+        );
       });
       worker.on('failed', (job, error) => {
         this.logger.error(
-          `${queueName} failed job ${job?.id ?? 'unknown'}: ${error.message}`,
+          [
+            'job_failed',
+            `queue=${queueName}`,
+            `jobName=${job?.name ?? 'unknown'}`,
+            `jobId=${job?.id ?? 'unknown'}`,
+            `attemptsMade=${job?.attemptsMade ?? 'unknown'}`,
+            `payload=${JSON.stringify(this.getObservablePayload(job?.data))}`,
+            `error="${error.message}"`,
+          ].join(' '),
         );
       });
     }
+  }
+
+  private getObservablePayload(payload: unknown) {
+    if (!payload || typeof payload !== 'object') {
+      return {};
+    }
+
+    const data = payload as Record<string, unknown>;
+    const keys = [
+      'inboundEventId',
+      'outboundMessageId',
+      'conversationId',
+      'channelAccountId',
+      'syncLogId',
+      'messageId',
+      'provider',
+      'eventType',
+      'action',
+      'requestedBy',
+    ];
+
+    return Object.fromEntries(
+      keys
+        .filter((key) => data[key] !== undefined)
+        .map((key) => [key, data[key]]),
+    );
   }
 }
