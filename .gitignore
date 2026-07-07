@@ -76,7 +76,7 @@ desktop.ini
 *.sw?
 
 node_modules/
-docs/
+# docs/
 plans/
 /utils/
 
