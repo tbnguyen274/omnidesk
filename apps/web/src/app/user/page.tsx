@@ -94,16 +94,11 @@ export default function UsersManagementPage() {
       <div className="flex-1 overflow-y-auto min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm p-4 sm:p-6 lg:p-8">
           <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-              <Link href="/dashboard" className="hover:text-[#EE0033]">Dashboard</Link>
-              <span>/</span>
-              <span className="font-medium text-slate-900">User Management</span>
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">Users</h1>
+            <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="inline-flex h-10 items-center justify-center rounded-xl bg-[#EE0033] px-4 text-sm font-semibold text-white shadow-md shadow-[#EE0033]/20 transition-colors hover:bg-[#c4002a]"
+            className="inline-flex h-10 items-center justify-center rounded-xl bg-[#EE0033] px-4 text-sm font-semibold text-white shadow-md shadow-[#EE0033]/20 transition-colors hover:bg-[#c4002a] cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
           >
             <Plus className="mr-2 h-4 w-4" />
             Invite User
@@ -173,7 +168,7 @@ export default function UsersManagementPage() {
                         <button
                           onClick={() => toggleUserStatus(user)}
                           disabled={user.id === currentUser.id}
-                          className={`text-sm font-medium ${
+                          className={`text-sm font-medium cursor-pointer ${
                             user.id === currentUser.id 
                               ? 'text-slate-300 cursor-not-allowed' 
                               : user.status === 'ACTIVE' 
@@ -200,7 +195,7 @@ export default function UsersManagementPage() {
               <h2 className="text-lg font-bold text-slate-900">Invite New User</h2>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer rounded-full p-1.5 focus:outline-none focus:ring-2 focus:ring-[#EE0033]"
               >
                 ✕
               </button>
@@ -240,7 +235,7 @@ export default function UsersManagementPage() {
                   <select
                     value={createForm.role}
                     onChange={(e) => setCreateForm({...createForm, role: e.target.value as UserRole})}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition-all focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033] focus:bg-white"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition-all focus:border-[#EE0033] focus:ring-1 focus:ring-[#EE0033] focus:bg-white cursor-pointer"
                   >
                     <option value="AGENT">Agent</option>
                     <option value="ADMIN">Administrator</option>
@@ -252,14 +247,14 @@ export default function UsersManagementPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createLoading}
-                  className="rounded-xl bg-[#EE0033] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#EE0033]/20 hover:bg-[#c4002a] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="rounded-xl bg-[#EE0033] px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#EE0033]/20 hover:bg-[#c4002a] transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {createLoading ? "Inviting..." : "Invite User"}
                 </button>
