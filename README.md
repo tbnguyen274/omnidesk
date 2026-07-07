@@ -329,6 +329,22 @@ erDiagram
 
 ---
 
+## 🔎 Observability Foundation
+
+OmniDesk includes a lightweight observability baseline for local and production-like deployments:
+
+| Area | Current Implementation |
+|---|---|
+| **Request tracing** | API assigns or preserves `x-request-id`, returns it in the response header, and logs method, path, status, duration, IP, and user agent. |
+| **Queue visibility** | API and Worker log enqueue/completion/failure events with `queue`, `jobName`, `jobId`, attempts, and key business ids such as `inboundEventId`, `outboundMessageId`, `conversationId`, and `messageId`. |
+| **Provider debugging** | `InboundEvent` stores raw provider payloads, `dedupKey`, processing status, and error messages. `OutboundMessage` stores provider, status, retry count, external id, and last error. |
+| **Health checks** | API, Worker, Web, PostgreSQL, and Redis are covered by Docker Compose health checks. |
+| **Operational dashboard** | Dashboard APIs expose ticket summary, SLA overdue counts, channel distribution, and agent performance for business-level monitoring. |
+
+Full metrics/tracing with OpenTelemetry, Prometheus, Grafana, and centralized log aggregation is intentionally kept as a production hardening step.
+
+---
+
 ## 📂 Project Structure
 
 ```text
