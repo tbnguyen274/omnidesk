@@ -224,6 +224,7 @@ export type MockInboundEmailPayload = {
   receivedAt?: string;
   threadId?: string;
   inReplyTo?: string;
+  references?: string[];
   channelAccountId?: string;
 };
 
@@ -248,6 +249,7 @@ export type NormalizedEmailMessage = {
     toEmail?: string;
     threadId?: string;
     inReplyTo?: string;
+    references?: string[];
   };
   rawPayload: MockInboundEmailPayload;
   dedupKey: string;

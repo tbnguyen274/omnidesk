@@ -49,6 +49,7 @@ export function createOutboundMessagePayload(
       channelType: conversation.channelType,
       provider: "EMAIL",
       recipientExternalId: conversation.customer.email ?? undefined,
+      replyToMessageId: replyToExternalId ?? undefined,
       content,
     };
   }

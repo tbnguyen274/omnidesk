@@ -257,6 +257,7 @@ export class EmailInboundService {
         toEmail: rawPayload.toEmail,
         threadId: rawPayload.threadId,
         inReplyTo: rawPayload.inReplyTo,
+        references: rawPayload.references,
       },
       rawPayload,
       dedupKey,

@@ -96,6 +96,7 @@ export class EmailLiveInboundService {
           receivedAt: (parsed.date ?? new Date()).toISOString(),
           threadId: getThreadId(parsed.references, parsed.inReplyTo, messageId),
           inReplyTo: parsed.inReplyTo,
+          references: normalizeReferences(parsed.references),
           channelAccountId: channelAccount.id,
         };
         const dedupKey = buildDedupKey(rawPayload.mailbox, messageId);
@@ -145,6 +146,18 @@ function firstAddress(addresses: AddressObject | AddressObject[] | undefined) {
 
 function normalizeMessageId(messageId: string) {
   return messageId.trim().replace(/^<|>$/g, '');
+}
+
+function normalizeReferences(references: string[] | string | undefined) {
+  if (Array.isArray(references)) {
+    return references.map(normalizeMessageId).filter(Boolean);
+  }
+
+  if (typeof references === 'string' && references.trim().length > 0) {
+    return references.split(/\s+/).map(normalizeMessageId).filter(Boolean);
+  }
+
+  return undefined;
 }
 
 function buildDedupKey(mailbox: string, messageId: string) {

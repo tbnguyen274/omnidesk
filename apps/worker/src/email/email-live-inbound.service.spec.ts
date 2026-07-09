@@ -126,6 +126,7 @@ describe('EmailLiveInboundService', () => {
           subject: 'Need help',
           contentType: 'HTML',
           threadId: 'thread-1@example.com',
+          references: ['thread-1@example.com'],
         }),
       }),
     });

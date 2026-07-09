@@ -6,6 +6,7 @@ import {
   MessageDirection,
   MessageSenderType,
   OutboundProvider,
+  Prisma,
 } from '@prisma/client';
 import nodemailer from 'nodemailer';
 import { providerConfig } from '../config/provider.config';
@@ -14,6 +15,11 @@ import { PrismaService } from '../database/prisma.service';
 type SendOutboundResult = {
   externalMessageId: string;
   sentAt: Date;
+};
+
+type EmailThreadHeaders = {
+  inReplyTo?: string;
+  references?: string[];
 };
 
 @Injectable()
@@ -62,11 +68,17 @@ export class EmailOutboundService {
       },
     });
 
+    const threadHeaders = await this.resolveThreadHeaders(
+      outboundMessage.conversationId,
+      outboundMessage.replyToMessageId,
+    );
+
     const sent = await transporter.sendMail({
       from: providerConfig.email.smtp.fromAddress,
       to: outboundMessage.recipientExternalId,
-      subject: outboundMessage.conversation.subject ?? 'OmniDesk reply',
+      subject: this.buildReplySubject(outboundMessage.conversation.subject),
       text: outboundMessage.content,
+      ...threadHeaders,
     });
 
     return {
@@ -136,5 +148,126 @@ export class EmailOutboundService {
         },
       }),
     ]);
+  }
+
+  private async resolveThreadHeaders(
+    conversationId: string,
+    replyToMessageId?: string | null,
+  ): Promise<EmailThreadHeaders> {
+    const replyTarget = await this.findReplyTarget(
+      conversationId,
+      replyToMessageId,
+    );
+
+    if (!replyTarget?.externalMessageId) {
+      return {};
+    }
+
+    const targetMessageId = this.formatMessageId(replyTarget.externalMessageId);
+    const rawPayload = this.asEmailRawPayload(replyTarget.rawPayload);
+    const references = this.buildReferences(rawPayload, targetMessageId);
+
+    return {
+      inReplyTo: targetMessageId,
+      references,
+    };
+  }
+
+  private async findReplyTarget(
+    conversationId: string,
+    replyToMessageId?: string | null,
+  ) {
+    if (replyToMessageId) {
+      const explicitTarget = await this.prisma.message.findFirst({
+        where: {
+          conversationId,
+          direction: MessageDirection.INBOUND,
+          OR: [
+            { id: replyToMessageId },
+            { externalMessageId: replyToMessageId },
+          ],
+        },
+        select: {
+          externalMessageId: true,
+          rawPayload: true,
+        },
+      });
+
+      if (explicitTarget) {
+        return explicitTarget;
+      }
+    }
+
+    return this.prisma.message.findFirst({
+      where: {
+        conversationId,
+        direction: MessageDirection.INBOUND,
+        externalMessageId: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        externalMessageId: true,
+        rawPayload: true,
+      },
+    });
+  }
+
+  private buildReferences(
+    rawPayload: Record<string, unknown> | null,
+    targetMessageId: string,
+  ) {
+    const references = new Set<string>();
+    const rawReferences = rawPayload?.references;
+
+    if (Array.isArray(rawReferences)) {
+      for (const reference of rawReferences) {
+        if (typeof reference === 'string') {
+          references.add(this.formatMessageId(reference));
+        }
+      }
+    } else if (typeof rawReferences === 'string') {
+      for (const reference of rawReferences.split(/\s+/)) {
+        if (reference.trim()) {
+          references.add(this.formatMessageId(reference));
+        }
+      }
+    }
+
+    if (typeof rawPayload?.inReplyTo === 'string') {
+      references.add(this.formatMessageId(rawPayload.inReplyTo));
+    }
+
+    references.add(targetMessageId);
+
+    return Array.from(references);
+  }
+
+  private buildReplySubject(subject?: string | null) {
+    const fallback = 'OmniDesk reply';
+    const value = subject?.trim() || fallback;
+    return /^re:/i.test(value) ? value : `Re: ${value}`;
+  }
+
+  private formatMessageId(messageId: string) {
+    const trimmed = messageId.trim();
+    if (!trimmed) {
+      return trimmed;
+    }
+
+    return trimmed.startsWith('<') && trimmed.endsWith('>')
+      ? trimmed
+      : `<${trimmed.replace(/^<|>$/g, '')}>`;
+  }
+
+  private asEmailRawPayload(rawPayload: Prisma.JsonValue | null) {
+    if (
+      !rawPayload ||
+      typeof rawPayload !== 'object' ||
+      Array.isArray(rawPayload)
+    ) {
+      return null;
+    }
+
+    return rawPayload as Record<string, unknown>;
   }
 }
