@@ -1,6 +1,7 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import {
   ConversationStatus,
+  MessageDirection,
   Prisma,
   Priority,
   TicketStatus,
@@ -274,6 +275,7 @@ export class ConversationsRepository {
     const message = await this.prisma.message.findFirst({
       where: {
         conversationId,
+        direction: MessageDirection.INBOUND,
         externalMessageId: { not: null },
       },
       orderBy: { createdAt: 'desc' },
