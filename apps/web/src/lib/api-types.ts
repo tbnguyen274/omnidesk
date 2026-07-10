@@ -67,6 +67,7 @@ export type ConversationListItem = {
   lastMessage: {
     id: string;
     content: string;
+    contentType?: MessageContentType;
     direction: MessageDirection;
     createdAt: string;
   } | null;

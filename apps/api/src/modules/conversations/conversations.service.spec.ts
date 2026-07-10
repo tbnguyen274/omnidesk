@@ -21,6 +21,7 @@ describe('ConversationsService', () => {
         {
           id: 'message-id',
           content: 'I need help',
+          contentType: 'TEXT',
           direction: 'INBOUND',
           createdAt: new Date(),
         },
@@ -32,10 +33,14 @@ describe('ConversationsService', () => {
     const notificationsService = {
       publish: jest.fn(),
     };
+    const queuesService = {
+      add: jest.fn(),
+    };
 
     const service = new ConversationsService(
       conversationsRepository as never,
       notificationsService as never,
+      queuesService as never,
     );
     await expect(service.list({ page: 1, limit: 20 })).resolves.toMatchObject({
       items: [

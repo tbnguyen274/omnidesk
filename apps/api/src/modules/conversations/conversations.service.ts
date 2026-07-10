@@ -88,6 +88,7 @@ export class ConversationsService {
           ? {
               id: conversation.messages[0].id,
               content: conversation.messages[0].content,
+              contentType: conversation.messages[0].contentType,
               direction: conversation.messages[0].direction,
               createdAt: conversation.messages[0].createdAt,
             }

@@ -1,5 +1,6 @@
 import { ChannelBadge, PriorityBadge, StatusBadge } from "@/features/inbox/components/badges";
 import { PaneState } from "@/features/inbox/components/pane-state";
+import { formatMessagePreview } from "@/features/inbox/utils/format";
 import type { ConversationListItem } from "@/lib/api-types";
 
 export function ConversationList({
@@ -55,7 +56,10 @@ export function ConversationList({
                 <PriorityBadge priority={conversation.priority} />
               </div>
               <p className={`line-clamp-2 min-h-[2.5rem] text-xs leading-5 ${selectedId === conversation.id ? "text-slate-600" : "text-slate-500"}`}>
-                {conversation.lastMessage?.content ?? "No messages yet"}
+                {formatMessagePreview(
+                  conversation.lastMessage?.content,
+                  conversation.lastMessage?.contentType,
+                )}
               </p>
             </div>
           </div>
