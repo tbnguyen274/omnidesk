@@ -21,7 +21,7 @@ type UseConversationActionsParams = {
   loadConversations: (
     accessToken: string,
     nextFilters: ConversationFilters,
-  ) => Promise<void>;
+  ) => Promise<string | null>;
   loadTags: (accessToken: string) => Promise<void>;
   selectedConversation: ConversationDetail | null;
   setError: (message: string | null) => void;

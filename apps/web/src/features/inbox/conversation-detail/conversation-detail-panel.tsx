@@ -7,6 +7,8 @@ import { MessageBubble } from "@/features/inbox/conversation-detail/message-bubb
 import { ReplyComposer } from "@/features/inbox/reply/reply-composer";
 import type { ConversationDetail } from "@/lib/api-types";
 
+const SCROLL_BOTTOM_THRESHOLD = 120;
+
 export function ConversationDetailPanel({
   conversation,
   loading,
@@ -35,6 +37,7 @@ export function ConversationDetailPanel({
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const previousScrollHeightRef = useRef<number>(0);
+  const shouldStickToBottomRef = useRef(true);
 
   const [replyingToMessage, setReplyingToMessage] = useState<
     ConversationDetail["messages"][number] | null
@@ -48,12 +51,15 @@ export function ConversationDetailPanel({
   useLayoutEffect(() => {
     if (conversation?.id !== currentConversationIdRef.current) {
       isInitialLoadRef.current = true;
+      shouldStickToBottomRef.current = true;
       currentConversationIdRef.current = conversation?.id ?? null;
       setHasMoreMessages(true);
 
       setReplyingToMessage(null);
     }
-  }, [conversation?.id]);  useLayoutEffect(() => {
+  }, [conversation?.id]);
+
+  useLayoutEffect(() => {
     if (scrollRef.current) {
       if (isAdjustingScrollRef.current) {
         // Adjust scroll position after loading older messages so the view doesn't jump
@@ -62,25 +68,28 @@ export function ConversationDetailPanel({
         isAdjustingScrollRef.current = false;
       } else if (
         isInitialLoadRef.current ||
-        scrollRef.current.scrollHeight - scrollRef.current.scrollTop - scrollRef.current.clientHeight < 100
+        shouldStickToBottomRef.current
       ) {
         // Only auto-scroll to bottom if the user was already near the bottom OR it's the initial load
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        scrollToBottom(scrollRef.current);
         // If we successfully scrolled and have messages, we can mark initial load as done
         if (sortedMessages.length > 0) {
           isInitialLoadRef.current = false;
         }
       }
     }
-  }, [sortedMessages]);
+  }, [sortedMessages, conversation?.id]);
 
   const handleScroll = async () => {
     if (!scrollRef.current || !onLoadOlderMessages || isLoadingOlder || !hasMoreMessages) return;
+
+    shouldStickToBottomRef.current = isNearBottom(scrollRef.current);
 
     if (scrollRef.current.scrollTop === 0) {
       const prevMessageCount = sortedMessages.length;
       previousScrollHeightRef.current = scrollRef.current.scrollHeight;
       isAdjustingScrollRef.current = true;
+      shouldStickToBottomRef.current = false;
       setIsLoadingOlder(true);
       
       await onLoadOlderMessages();
@@ -174,5 +183,19 @@ export function ConversationDetailPanel({
       />
     </div>
   );
+}
+
+function isNearBottom(element: HTMLElement) {
+  return (
+    element.scrollHeight - element.scrollTop - element.clientHeight <=
+    SCROLL_BOTTOM_THRESHOLD
+  );
+}
+
+function scrollToBottom(element: HTMLElement) {
+  element.scrollTop = element.scrollHeight;
+  requestAnimationFrame(() => {
+    element.scrollTop = element.scrollHeight;
+  });
 }
 

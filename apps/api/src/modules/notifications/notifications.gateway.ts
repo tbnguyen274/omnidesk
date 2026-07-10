@@ -69,6 +69,7 @@ export class NotificationsGateway
 
       client.data.user = user;
       await client.join(this.agentRoom(user.id));
+      await client.join(this.teamInboxRoom());
 
       this.logger.debug(`Socket connected: ${client.id}`);
     } catch {
@@ -82,9 +83,11 @@ export class NotificationsGateway
   }
 
   publish(event: RealtimeEvent, target: NotificationPublishTarget) {
-    for (const room of target.rooms) {
-      this.server.to(room).emit('realtime.event', event);
+    if (target.rooms.length === 0) {
+      return;
     }
+
+    this.server.to(target.rooms).emit('realtime.event', event);
   }
 
   @SubscribeMessage('conversation.join')
@@ -184,6 +187,7 @@ export class NotificationsGateway
     const user = await this.authenticate(client);
     client.data.user = user;
     await client.join(this.agentRoom(user.id));
+    await client.join(this.teamInboxRoom());
 
     return user;
   }
@@ -198,6 +202,10 @@ export class NotificationsGateway
 
   private agentRoom(userId: string): RealtimeRoom {
     return `agent:${userId}`;
+  }
+
+  private teamInboxRoom(): RealtimeRoom {
+    return 'team:inbox';
   }
 
   private conversationRoom(conversationId: string): RealtimeRoom {

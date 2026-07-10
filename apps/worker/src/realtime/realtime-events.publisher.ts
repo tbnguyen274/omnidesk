@@ -46,6 +46,10 @@ export class RealtimeEventsPublisher implements OnModuleInit, OnModuleDestroy {
     return `agent:${userId}`;
   }
 
+  teamInboxRoom(): RealtimeRoom {
+    return 'team:inbox';
+  }
+
   conversationRoom(conversationId: string): RealtimeRoom {
     return `conversation:${conversationId}`;
   }

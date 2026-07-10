@@ -168,6 +168,10 @@ export class EmailInboundService {
     const conversationRoom = this.realtimeEventsPublisher.conversationRoom(
       plan.conversationId,
     );
+    const rooms = [
+      conversationRoom,
+      this.realtimeEventsPublisher.teamInboxRoom(),
+    ];
     const occurredAt = new Date().toISOString();
 
     if (plan.conversationCreated) {
@@ -177,7 +181,7 @@ export class EmailInboundService {
           conversationId: plan.conversationId,
           occurredAt,
         },
-        [conversationRoom],
+        rooms,
       );
     } else {
       await this.realtimeEventsPublisher.publish(
@@ -186,7 +190,7 @@ export class EmailInboundService {
           conversationId: plan.conversationId,
           occurredAt,
         },
-        [conversationRoom],
+        rooms,
       );
     }
 
@@ -198,7 +202,7 @@ export class EmailInboundService {
           messageId: plan.messageId,
           occurredAt,
         },
-        [conversationRoom],
+        rooms,
       );
     }
 
@@ -210,7 +214,7 @@ export class EmailInboundService {
           ticketId: plan.ticketId,
           occurredAt,
         },
-        [conversationRoom],
+        rooms,
       );
     }
   }

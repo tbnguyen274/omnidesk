@@ -228,6 +228,10 @@ export class FacebookInboundRepository {
     const conversationRoom = this.realtimeEventsPublisher.conversationRoom(
       plan.conversationId,
     );
+    const rooms = [
+      conversationRoom,
+      this.realtimeEventsPublisher.teamInboxRoom(),
+    ];
     const occurredAt = new Date().toISOString();
 
     await this.realtimeEventsPublisher.publish(
@@ -238,7 +242,7 @@ export class FacebookInboundRepository {
         conversationId: plan.conversationId,
         occurredAt,
       },
-      [conversationRoom],
+      rooms,
     );
 
     if (plan.messageId) {
@@ -249,7 +253,7 @@ export class FacebookInboundRepository {
           messageId: plan.messageId,
           occurredAt,
         },
-        [conversationRoom],
+        rooms,
       );
     }
 
@@ -261,7 +265,7 @@ export class FacebookInboundRepository {
           conversationId: plan.conversationId,
           occurredAt,
         },
-        [conversationRoom],
+        rooms,
       );
     }
   }

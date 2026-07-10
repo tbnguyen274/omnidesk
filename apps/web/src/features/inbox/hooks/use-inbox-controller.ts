@@ -108,7 +108,7 @@ export function useInboxController() {
   async function loadConversations(
     accessToken: string,
     nextFilters: ConversationFilters,
-  ) {
+  ): Promise<string | null> {
     setListLoading(true);
     setError(null);
 
@@ -125,8 +125,10 @@ export function useInboxController() {
       if (!nextSelectedId) {
         setSelectedConversation(null);
       }
+      return nextSelectedId;
     } catch (caught) {
       setError(getInboxErrorMessage(caught));
+      return selectedId;
     } finally {
       setListLoading(false);
     }
@@ -161,7 +163,10 @@ export function useInboxController() {
 
   async function refreshConversations() {
     if (token) {
-      await loadConversations(token, filters);
+      const refreshedSelectedId = await loadConversations(token, filters);
+      if (refreshedSelectedId) {
+        await loadConversation(token, refreshedSelectedId);
+      }
     }
   }
 
