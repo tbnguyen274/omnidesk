@@ -25,9 +25,9 @@ Local development may use mock providers. Development endpoints must not be expo
 
 ## Continuous integration
 
-CI currently uses Ubuntu, Node.js 22 and pnpm 9. It runs lint, unit tests, API smoke E2E, dependency audit, secret scanning, Docker Compose validation and production builds.
+CI currently uses Ubuntu, Node.js 22 and pnpm 9. It runs lint, unit tests, API/worker smoke E2E, dependency audit, secret scanning, Docker Compose validation and production builds.
 
-Current limitation: the E2E suites mock application services and CI does not start PostgreSQL or Redis. A clean-database migration and real integration-test job are required in Stage 4.
+CI starts clean PostgreSQL and Redis services, applies every committed migration, seeds the database, and starts the production API/worker builds for health smoke checks. The existing application E2E suites still mock most services; deeper provider and queue integration tests remain part of Stage 4.
 
 ## Staging infrastructure
 
@@ -65,6 +65,8 @@ Stage 5 must provide:
 - A one-time migration release job.
 - Secret manager integration.
 - TLS ingress/load balancing, metrics, alerting and rollback automation.
+
+The API image only starts the API process. Deployments must run the Compose `migrate` service, or an equivalent one-time release job, before rolling out API replicas.
 
 ## Ownership
 

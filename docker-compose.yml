@@ -74,7 +74,7 @@ services:
         "./apps/api/node_modules/.bin/prisma",
         "migrate",
         "deploy",
-        "--schema=./apps/api/prisma/schema.prisma",
+        "--config=./apps/api/prisma.config.ts",
       ]
     depends_on:
       postgres:
@@ -95,7 +95,7 @@ services:
         "./apps/api/node_modules/.bin/prisma",
         "db",
         "seed",
-        "--schema=./apps/api/prisma/schema.prisma",
+        "--config=./apps/api/prisma.config.ts",
       ]
     depends_on:
       postgres:

@@ -12,6 +12,43 @@ jobs:
   build-and-test:
     name: Build, Lint, and Test
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://omnidesk:omnidesk@localhost:5432/omnidesk?schema=public
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      API_PORT: 3000
+      WORKER_PORT: 3001
+      WEB_ORIGIN: http://localhost:3002
+      JWT_SECRET: ci-access-secret-at-least-32-characters
+      JWT_REFRESH_SECRET: ci-refresh-secret-at-least-32-characters
+      EMAIL_PROVIDER_MODE: mock
+      EMAIL_INBOUND_MODE: mock
+      EMAIL_OUTBOUND_MODE: mock
+      FACEBOOK_PROVIDER_MODE: mock
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: omnidesk
+          POSTGRES_PASSWORD: omnidesk
+          POSTGRES_DB: omnidesk
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U omnidesk -d omnidesk"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -35,6 +72,12 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm db:generate
 
+      - name: Validate Clean Database Migrations
+        run: |
+          pnpm --filter api exec prisma migrate deploy
+          pnpm --filter api exec prisma db seed
+          pnpm --filter api exec prisma migrate status
+
       - name: Run Linter
         run: |
           pnpm --filter api exec eslint "{src,apps,libs,test}/**/*.ts"
@@ -47,6 +90,9 @@ jobs:
       - name: Run API E2E Tests
         run: pnpm --filter api test:e2e
 
+      - name: Run Worker E2E Tests
+        run: pnpm --filter worker test:e2e
+
       - name: Validate Docker Compose
         run: |
           cp .env.docker.example .env.docker
@@ -54,6 +100,39 @@ jobs:
 
       - name: Build Applications
         run: pnpm build
+
+      - name: Run API and Worker Health Smoke
+        shell: bash
+        env:
+          NODE_ENV: test
+        run: |
+          set -euo pipefail
+
+          pnpm --filter api start:prod > api-smoke.log 2>&1 &
+          api_pid=$!
+          pnpm --filter worker start:prod > worker-smoke.log 2>&1 &
+          worker_pid=$!
+
+          cleanup() {
+            kill "$api_pid" "$worker_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          wait_for_health() {
+            local url="$1"
+            local log_file="$2"
+            for _ in $(seq 1 30); do
+              if curl --fail --silent --show-error "$url" > /dev/null; then
+                return 0
+              fi
+              sleep 1
+            done
+            cat "$log_file"
+            return 1
+          }
+
+          wait_for_health http://localhost:3000/api/v1/health api-smoke.log
+          wait_for_health http://localhost:3001/health worker-smoke.log
 
   security-scan:
     name: Security & Vulnerability Scan
