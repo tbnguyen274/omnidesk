@@ -1,13 +1,27 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, parse, resolve } from 'node:path';
 
 const initialEnvKeys = new Set(Object.keys(process.env));
 
-loadEnvFiles([
-  resolve(process.cwd(), '.env'),
-  resolve(process.cwd(), 'apps/api/.env'),
-  resolve(process.cwd(), '../../.env'),
-]);
+loadEnvFiles(findEnvFiles(process.cwd()));
+
+function findEnvFiles(startDirectory: string) {
+  const paths: string[] = [];
+  let directory = resolve(startDirectory);
+
+  while (true) {
+    paths.push(resolve(directory, '.env'));
+    const parent = dirname(directory);
+
+    if (parent === directory || directory === parse(directory).root) {
+      break;
+    }
+
+    directory = parent;
+  }
+
+  return paths.reverse();
+}
 
 function loadEnvFiles(paths: string[]) {
   for (const path of unique(paths)) {
