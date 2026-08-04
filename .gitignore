@@ -25,6 +25,7 @@ next-env.d.ts
 /.nyc_output
 /e2e
 /test-results/
+/backups/
 
 # ==========================================
 # Environment Variables & Secrets (CRITICAL)
@@ -35,6 +36,7 @@ next-env.d.ts
 .env.test.local
 .env.production.local
 .env.docker
+.env.staging
 *.pem
 *.key
 
@@ -42,6 +44,7 @@ next-env.d.ts
 # Package Manager Specifics
 # ==========================================
 .npm
+/.pnpm-store/
 *.log
 /pnpm-debug.log*
 /yarn-debug.log*

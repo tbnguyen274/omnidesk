@@ -1,0 +1,70 @@
+name: omnidesk-staging
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${STAGING_POSTGRES_USER:?Set STAGING_POSTGRES_USER in .env.staging}
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:?Set STAGING_POSTGRES_PASSWORD in .env.staging}
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:?Set STAGING_POSTGRES_DB in .env.staging}
+    ports:
+      - "127.0.0.1:${STAGING_POSTGRES_PORT:-65432}:5432"
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${STAGING_REDIS_PASSWORD:?Set STAGING_REDIS_PASSWORD in .env.staging}
+    command:
+      [
+        "sh",
+        "-c",
+        "exec redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\"",
+      ]
+    ports:
+      - "127.0.0.1:${STAGING_REDIS_PORT:-16379}:6379"
+    volumes:
+      - staging_redis_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping | grep PONG",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backup:
+    image: postgres:16-alpine
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${STAGING_POSTGRES_USER:?Set STAGING_POSTGRES_USER in .env.staging}
+      PGPASSWORD: ${STAGING_POSTGRES_PASSWORD:?Set STAGING_POSTGRES_PASSWORD in .env.staging}
+      PGDATABASE: ${STAGING_POSTGRES_DB:?Set STAGING_POSTGRES_DB in .env.staging}
+    volumes:
+      - ./backups/staging:/backups
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        pg_dump --format=custom --file=/backups/omnidesk-staging-$$(date -u +%Y%m%dT%H%M%SZ).dump
+
+volumes:
+  staging_postgres_data:
+  staging_redis_data:
