@@ -1,7 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { OutboundMessageStatus } from '@prisma/client';
+import {
+  ChannelType,
+  MessageDirection,
+  OutboundMessageStatus,
+  OutboundProvider,
+} from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
-import { CreateOutboundMessageDto } from './dto/create-outbound-message.dto';
+
+export type CreateOutboundMessageInput = {
+  conversationId: string;
+  channelType: ChannelType;
+  provider: OutboundProvider;
+  recipientExternalId?: string;
+  replyToMessageId?: string;
+  content: string;
+};
 
 @Injectable()
 export class OutboundRepository {
@@ -10,19 +23,38 @@ export class OutboundRepository {
   findConversationById(id: string) {
     return this.prisma.conversation.findUnique({
       where: { id },
-      select: { id: true },
+      select: {
+        id: true,
+        channelType: true,
+        status: true,
+        customer: {
+          select: {
+            email: true,
+            externalFacebookId: true,
+          },
+        },
+      },
     });
   }
 
-  createOutboundMessage(dto: CreateOutboundMessageDto, createdBy: string) {
+  findReplyTarget(conversationId: string, replyToMessageId: string) {
+    return this.prisma.message.findFirst({
+      where: {
+        conversationId,
+        direction: MessageDirection.INBOUND,
+        OR: [{ id: replyToMessageId }, { externalMessageId: replyToMessageId }],
+      },
+      select: {
+        id: true,
+        externalMessageId: true,
+      },
+    });
+  }
+
+  createOutboundMessage(input: CreateOutboundMessageInput, createdBy: string) {
     return this.prisma.outboundMessage.create({
       data: {
-        conversationId: dto.conversationId,
-        channelType: dto.channelType,
-        provider: dto.provider,
-        recipientExternalId: dto.recipientExternalId,
-        replyToMessageId: dto.replyToMessageId,
-        content: dto.content,
+        ...input,
         status: OutboundMessageStatus.PENDING,
         createdBy,
       },

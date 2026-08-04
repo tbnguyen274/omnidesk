@@ -141,9 +141,6 @@ export type ConversationFilters = {
 
 export type CreateOutboundMessagePayload = {
   conversationId: string;
-  channelType: ChannelType;
-  provider: OutboundProvider;
-  recipientExternalId?: string;
   replyToMessageId?: string;
   content: string;
 };

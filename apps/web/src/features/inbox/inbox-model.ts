@@ -43,34 +43,8 @@ export function createOutboundMessagePayload(
     throw new Error(disabledReason);
   }
 
-  if (conversation.channelType === "EMAIL") {
-    return {
-      conversationId: conversation.id,
-      channelType: conversation.channelType,
-      provider: "EMAIL",
-      recipientExternalId: conversation.customer.email ?? undefined,
-      replyToMessageId: replyToExternalId ?? undefined,
-      content,
-    };
-  }
-
-  if (conversation.channelType === "FACEBOOK_MESSAGE") {
-    return {
-      conversationId: conversation.id,
-      channelType: conversation.channelType,
-      provider: "FACEBOOK",
-      recipientExternalId:
-        conversation.customer.externalFacebookId ?? undefined,
-      replyToMessageId: replyToExternalId ?? undefined,
-      content,
-    };
-  }
-
   return {
     conversationId: conversation.id,
-    channelType: conversation.channelType,
-    provider: "FACEBOOK",
-    recipientExternalId: conversation.customer.externalFacebookId ?? undefined,
     replyToMessageId: replyToExternalId ?? undefined,
     content,
   };
@@ -82,8 +56,7 @@ export function getReplyDisabledReason(conversation: ConversationDetail) {
   }
 
   if (
-    (conversation.channelType === "FACEBOOK_MESSAGE" ||
-      conversation.channelType === "FACEBOOK_COMMENT") &&
+    conversation.channelType === "FACEBOOK_MESSAGE" &&
     !conversation.customer.externalFacebookId
   ) {
     return "Customer Facebook id is missing.";

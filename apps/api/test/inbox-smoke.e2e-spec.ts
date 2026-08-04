@@ -126,8 +126,6 @@ describe('login -> inbox -> reply smoke flow (e2e)', () => {
       .post('/api/v1/outbound/messages')
       .send({
         conversationId: '11111111-1111-4111-8111-111111111111',
-        channelType: ChannelType.EMAIL,
-        provider: OutboundProvider.EMAIL,
         content: 'Thanks, we are checking this.',
       })
       .expect(201)
@@ -145,5 +143,17 @@ describe('login -> inbox -> reply smoke flow (e2e)', () => {
       }),
       'agent-id',
     );
+
+    await request(app.getHttpServer())
+      .post('/api/v1/outbound/messages')
+      .send({
+        conversationId: '11111111-1111-4111-8111-111111111111',
+        provider: 'EMAIL',
+        recipientExternalId: 'attacker@example.com',
+        content: 'This payload must be rejected.',
+      })
+      .expect(400);
+
+    expect(outboundService.create).toHaveBeenCalledTimes(1);
   });
 });

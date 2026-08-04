@@ -1,31 +1,21 @@
 import {
-  IsEnum,
+  Matches,
+  MaxLength,
   IsOptional,
   IsString,
   IsUUID,
-  MinLength,
 } from 'class-validator';
-import { ChannelType, OutboundProvider } from '@prisma/client';
 
 export class CreateOutboundMessageDto {
   @IsUUID()
   conversationId!: string;
-
-  @IsEnum(ChannelType)
-  channelType!: ChannelType;
-
-  @IsEnum(OutboundProvider)
-  provider!: OutboundProvider;
-
-  @IsOptional()
-  @IsString()
-  recipientExternalId?: string;
 
   @IsOptional()
   @IsString()
   replyToMessageId?: string;
 
   @IsString()
-  @MinLength(1)
+  @Matches(/\S/, { message: 'content must contain a non-whitespace character' })
+  @MaxLength(10_000)
   content!: string;
 }
