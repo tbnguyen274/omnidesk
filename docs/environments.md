@@ -25,7 +25,7 @@ Local development may use mock providers. Development endpoints must not be expo
 
 ## Continuous integration
 
-CI currently uses Ubuntu, Node.js 22 and pnpm 9. It runs lint, unit tests, API/worker smoke E2E, dependency audit, secret scanning, Docker Compose validation and production builds.
+CI currently uses Ubuntu, Node.js 22 and pnpm 11.8. It runs lint, unit tests, API/worker smoke E2E, dependency audit, secret scanning, Docker Compose validation and production builds.
 
 CI starts clean PostgreSQL and Redis services, applies every committed migration, seeds the database, and starts the production API/worker builds for health smoke checks. The existing application E2E suites still mock most services; deeper provider and queue integration tests remain part of Stage 4.
 
