@@ -1,4 +1,6 @@
 import { ConversationsService } from './conversations.service';
+import { BadRequestException } from '@nestjs/common';
+import { UserRole, UserStatus } from '@prisma/client';
 
 describe('ConversationsService', () => {
   it('returns paginated conversations', async () => {
@@ -58,5 +60,26 @@ describe('ConversationsService', () => {
       limit: 20,
       total: 1,
     });
+  });
+
+  it('rejects assigning an administrator to a conversation', async () => {
+    const conversationsRepository = {
+      findExistingById: jest.fn().mockResolvedValue({ id: 'conversation-id' }),
+      findAssignableUser: jest.fn().mockResolvedValue({
+        role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
+      }),
+      updateAssignment: jest.fn(),
+    };
+    const service = new ConversationsService(
+      conversationsRepository as never,
+      { publishToConversation: jest.fn() } as never,
+      { add: jest.fn() } as never,
+    );
+
+    await expect(
+      service.updateAssignment('conversation-id', 'admin-id', 1),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(conversationsRepository.updateAssignment).not.toHaveBeenCalled();
   });
 });

@@ -115,6 +115,7 @@ export class ConversationsRepository {
       const now = new Date();
       const isWaitingCustomer = status === ConversationStatus.WAITING_CUSTOMER;
       const isResolved = status === ConversationStatus.RESOLVED;
+      const isClosed = status === ConversationStatus.CLOSED;
 
       let newSlaDueAt = conversation.ticket?.slaDueAt;
       let newSlaPausedAt = conversation.ticket?.slaPausedAt;
@@ -140,7 +141,11 @@ export class ConversationsRepository {
         data: {
           status,
           version: { increment: 1 },
-          resolvedAt: isResolved ? now : null,
+          resolvedAt: isResolved
+            ? now
+            : isClosed
+              ? conversation.resolvedAt
+              : null,
         },
       });
 
@@ -154,8 +159,13 @@ export class ConversationsRepository {
         await tx.ticket.update({
           where: { id: conversation.ticket.id },
           data: {
-            status: status as any,
-            resolvedAt: isResolved ? now : null,
+            status: this.toTicketStatus(status),
+            resolvedAt: isResolved
+              ? now
+              : isClosed
+                ? conversation.ticket.resolvedAt
+                : null,
+            closedAt: isClosed ? now : null,
             slaDueAt: newSlaDueAt,
             slaPausedAt: newSlaPausedAt,
           },
@@ -224,10 +234,18 @@ export class ConversationsRepository {
       });
 
       if (conversation?.ticket) {
+        const shouldUpdateTicketStatus =
+          conversation.ticket.status === TicketStatus.NEW ||
+          conversation.ticket.status === TicketStatus.ASSIGNED;
+
         await tx.ticket.update({
           where: { id: conversation.ticket.id },
           data: {
-            status: assignedAgentId ? TicketStatus.ASSIGNED : TicketStatus.NEW,
+            status: shouldUpdateTicketStatus
+              ? assignedAgentId
+                ? TicketStatus.ASSIGNED
+                : TicketStatus.NEW
+              : undefined,
             assignedAgentId,
           },
         });
@@ -327,5 +345,17 @@ export class ConversationsRepository {
         },
       },
     });
+  }
+
+  private toTicketStatus(status: ConversationStatus): TicketStatus {
+    const statusMap: Record<ConversationStatus, TicketStatus> = {
+      [ConversationStatus.NEW]: TicketStatus.NEW,
+      [ConversationStatus.IN_PROGRESS]: TicketStatus.IN_PROGRESS,
+      [ConversationStatus.WAITING_CUSTOMER]: TicketStatus.WAITING_CUSTOMER,
+      [ConversationStatus.RESOLVED]: TicketStatus.RESOLVED,
+      [ConversationStatus.CLOSED]: TicketStatus.CLOSED,
+    };
+
+    return statusMap[status];
   }
 }

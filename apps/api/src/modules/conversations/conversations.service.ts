@@ -8,6 +8,8 @@ import {
   Prisma,
   Priority,
   ChannelType,
+  UserRole,
+  UserStatus,
 } from '@prisma/client';
 import { REALTIME_EVENT_TYPES, QUEUE_NAMES } from '@omnidesk/shared';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -350,8 +352,8 @@ export class ConversationsService {
       throw new NotFoundException('Assigned agent not found');
     }
 
-    if (user.status !== 'ACTIVE') {
-      throw new BadRequestException('Assigned user must be active');
+    if (user.role !== UserRole.AGENT || user.status !== UserStatus.ACTIVE) {
+      throw new BadRequestException('Assigned user must be an active agent');
     }
   }
 }

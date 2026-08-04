@@ -50,7 +50,11 @@ export class TicketsController {
     @Param('id') id: string,
     @Body() dto: UpdateTicketStatusDto,
   ) {
-    const data = await this.ticketsService.updateStatus(id, dto.status);
+    const data = await this.ticketsService.updateStatus(
+      id,
+      dto.status,
+      dto.version,
+    );
     return {
       success: true,
       data,
@@ -69,6 +73,7 @@ export class TicketsController {
     const data = await this.ticketsService.updateAssignment(
       id,
       dto.assignedAgentId,
+      dto.version,
     );
     return {
       success: true,

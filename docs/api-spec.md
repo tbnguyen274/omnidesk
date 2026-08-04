@@ -515,9 +515,12 @@ Request:
 
 ```json
 {
-  "status": "IN_PROGRESS"
+  "status": "IN_PROGRESS",
+  "version": 1
 }
 ```
+
+`ASSIGNED` không được cập nhật qua endpoint status; dùng endpoint assignment. `version` là version hiện tại của conversation và xung đột trả về HTTP 409.
 
 ### PATCH `/tickets/:id/assignment`
 
@@ -525,9 +528,12 @@ Request:
 
 ```json
 {
-  "assignedAgentId": "uuid"
+  "assignedAgentId": "uuid",
+  "version": 1
 }
 ```
+
+Mutation ticket được thực thi qua conversation aggregate để cập nhật hai bản ghi trong cùng transaction.
 
 ## 6. Message APIs
 

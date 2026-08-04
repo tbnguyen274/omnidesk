@@ -3,8 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, TicketStatus, UserRole, UserStatus } from '@prisma/client';
+import { ConversationStatus, Prisma, TicketStatus } from '@prisma/client';
 import { REALTIME_EVENT_TYPES } from '@omnidesk/shared';
+import { ConversationsService } from '../conversations/conversations.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ListTicketsDto } from './dto/list-tickets.dto';
 import { TicketsRepository } from './tickets.repository';
@@ -14,6 +15,7 @@ export class TicketsService {
   constructor(
     private readonly ticketsRepository: TicketsRepository,
     private readonly notificationsService: NotificationsService,
+    private readonly conversationsService: ConversationsService,
   ) {}
 
   async list(query: ListTicketsDto) {
@@ -55,6 +57,7 @@ export class TicketsService {
           channelType: ticket.conversation.channelType,
           subject: ticket.conversation.subject,
           status: ticket.conversation.status,
+          version: ticket.conversation.version,
           lastMessageAt: ticket.conversation.lastMessageAt,
           customer: {
             id: ticket.conversation.customer.id,
@@ -82,24 +85,31 @@ export class TicketsService {
     return ticket;
   }
 
-  async updateStatus(id: string, status: TicketStatus) {
+  async updateStatus(id: string, status: TicketStatus, version: number) {
     const existingTicket = await this.ensureTicketExists(id);
+    const conversationStatus = this.toConversationStatus(status);
 
-    const ticket = await this.ticketsRepository.updateStatus(id, status);
+    await this.conversationsService.updateStatus(
+      existingTicket.conversationId,
+      conversationStatus,
+      version,
+    );
+    const ticket = await this.findById(id);
 
     this.publishTicketUpdated(ticket.id, existingTicket.conversationId);
 
     return ticket;
   }
 
-  async updateAssignment(id: string, assignedAgentId: string) {
+  async updateAssignment(id: string, assignedAgentId: string, version: number) {
     const existingTicket = await this.ensureTicketExists(id);
-    await this.ensureAssignableAgent(assignedAgentId);
 
-    const ticket = await this.ticketsRepository.updateAssignment(
-      id,
+    await this.conversationsService.updateAssignment(
+      existingTicket.conversationId,
       assignedAgentId,
+      version,
     );
+    const ticket = await this.findById(id);
 
     this.publishTicketUpdated(ticket.id, existingTicket.conversationId);
 
@@ -132,15 +142,24 @@ export class TicketsService {
     });
   }
 
-  private async ensureAssignableAgent(id: string) {
-    const user = await this.ticketsRepository.findAssignableUser(id);
-
-    if (!user) {
-      throw new NotFoundException('Assigned agent not found');
+  private toConversationStatus(status: TicketStatus): ConversationStatus {
+    if (status === TicketStatus.ASSIGNED) {
+      throw new BadRequestException(
+        'Use the assignment endpoint to move a ticket to ASSIGNED',
+      );
     }
 
-    if (user.role !== UserRole.AGENT || user.status !== UserStatus.ACTIVE) {
-      throw new BadRequestException('Assigned user must be an active agent');
-    }
+    const statusMap: Record<
+      Exclude<TicketStatus, typeof TicketStatus.ASSIGNED>,
+      ConversationStatus
+    > = {
+      [TicketStatus.NEW]: ConversationStatus.NEW,
+      [TicketStatus.IN_PROGRESS]: ConversationStatus.IN_PROGRESS,
+      [TicketStatus.WAITING_CUSTOMER]: ConversationStatus.WAITING_CUSTOMER,
+      [TicketStatus.RESOLVED]: ConversationStatus.RESOLVED,
+      [TicketStatus.CLOSED]: ConversationStatus.CLOSED,
+    };
+
+    return statusMap[status];
   }
 }

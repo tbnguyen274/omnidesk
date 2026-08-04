@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, TicketStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 
 @Injectable()
@@ -60,44 +60,14 @@ export class TicketsRepository {
   findExistingById(id: string) {
     return this.prisma.ticket.findUnique({
       where: { id },
-      select: { id: true, conversationId: true },
-    });
-  }
-
-  updateStatus(id: string, status: TicketStatus) {
-    return this.prisma.ticket.update({
-      where: { id },
-      data: {
-        status,
-        resolvedAt: status === TicketStatus.RESOLVED ? new Date() : undefined,
-        closedAt: status === TicketStatus.CLOSED ? new Date() : undefined,
-      },
-    });
-  }
-
-  updateAssignment(id: string, assignedAgentId: string) {
-    return this.prisma.ticket.update({
-      where: { id },
-      data: { assignedAgentId },
-      include: {
-        assignedAgent: {
+      select: {
+        id: true,
+        conversationId: true,
+        conversation: {
           select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
+            version: true,
           },
         },
-      },
-    });
-  }
-
-  findAssignableUser(id: string) {
-    return this.prisma.user.findUnique({
-      where: { id },
-      select: {
-        role: true,
-        status: true,
       },
     });
   }
