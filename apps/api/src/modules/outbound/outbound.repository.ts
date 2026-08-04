@@ -27,6 +27,7 @@ export class OutboundRepository {
         id: true,
         channelType: true,
         status: true,
+        assignedAgentId: true,
         customer: {
           select: {
             email: true,

@@ -24,7 +24,7 @@ export class OutboundController {
     @Body() dto: CreateOutboundMessageDto,
     @CurrentUser() user: CurrentUserType,
   ) {
-    const data = await this.outboundService.create(dto, user.id);
+    const data = await this.outboundService.create(dto, user);
     return {
       success: true,
       data,

@@ -141,7 +141,7 @@ describe('login -> inbox -> reply smoke flow (e2e)', () => {
         conversationId: '11111111-1111-4111-8111-111111111111',
         content: 'Thanks, we are checking this.',
       }),
-      'agent-id',
+      expect.objectContaining({ id: 'agent-id', role: UserRole.AGENT }),
     );
 
     await request(app.getHttpServer())

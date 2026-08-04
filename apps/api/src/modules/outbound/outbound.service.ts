@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,9 +9,11 @@ import {
   ChannelType,
   ConversationStatus,
   OutboundProvider,
+  UserRole,
 } from '@prisma/client';
 import { QUEUE_NAMES, REALTIME_EVENT_TYPES } from '@omnidesk/shared';
 import { QueuesService } from '../../common/queues/queues.service';
+import type { CurrentUser } from '../../common/auth/current-user.type';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOutboundMessageDto } from './dto/create-outbound-message.dto';
 import { OutboundRepository } from './outbound.repository';
@@ -23,7 +26,7 @@ export class OutboundService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async create(dto: CreateOutboundMessageDto, createdBy: string) {
+  async create(dto: CreateOutboundMessageDto, currentUser: CurrentUser) {
     const conversation = await this.outboundRepository.findConversationById(
       dto.conversationId,
     );
@@ -37,6 +40,17 @@ export class OutboundService {
         'Cannot send a message to a closed conversation',
       );
     }
+
+    if (
+      currentUser.role === UserRole.AGENT &&
+      conversation.assignedAgentId &&
+      conversation.assignedAgentId !== currentUser.id
+    ) {
+      throw new ForbiddenException('Conversation is assigned to another agent');
+    }
+
+    const content = dto.content.trim();
+    this.validateContentLength(conversation.channelType, content);
 
     const replyTarget = dto.replyToMessageId
       ? await this.outboundRepository.findReplyTarget(
@@ -63,9 +77,9 @@ export class OutboundService {
         provider: delivery.provider,
         recipientExternalId: delivery.recipientExternalId,
         replyToMessageId,
-        content: dto.content.trim(),
+        content,
       },
-      createdBy,
+      currentUser.id,
     );
 
     const job = await this.queues.add(
@@ -142,5 +156,15 @@ export class OutboundService {
     }
 
     return replyTarget.externalMessageId ?? replyTarget.id;
+  }
+
+  private validateContentLength(channelType: ChannelType, content: string) {
+    const maxLength = channelType === ChannelType.EMAIL ? 10_000 : 2_000;
+
+    if (content.length > maxLength) {
+      throw new BadRequestException(
+        `Content exceeds the ${maxLength} character limit for ${channelType}`,
+      );
+    }
   }
 }

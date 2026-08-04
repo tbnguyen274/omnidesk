@@ -1,14 +1,24 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import {
   ChannelType,
   ConversationStatus,
   OutboundMessageStatus,
   OutboundProvider,
+  UserRole,
 } from '@prisma/client';
 import { OutboundService } from './outbound.service';
 
 describe('OutboundService', () => {
   const conversationId = '11111111-1111-4111-8111-111111111111';
+  const agent = {
+    id: 'agent-id',
+    email: 'agent@example.com',
+    role: UserRole.AGENT,
+  };
 
   function createService() {
     const outboundRepository = {
@@ -44,6 +54,7 @@ describe('OutboundService', () => {
       id: conversationId,
       channelType: ChannelType.EMAIL,
       status: ConversationStatus.NEW,
+      assignedAgentId: null,
       customer: {
         email: 'trusted@example.com',
         externalFacebookId: null,
@@ -51,10 +62,7 @@ describe('OutboundService', () => {
     });
 
     await expect(
-      service.create(
-        { conversationId, content: '  Trusted reply  ' },
-        'agent-id',
-      ),
+      service.create({ conversationId, content: '  Trusted reply  ' }, agent),
     ).resolves.toMatchObject({ queued: true, jobId: 'job-id' });
 
     expect(outboundRepository.createOutboundMessage).toHaveBeenCalledWith(
@@ -81,6 +89,7 @@ describe('OutboundService', () => {
       id: conversationId,
       channelType: ChannelType.FACEBOOK_COMMENT,
       status: ConversationStatus.IN_PROGRESS,
+      assignedAgentId: 'agent-id',
       customer: { email: null, externalFacebookId: null },
     });
     outboundRepository.findReplyTarget.mockResolvedValue({
@@ -94,7 +103,7 @@ describe('OutboundService', () => {
         content: 'Reply',
         replyToMessageId: 'message-id',
       },
-      'agent-id',
+      agent,
     );
 
     expect(outboundRepository.createOutboundMessage).toHaveBeenCalledWith(
@@ -113,6 +122,7 @@ describe('OutboundService', () => {
       id: conversationId,
       channelType: ChannelType.EMAIL,
       status: ConversationStatus.NEW,
+      assignedAgentId: null,
       customer: { email: 'customer@example.com', externalFacebookId: null },
     });
     outboundRepository.findReplyTarget.mockResolvedValue(null);
@@ -124,7 +134,7 @@ describe('OutboundService', () => {
           content: 'Reply',
           replyToMessageId: 'another-conversation-message',
         },
-        'agent-id',
+        agent,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(outboundRepository.createOutboundMessage).not.toHaveBeenCalled();
@@ -136,12 +146,45 @@ describe('OutboundService', () => {
       id: conversationId,
       channelType: ChannelType.EMAIL,
       status: ConversationStatus.CLOSED,
+      assignedAgentId: null,
       customer: { email: 'customer@example.com', externalFacebookId: null },
     });
 
     await expect(
-      service.create({ conversationId, content: 'Reply' }, 'agent-id'),
+      service.create({ conversationId, content: 'Reply' }, agent),
     ).rejects.toBeInstanceOf(ConflictException);
+    expect(outboundRepository.createOutboundMessage).not.toHaveBeenCalled();
+  });
+
+  it('rejects an agent replying to another agent assignment', async () => {
+    const { service, outboundRepository } = createService();
+    outboundRepository.findConversationById.mockResolvedValue({
+      id: conversationId,
+      channelType: ChannelType.EMAIL,
+      status: ConversationStatus.IN_PROGRESS,
+      assignedAgentId: 'another-agent-id',
+      customer: { email: 'customer@example.com', externalFacebookId: null },
+    });
+
+    await expect(
+      service.create({ conversationId, content: 'Reply' }, agent),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(outboundRepository.createOutboundMessage).not.toHaveBeenCalled();
+  });
+
+  it('enforces the Facebook content limit', async () => {
+    const { service, outboundRepository } = createService();
+    outboundRepository.findConversationById.mockResolvedValue({
+      id: conversationId,
+      channelType: ChannelType.FACEBOOK_MESSAGE,
+      status: ConversationStatus.IN_PROGRESS,
+      assignedAgentId: 'agent-id',
+      customer: { email: null, externalFacebookId: 'facebook-customer-id' },
+    });
+
+    await expect(
+      service.create({ conversationId, content: 'x'.repeat(2_001) }, agent),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(outboundRepository.createOutboundMessage).not.toHaveBeenCalled();
   });
 });
