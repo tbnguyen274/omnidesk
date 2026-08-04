@@ -18,6 +18,7 @@
     "db:generate": "pnpm --filter api prisma:generate",
     "db:up": "docker compose --env-file .env.docker up -d postgres redis",
     "db:migrate": "pnpm --filter api prisma:migrate",
+    "db:reconcile-tickets": "pnpm --filter api prisma:reconcile-tickets",
     "db:reset": "pnpm --filter api exec prisma migrate reset --force",
     "db:seed": "pnpm --filter api prisma:seed",
     "dev": "pnpm -r --parallel dev",

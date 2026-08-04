@@ -68,6 +68,8 @@ Stage 5 must provide:
 
 The API image only starts the API process. Deployments must run the Compose `migrate` service, or an equivalent one-time release job, before rolling out API replicas.
 
+After upgrading an existing database, inspect historical Conversation/Ticket drift with `pnpm db:reconcile-tickets`. Review the JSON report before running `pnpm db:reconcile-tickets --apply`; the command is dry-run by default.
+
 ## Ownership
 
 Named owners have not been provided. Until team members are assigned, accountability is defined by role:

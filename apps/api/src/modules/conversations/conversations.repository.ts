@@ -7,6 +7,7 @@ import {
   TicketStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
+import { toTicketStatus } from '../tickets/ticket-consistency';
 
 @Injectable()
 export class ConversationsRepository {
@@ -159,7 +160,7 @@ export class ConversationsRepository {
         await tx.ticket.update({
           where: { id: conversation.ticket.id },
           data: {
-            status: this.toTicketStatus(status),
+            status: toTicketStatus(status),
             resolvedAt: isResolved
               ? now
               : isClosed
@@ -345,17 +346,5 @@ export class ConversationsRepository {
         },
       },
     });
-  }
-
-  private toTicketStatus(status: ConversationStatus): TicketStatus {
-    const statusMap: Record<ConversationStatus, TicketStatus> = {
-      [ConversationStatus.NEW]: TicketStatus.NEW,
-      [ConversationStatus.IN_PROGRESS]: TicketStatus.IN_PROGRESS,
-      [ConversationStatus.WAITING_CUSTOMER]: TicketStatus.WAITING_CUSTOMER,
-      [ConversationStatus.RESOLVED]: TicketStatus.RESOLVED,
-      [ConversationStatus.CLOSED]: TicketStatus.CLOSED,
-    };
-
-    return statusMap[status];
   }
 }
