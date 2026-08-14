@@ -31,6 +31,17 @@ export class OutboundMessagesProcessor {
       return;
     }
 
+    // Idempotency guard: skip if already in a terminal state (e.g. worker crashed after send)
+    if (
+      outboundMessage.status === OutboundMessageStatus.SENT ||
+      outboundMessage.status === OutboundMessageStatus.FAILED
+    ) {
+      this.logger.log(
+        `Outbound message ${outboundMessage.id} already in terminal state ${outboundMessage.status} — skipping`,
+      );
+      return;
+    }
+
     try {
       const sendingMessage = await this.prisma.outboundMessage.update({
         where: { id: outboundMessage.id },
