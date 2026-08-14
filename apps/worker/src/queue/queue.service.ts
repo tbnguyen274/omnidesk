@@ -102,9 +102,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         age: 60 * 60,
         count: 1000,
       },
-      removeOnFail: {
-        age: 24 * 60 * 60,
-      },
+      removeOnFail: false, // Retain failed jobs for dead-letter inspection and replay
     });
 
     this.logger.log(
@@ -118,6 +116,78 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     );
 
     return job;
+  }
+
+  /**
+   * Upserts a BullMQ repeatable job.
+   * Safe to call on every module init — BullMQ deduplicates by jobId.
+   */
+  async upsertRepeatable<TQueueName extends QueueName>(
+    queueName: TQueueName,
+    jobName: string,
+    payload: QueuePayloadByName[TQueueName],
+    options: { every: number; jobId: string },
+  ) {
+    const queue = this.queues.get(queueName);
+
+    if (!queue) {
+      throw new Error(`Queue ${queueName} is not initialized`);
+    }
+
+    await queue.upsertJobScheduler(
+      options.jobId,
+      { every: options.every },
+      { name: jobName, data: payload },
+    );
+  }
+
+  /**
+   * Removes a repeatable job by its scheduler key.
+   * Called on module destroy to clean up on graceful shutdown.
+   */
+  async removeRepeatable(queueName: QueueName, schedulerKey: string) {
+    const queue = this.queues.get(queueName);
+    if (!queue) return;
+
+    try {
+      await queue.removeJobScheduler(schedulerKey);
+    } catch {
+      // Ignore errors on shutdown — queue may already be closing
+    }
+  }
+
+  /**
+   * Returns failed jobs from a queue for dead-letter inspection.
+   */
+  async getFailedJobs(queueName: QueueName, limit = 50) {
+    const queue = this.queues.get(queueName);
+    if (!queue) return [];
+
+    const jobs = await queue.getFailed(0, limit - 1);
+    return jobs.map((job) => ({
+      id: job.id,
+      name: job.name,
+      data: job.data,
+      attemptsMade: job.attemptsMade,
+      failedReason: job.failedReason,
+      timestamp: job.timestamp,
+      processedOn: job.processedOn,
+      finishedOn: job.finishedOn,
+    }));
+  }
+
+  /**
+   * Retries a failed job by moving it back to the waiting state.
+   */
+  async retryJob(queueName: QueueName, jobId: string) {
+    const queue = this.queues.get(queueName);
+    if (!queue) throw new Error(`Queue ${queueName} is not initialized`);
+
+    const job = await queue.getJob(jobId);
+    if (!job) throw new Error(`Job ${jobId} not found in queue ${queueName}`);
+
+    await job.retry('failed');
+    return { retried: true, jobId };
   }
 
   async ping() {
