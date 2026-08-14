@@ -5,6 +5,7 @@ import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { RolesGuard } from './common/auth/roles.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminModule } from './modules/admin/admin.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ChannelsModule } from './modules/channels/channels.module';
@@ -24,7 +25,9 @@ import { TicketsModule } from './modules/tickets/tickets.module';
 import { UsersModule } from './modules/users/users.module';
 import { TagsModule } from './modules/tags/tags.module';
 import { DatabaseModule } from './common/database/database.module';
+import { OutboxModule } from './common/outbox/outbox.module';
 import { QueuesModule } from './common/queues/queues.module';
+import { ReconcileModule } from './common/reconcile/reconcile.module';
 import { RedisModule } from './common/redis/redis.module';
 
 @Module({
@@ -38,6 +41,8 @@ import { RedisModule } from './common/redis/redis.module';
     DatabaseModule,
     RedisModule,
     QueuesModule,
+    OutboxModule,
+    ReconcileModule,
     HealthModule,
     AuthModule,
     UsersModule,
@@ -51,6 +56,7 @@ import { RedisModule } from './common/redis/redis.module';
     SlaModule,
     AnalyticsModule,
     EventsModule,
+    AdminModule,
     ...(process.env.NODE_ENV === 'production' ? [] : [DevModule]),
     DashboardModule,
     EmailModule,

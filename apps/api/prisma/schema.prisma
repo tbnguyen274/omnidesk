@@ -96,6 +96,7 @@ enum InboundEventType {
 
 enum InboundEventStatus {
   PENDING
+  PROCESSING
   PROCESSED
   FAILED
   DUPLICATED
@@ -120,13 +121,19 @@ enum EmailSyncStatus {
   PARTIAL
 }
 
+enum OutboxEventStatus {
+  PENDING
+  PUBLISHED
+  DEAD
+}
+
 model User {
-  id                 String     @id @default(uuid()) @db.Uuid
-  name               String
-  email              String     @unique
-  passwordHash       String     @map("password_hash")
-  role               UserRole
-  status             UserStatus @default(ACTIVE)
+  id                   String     @id @default(uuid()) @db.Uuid
+  name                 String
+  email                String     @unique
+  passwordHash         String     @map("password_hash")
+  role                 UserRole
+  status               UserStatus @default(ACTIVE)
   createdAt            DateTime   @default(now()) @map("created_at")
   updatedAt            DateTime   @updatedAt @map("updated_at")
   hashedRefreshToken   String?    @map("hashed_refresh_token")
@@ -172,6 +179,7 @@ model ChannelAccount {
   conversations Conversation[]
   emailSyncLogs EmailSyncLog[]
 
+  @@unique([type, externalId])
   @@map("channel_accounts")
 }
 
@@ -201,6 +209,7 @@ model Conversation {
   conversationTags ConversationTag[]
   outboundMessages OutboundMessage[]
 
+  @@unique([channelAccountId, externalConversationId])
   @@index([status, lastMessageAt])
   @@index([channelType, lastMessageAt])
   @@index([assignedAgentId])
@@ -282,16 +291,17 @@ model ConversationTag {
 }
 
 model InboundEvent {
-  id               String             @id @default(uuid()) @db.Uuid
-  provider         InboundProvider
-  eventType        InboundEventType   @map("event_type")
-  externalEventId  String?            @map("external_event_id")
-  dedupKey         String             @unique @map("dedup_key")
-  rawPayload       Json               @map("raw_payload")
-  normalizedStatus InboundEventStatus @default(PENDING) @map("normalized_status")
-  errorMessage     String?            @map("error_message")
-  receivedAt       DateTime           @default(now()) @map("received_at")
-  processedAt      DateTime?          @map("processed_at")
+  id                  String             @id @default(uuid()) @db.Uuid
+  provider            InboundProvider
+  eventType           InboundEventType   @map("event_type")
+  externalEventId     String?            @map("external_event_id")
+  dedupKey            String             @unique @map("dedup_key")
+  rawPayload          Json               @map("raw_payload")
+  normalizedStatus    InboundEventStatus @default(PENDING) @map("normalized_status")
+  errorMessage        String?            @map("error_message")
+  receivedAt          DateTime           @default(now()) @map("received_at")
+  processedAt         DateTime?          @map("processed_at")
+  processingStartedAt DateTime?          @map("processing_started_at")
 
   messages Message[]
 
@@ -354,4 +364,21 @@ model AuditLog {
   actor User? @relation(fields: [actorId], references: [id])
 
   @@map("audit_logs")
+}
+
+model OutboxEvent {
+  id           String            @id @default(uuid()) @db.Uuid
+  type         String
+  aggregateId  String            @map("aggregate_id") @db.Uuid
+  payload      Json
+  status       OutboxEventStatus @default(PENDING)
+  attempts     Int               @default(0)
+  jobId        String?           @map("job_id")
+  errorMessage String?           @map("error_message")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  publishedAt  DateTime?         @map("published_at")
+  failedAt     DateTime?         @map("failed_at")
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
 }

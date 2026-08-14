@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { QUEUE_NAMES } from '@omnidesk/shared';
 import { Prisma } from '@prisma/client';
-import { QueuesService } from '../../common/queues/queues.service';
+import { PrismaService } from '../../common/database/prisma.service';
+import { OutboxService } from '../../common/outbox/outbox.service';
 import { CreateInboundEventDto } from './dto/create-inbound-event.dto';
 import { ListInboundEventsDto } from './dto/list-inbound-events.dto';
 import { ListOutboundEventsDto } from './dto/list-outbound-events.dto';
@@ -11,7 +11,8 @@ import { EventsRepository } from './events.repository';
 export class EventsService {
   constructor(
     private readonly eventsRepository: EventsRepository,
-    private readonly queues: QueuesService,
+    private readonly prisma: PrismaService,
+    private readonly outbox: OutboxService,
   ) {}
 
   async listInbound(query: ListInboundEventsDto) {
@@ -72,9 +73,36 @@ export class EventsService {
       };
     }
 
-    let inboundEvent;
     try {
-      inboundEvent = await this.eventsRepository.createInbound(dto);
+      // Write InboundEvent + OutboxEvent atomically in a single transaction.
+      // The OutboxDispatcherService will pick up the outbox event and enqueue
+      // it into BullMQ, ensuring the event is never lost even if Redis is down.
+      const { inboundEvent } = await this.prisma.$transaction(async (tx) => {
+        const event = await tx.inboundEvent.create({
+          data: {
+            provider: dto.provider,
+            eventType: dto.eventType,
+            externalEventId: dto.externalEventId,
+            dedupKey: dto.dedupKey,
+            rawPayload: dto.rawPayload as Prisma.InputJsonValue,
+          },
+        });
+
+        await this.outbox.createEvent(tx, 'INBOUND_EVENT_CREATED', event.id, {
+          inboundEventId: event.id,
+          dedupKey: event.dedupKey,
+          provider: event.provider,
+          eventType: event.eventType,
+        });
+
+        return { inboundEvent: event };
+      });
+
+      return {
+        inboundEvent,
+        duplicated: false,
+        queued: false, // Will be enqueued by the OutboxDispatcher
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -92,18 +120,5 @@ export class EventsService {
       }
       throw error;
     }
-
-    await this.queues.add(QUEUE_NAMES.INBOUND_EVENTS, 'process-inbound-event', {
-      inboundEventId: inboundEvent.id,
-      dedupKey: inboundEvent.dedupKey,
-      provider: inboundEvent.provider,
-      eventType: inboundEvent.eventType,
-    });
-
-    return {
-      inboundEvent,
-      duplicated: false,
-      queued: true,
-    };
   }
 }
