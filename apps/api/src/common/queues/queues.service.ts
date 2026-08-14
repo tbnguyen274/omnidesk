@@ -187,4 +187,3 @@ export class QueuesService implements OnModuleInit, OnModuleDestroy {
     );
   }
 }
-

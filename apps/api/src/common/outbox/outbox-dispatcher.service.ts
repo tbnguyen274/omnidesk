@@ -63,12 +63,15 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
             job = await this.queues.addWithJobId(
               QUEUE_NAMES.INBOUND_EVENTS,
               'process-inbound-event',
-              payload as unknown as import('@omnidesk/shared').InboundEventJobPayload,
+              payload as import('@omnidesk/shared').InboundEventJobPayload,
               jobId,
             );
           } else {
             this.logger.warn(`Unknown outbox event type: ${event.type}`);
-            await this.outbox.markFailed(event.id, `Unknown event type: ${event.type}`);
+            await this.outbox.markFailed(
+              event.id,
+              `Unknown event type: ${event.type}`,
+            );
             continue;
           }
 

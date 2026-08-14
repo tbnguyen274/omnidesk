@@ -84,7 +84,7 @@ export class EventsService {
             eventType: dto.eventType,
             externalEventId: dto.externalEventId,
             dedupKey: dto.dedupKey,
-            rawPayload: dto.rawPayload as Prisma.InputJsonValue,
+            rawPayload: dto.rawPayload,
           },
         });
 
