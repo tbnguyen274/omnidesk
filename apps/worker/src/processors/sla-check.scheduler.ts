@@ -16,7 +16,9 @@ const INTERVAL_MS = 60 * 1000; // every 1 minute
  * BullMQ guarantees only one scheduler entry exists per key.
  */
 @Injectable()
-export class SlaCheckScheduler implements OnApplicationBootstrap, OnModuleDestroy {
+export class SlaCheckScheduler
+  implements OnApplicationBootstrap, OnModuleDestroy
+{
   private readonly logger = new Logger(SlaCheckScheduler.name);
 
   constructor(private readonly queueService: QueueService) {}

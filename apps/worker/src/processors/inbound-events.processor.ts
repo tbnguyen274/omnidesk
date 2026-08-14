@@ -95,7 +95,9 @@ export class InboundEventsProcessor {
     });
 
     if (!inboundEvent) {
-      this.logger.warn(`Inbound event ${job.data.inboundEventId} not found after acquiring lock`);
+      this.logger.warn(
+        `Inbound event ${job.data.inboundEventId} not found after acquiring lock`,
+      );
       return;
     }
 
