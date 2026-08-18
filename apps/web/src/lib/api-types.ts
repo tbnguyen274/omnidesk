@@ -185,3 +185,28 @@ export type AgentPerformance = {
   resolvedTickets: number;
 };
 
+export type QueueName =
+  | "inbound-events"
+  | "outbound-messages"
+  | "email-sync"
+  | "email-actions"
+  | "sla-check"
+  | "auto-close"
+  | "analytics-aggregation";
+
+export type DeadLetterJob = {
+  id: string | undefined;
+  name: string;
+  data: Record<string, unknown>;
+  attemptsMade: number;
+  failedReason: string | undefined;
+  timestamp: number;
+  processedOn: number | undefined;
+  finishedOn: number | undefined;
+};
+
+export type DeadLetterJobsResponse = {
+  queue: string;
+  jobs: DeadLetterJob[];
+  total: number;
+};

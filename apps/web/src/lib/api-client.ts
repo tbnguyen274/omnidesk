@@ -13,6 +13,8 @@ import type {
   DashboardSummary,
   AgentPerformance,
   UserRole,
+  DeadLetterJobsResponse,
+  QueueName,
 } from "./api-types";
 import { API_BASE_URL } from "./app-config";
 
@@ -298,5 +300,22 @@ export const apiClient = {
     return request(`/conversations/${conversationId}/tags/${tagId}`, "DELETE", {
       token,
     });
+  },
+
+  // ── Admin: Dead-letter & Replay ──────────────────────────────────────────
+
+  listDeadLetterJobs(token: string, queue: QueueName, limit = 50) {
+    return request<DeadLetterJobsResponse>("/admin/dead-letter-jobs", "GET", {
+      token,
+      query: { queue, limit },
+    });
+  },
+
+  replayDeadLetterJob(token: string, queue: QueueName, jobId: string) {
+    return request<{ retried: boolean; jobId: string }>(
+      `/admin/dead-letter-jobs/${jobId}/replay`,
+      "POST",
+      { token, body: { queue } },
+    );
   },
 };

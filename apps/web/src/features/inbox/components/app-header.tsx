@@ -58,6 +58,16 @@ export function AppHeader({
               >
                 Users
               </Link>
+              <Link 
+                href="/dead-letter" 
+                className={`text-sm transition-colors ${
+                  pathname?.startsWith("/dead-letter") 
+                    ? "font-semibold text-slate-900" 
+                    : "font-medium text-slate-500 hover:text-[#EE0033]"
+                }`}
+              >
+                Dead Letter
+              </Link>
             </>
           )}
         </nav>
