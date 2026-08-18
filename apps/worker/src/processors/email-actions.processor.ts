@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { EmailActionsJobPayload } from '@omnidesk/shared';
 import { EmailActionsService } from '../email/email-actions.service';
+import { PermanentJobError } from '../errors/permanent-job.error';
 
 @Injectable()
 export class EmailActionsProcessor {
@@ -46,7 +47,9 @@ export class EmailActionsProcessor {
           );
           break;
         default:
-          this.logger.warn(`Unknown email action: ${String(action)}`);
+          throw new PermanentJobError(
+            `Unknown email action "${String(action)}" — cannot process, no retry will help`,
+          );
       }
       this.logger.log(
         `Successfully processed email action ${action} for ${messageId}`,

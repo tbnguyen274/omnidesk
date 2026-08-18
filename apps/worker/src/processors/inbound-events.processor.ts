@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { EmailInboundService } from '../email/email-inbound.service';
 import { FacebookInboundService } from '../facebook/services/facebook-inbound.service';
+import { PermanentJobError } from '../errors/permanent-job.error';
 
 /** Lease duration: if processing has been in-flight for longer than this, it is
  *  considered stale and the reconcile scheduler will reset it back to PENDING. */
@@ -95,10 +96,9 @@ export class InboundEventsProcessor {
     });
 
     if (!inboundEvent) {
-      this.logger.warn(
-        `Inbound event ${job.data.inboundEventId} not found after acquiring lock`,
+      throw new PermanentJobError(
+        `Inbound event ${job.data.inboundEventId} not found — record may have been deleted`,
       );
-      return;
     }
 
     try {

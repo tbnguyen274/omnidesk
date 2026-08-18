@@ -8,6 +8,7 @@ import { OutboundMessageStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { OutboundAdapterRegistry } from '../outbound/adapters/outbound-adapter.registry';
 import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
+import { PermanentJobError } from '../errors/permanent-job.error';
 
 @Injectable()
 export class OutboundMessagesProcessor {
@@ -25,10 +26,9 @@ export class OutboundMessagesProcessor {
     });
 
     if (!outboundMessage) {
-      this.logger.warn(
-        `Outbound message ${job.data.outboundMessageId} not found`,
+      throw new PermanentJobError(
+        `Outbound message ${job.data.outboundMessageId} not found — record may have been deleted`,
       );
-      return;
     }
 
     // Idempotency guard: skip if already in a terminal state (e.g. worker crashed after send)

@@ -71,9 +71,7 @@ export class QueuesService implements OnModuleInit, OnModuleDestroy {
         age: 60 * 60,
         count: 1000,
       },
-      removeOnFail: {
-        age: 24 * 60 * 60,
-      },
+      removeOnFail: false, // Retain failed jobs for dead-letter inspection and replay
     });
 
     this.logger.log(
