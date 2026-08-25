@@ -26,6 +26,22 @@ export type OutboundMessageStatus =
   | "FAILED"
   | "RETRYING";
 
+export type Attachment = {
+  id: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
+export type UploadAttachmentResponse = {
+  key: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
 export type ApiResponse<T> = {
   success: boolean;
   data: T;
@@ -94,6 +110,7 @@ export type ConversationMessage = {
   replyToMessageId?: string | null;
   createdAt: string;
   sentAt: string | null;
+  attachments?: Attachment[];
 };
 
 export type ConversationDetail = {
@@ -139,10 +156,19 @@ export type ConversationFilters = {
   search?: string;
 };
 
+export type OutboundAttachmentItem = {
+  url: string;
+  fileName: string;
+  mimeType?: string;
+  sizeBytes?: number;
+};
+
 export type CreateOutboundMessagePayload = {
   conversationId: string;
   replyToMessageId?: string;
   content: string;
+  attachmentUrls?: string[];
+  attachments?: OutboundAttachmentItem[];
 };
 
 export type OutboundMessage = {

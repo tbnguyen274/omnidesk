@@ -11,6 +11,7 @@ import type {
   ConversationFilters,
   ConversationStatus,
   CurrentUser,
+  OutboundAttachmentItem,
   Priority,
 } from "@/lib/api-types";
 
@@ -168,7 +169,7 @@ export function useConversationActions({
 
   async function handleSendReply(
     content: string,
-    replyToExternalId?: string | null,
+    attachments?: OutboundAttachmentItem[],
   ) {
     if (!token || !selectedConversation) {
       return;
@@ -177,7 +178,9 @@ export function useConversationActions({
     const payload = createOutboundMessagePayload(
       selectedConversation,
       content,
-      replyToExternalId,
+      undefined,
+      undefined,
+      attachments,
     );
 
     await apiClient.createOutboundMessage(token, payload);

@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  Attachment,
   ConversationStatus,
+  Message,
   Prisma,
   Priority,
   ChannelType,
@@ -16,6 +18,34 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { QueuesService } from '../../common/queues/queues.service';
 import { ConversationsRepository } from './conversations.repository';
 import { ListConversationsDto } from './dto/list-conversations.dto';
+
+type MessageWithAttachments = Message & {
+  attachments?: Attachment[];
+};
+
+function mapMessageResponse(message: MessageWithAttachments) {
+  return {
+    id: message.id,
+    direction: message.direction,
+    senderType: message.senderType,
+    senderId: message.senderId,
+    content: message.content,
+    contentType: message.contentType,
+    deliveryStatus: message.deliveryStatus,
+    externalMessageId: message.externalMessageId,
+    replyToMessageId: message.replyToMessageId,
+    createdAt: message.createdAt,
+    sentAt: message.sentAt,
+    attachments:
+      message.attachments?.map((att) => ({
+        id: att.id,
+        url: att.url,
+        fileName: att.fileName,
+        mimeType: att.mimeType,
+        sizeBytes: att.sizeBytes,
+      })) ?? [],
+  };
+}
 
 @Injectable()
 export class ConversationsService {
@@ -132,19 +162,7 @@ export class ConversationsService {
         name: tag.name,
         color: tag.color,
       })),
-      messages: conversation.messages.reverse().map((message) => ({
-        id: message.id,
-        direction: message.direction,
-        senderType: message.senderType,
-        senderId: message.senderId,
-        content: message.content,
-        contentType: message.contentType,
-        deliveryStatus: message.deliveryStatus,
-        externalMessageId: message.externalMessageId,
-        replyToMessageId: message.replyToMessageId,
-        createdAt: message.createdAt,
-        sentAt: message.sentAt,
-      })),
+      messages: conversation.messages.reverse().map(mapMessageResponse),
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
       version: conversation.version,
@@ -165,19 +183,7 @@ export class ConversationsService {
       limit,
     );
 
-    return messages.reverse().map((message) => ({
-      id: message.id,
-      direction: message.direction,
-      senderType: message.senderType,
-      senderId: message.senderId,
-      content: message.content,
-      contentType: message.contentType,
-      deliveryStatus: message.deliveryStatus,
-      externalMessageId: message.externalMessageId,
-      replyToMessageId: message.replyToMessageId,
-      createdAt: message.createdAt,
-      sentAt: message.sentAt,
-    }));
+    return messages.reverse().map(mapMessageResponse);
   }
 
   async updateStatus(id: string, status: ConversationStatus, version: number) {

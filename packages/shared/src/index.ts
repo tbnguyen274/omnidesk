@@ -211,6 +211,14 @@ export type QueuePayloadByName = {
   [QUEUE_NAMES.AUTO_CLOSE]: AutoCloseJobPayload;
 };
 
+export type InboundEmailAttachment = {
+  key: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
 export type MockInboundEmailPayload = {
   mailbox: string;
   messageId: string;
@@ -220,12 +228,13 @@ export type MockInboundEmailPayload = {
   subject: string;
   text?: string;
   html?: string;
-  contentType?: Extract<MessageContentType, 'TEXT' | 'HTML'>;
+  contentType?: Extract<MessageContentType, 'TEXT' | 'HTML' | 'ATTACHMENT'>;
   receivedAt?: string;
   threadId?: string;
   inReplyTo?: string;
   references?: string[];
   channelAccountId?: string;
+  attachments?: InboundEmailAttachment[];
 };
 
 export type NormalizedEmailMessage = {
@@ -240,8 +249,9 @@ export type NormalizedEmailMessage = {
   message: {
     subject: string;
     content: string;
-    contentType: Extract<MessageContentType, 'TEXT' | 'HTML'>;
+    contentType: Extract<MessageContentType, 'TEXT' | 'HTML' | 'ATTACHMENT'>;
     receivedAt: string;
+    attachments?: InboundEmailAttachment[];
   };
   source: {
     mailbox: string;

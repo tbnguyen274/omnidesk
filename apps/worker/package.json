@@ -31,6 +31,7 @@
     "imapflow": "^1.4.0",
     "ioredis": "^5.11.0",
     "mailparser": "^3.9.9",
+    "minio": "^8.0.7",
     "nodemailer": "^8.0.11",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

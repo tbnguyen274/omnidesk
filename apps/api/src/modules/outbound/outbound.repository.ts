@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   ChannelType,
+  MessageContentType,
   MessageDirection,
   OutboundMessageStatus,
   OutboundProvider,
@@ -14,6 +15,16 @@ export type CreateOutboundMessageInput = {
   recipientExternalId?: string;
   replyToMessageId?: string;
   content: string;
+  contentType?: MessageContentType;
+};
+
+export type CreateAttachmentInput = {
+  messageId: string;
+  storageKey: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
 };
 
 @Injectable()
@@ -55,10 +66,26 @@ export class OutboundRepository {
   createOutboundMessage(input: CreateOutboundMessageInput, createdBy: string) {
     return this.prisma.outboundMessage.create({
       data: {
-        ...input,
+        conversationId: input.conversationId,
+        channelType: input.channelType,
+        provider: input.provider,
+        recipientExternalId: input.recipientExternalId,
+        replyToMessageId: input.replyToMessageId,
+        content: input.content,
         status: OutboundMessageStatus.PENDING,
         createdBy,
       },
     });
+  }
+
+  createAttachment(input: CreateAttachmentInput) {
+    return this.prisma.attachment.create({ data: input });
+  }
+
+  createAttachments(inputs: CreateAttachmentInput[]) {
+    if (inputs.length === 0) return Promise.resolve([]);
+    return this.prisma.$transaction(
+      inputs.map((input) => this.prisma.attachment.create({ data: input })),
+    );
   }
 }

@@ -189,6 +189,7 @@ export function useInboxController() {
     selectedConversation,
     selectedId,
     tags,
+    token,
     typingAgents,
     handleAddTag,
     handleAssignAgent,

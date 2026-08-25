@@ -1,4 +1,4 @@
-import { UserCheck } from "lucide-react";
+import { UserCheck, X } from "lucide-react";
 import { priorityOptions, statusOptions } from "@/features/inbox/constants";
 import { PaneState } from "@/features/inbox/components/pane-state";
 import { TagsSection } from "@/features/inbox/side-panel/tags-section";
@@ -19,6 +19,7 @@ export function SidePanel({
   onAddTag,
   onCreateTag,
   onRemoveTag,
+  onClose,
 }: {
   actionLoading: boolean;
   agents?: { id: string; name: string; email: string }[];
@@ -33,6 +34,7 @@ export function SidePanel({
   onAddTag?: (tagId: string) => void;
   onCreateTag?: (name: string, color?: string) => void;
   onRemoveTag?: (tagId: string) => void;
+  onClose?: () => void;
 }) {
   if (!conversation) {
     return <PaneState text="No ticket selected" />;
@@ -41,7 +43,18 @@ export function SidePanel({
   return (
     <div className="flex h-full min-h-[560px] flex-col bg-white text-slate-800 border-l border-slate-200 shadow-sm z-10">
       <section className="border-b border-slate-200 p-4">
-        <h3 className="mb-3 text-xs uppercase tracking-wider font-bold text-slate-500">Customer Information</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs uppercase tracking-wider font-bold text-slate-500">Customer Information</h3>
+          {onClose && (
+            <button
+              onClick={onClose}
+              title="Close panel"
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-sm font-bold text-slate-700 shadow-sm">
             {getInitials(

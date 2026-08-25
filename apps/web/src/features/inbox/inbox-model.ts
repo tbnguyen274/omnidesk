@@ -1,6 +1,10 @@
 import { REALTIME_EVENT_TYPES, type RealtimeEvent } from "@omnidesk/shared";
 import { ApiError } from "@/lib/api-client";
-import type { ConversationDetail, CreateOutboundMessagePayload } from "@/lib/api-types";
+import type {
+  ConversationDetail,
+  CreateOutboundMessagePayload,
+  OutboundAttachmentItem,
+} from "@/lib/api-types";
 
 export function shouldRefreshConversationList(event: RealtimeEvent) {
   return (
@@ -36,6 +40,8 @@ export function createOutboundMessagePayload(
   conversation: ConversationDetail,
   content: string,
   replyToExternalId?: string | null,
+  attachmentUrls?: string[],
+  attachments?: OutboundAttachmentItem[],
 ): CreateOutboundMessagePayload {
   const disabledReason = getReplyDisabledReason(conversation);
 
@@ -47,6 +53,8 @@ export function createOutboundMessagePayload(
     conversationId: conversation.id,
     replyToMessageId: replyToExternalId ?? undefined,
     content,
+    attachmentUrls: attachmentUrls && attachmentUrls.length > 0 ? attachmentUrls : undefined,
+    attachments: attachments && attachments.length > 0 ? attachments : undefined,
   };
 }
 

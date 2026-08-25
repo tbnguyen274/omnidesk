@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InboundEventType, InboundProvider } from '@prisma/client';
 import { ImapFlow } from 'imapflow';
 import { simpleParser, type AddressObject } from 'mailparser';
-import { MockInboundEmailPayload } from '@omnidesk/shared';
+import {
+  InboundEmailAttachment,
+  MockInboundEmailPayload,
+} from '@omnidesk/shared';
 import { providerConfig } from '../config/provider.config';
 import { PrismaService } from '../database/prisma.service';
 import { EmailInboundService } from './email-inbound.service';
@@ -58,29 +61,79 @@ export class EmailLiveInboundService {
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      for await (const message of client.fetch(
-        { seen: false, since, gmraw: 'category:primary' },
-        { envelope: true, source: true, uid: true },
-      )) {
-        if (fetchedCount >= maxMessages) {
+      // 1. Search unread emails
+      let uids: number[] = [];
+      try {
+        const found = await client.search({
+          seen: false,
+          since,
+          gmraw: 'category:primary',
+        });
+        if (Array.isArray(found)) {
+          uids = found;
+        }
+      } catch {
+        // Fallback without gmraw for non-Gmail IMAP servers
+        const found = await client.search({ seen: false, since });
+        if (Array.isArray(found)) {
+          uids = found;
+        }
+      }
+
+      // Sort newest first
+      const newestUids = [...uids].reverse();
+
+      for (const uid of newestUids) {
+        if (processedCount >= maxMessages) {
           break;
         }
 
         fetchedCount += 1;
 
-        if (!message.source) {
+        let source: Buffer | undefined;
+        let envelopeMessageId: string | undefined;
+        for await (const message of client.fetch(uid, {
+          envelope: true,
+          source: true,
+          uid: true,
+        })) {
+          source = message.source;
+          envelopeMessageId = message.envelope?.messageId;
+        }
+
+        if (!source) {
           continue;
         }
 
-        const parsed = await simpleParser(message.source);
+        const parsed = await simpleParser(source);
         const from = firstAddress(parsed.from);
         const to = firstAddress(parsed.to);
         const messageId = normalizeMessageId(
-          parsed.messageId ?? `imap-${message.uid}`,
+          parsed.messageId ?? envelopeMessageId ?? `imap-${uid}`,
         );
 
         if (!from?.address) {
           continue;
+        }
+
+        const attachments: InboundEmailAttachment[] = [];
+        if (parsed.attachments && parsed.attachments.length > 0) {
+          let idx = 0;
+          for (const att of parsed.attachments) {
+            const fileName = att.filename || `attachment-${idx + 1}`;
+            const mimeType = att.contentType || 'application/octet-stream';
+            const sizeBytes = att.size || att.content?.length || 0;
+            const key = `lazy:imap:${channelAccount.id}:${messageId}:${idx}:${encodeURIComponent(fileName)}`;
+
+            attachments.push({
+              key,
+              url: '', // Will be assigned to proxy URL when Attachment row is created
+              fileName,
+              mimeType,
+              sizeBytes,
+            });
+            idx++;
+          }
         }
 
         const rawPayload: MockInboundEmailPayload = {
@@ -92,12 +145,18 @@ export class EmailLiveInboundService {
           subject: parsed.subject ?? '(no subject)',
           text: parsed.text,
           html: typeof parsed.html === 'string' ? parsed.html : undefined,
-          contentType: parsed.html ? 'HTML' : 'TEXT',
+          contentType:
+            attachments.length > 0
+              ? 'ATTACHMENT'
+              : parsed.html
+                ? 'HTML'
+                : 'TEXT',
           receivedAt: (parsed.date ?? new Date()).toISOString(),
           threadId: getThreadId(parsed.references, parsed.inReplyTo, messageId),
           inReplyTo: parsed.inReplyTo,
           references: normalizeReferences(parsed.references),
           channelAccountId: channelAccount.id,
+          attachments: attachments.length > 0 ? attachments : undefined,
         };
         const dedupKey = buildDedupKey(rawPayload.mailbox, messageId);
 

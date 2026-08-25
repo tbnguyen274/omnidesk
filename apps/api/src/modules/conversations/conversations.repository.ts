@@ -70,6 +70,9 @@ export class ConversationsRepository {
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 50,
+          include: {
+            attachments: true,
+          },
         },
         ticket: true,
         conversationTags: {
@@ -92,6 +95,9 @@ export class ConversationsRepository {
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
       orderBy: { createdAt: 'desc' },
+      include: {
+        attachments: true,
+      },
     });
   }
 

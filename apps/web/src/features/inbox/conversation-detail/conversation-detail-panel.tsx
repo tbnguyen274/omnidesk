@@ -1,11 +1,12 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { ChannelBadge, PriorityBadge, StatusBadge } from "@/features/inbox/components/badges";
 import { PaneState } from "@/features/inbox/components/pane-state";
 import { MessageBubble } from "@/features/inbox/conversation-detail/message-bubble";
 import { ReplyComposer } from "@/features/inbox/reply/reply-composer";
-import type { ConversationDetail } from "@/lib/api-types";
+import type { ConversationDetail, OutboundAttachmentItem } from "@/lib/api-types";
 
 const SCROLL_BOTTOM_THRESHOLD = 120;
 
@@ -18,15 +19,24 @@ export function ConversationDetailPanel({
   onTypingChange,
   onLoadOlderMessages,
   onReadStatusChange,
+  showSidePanel,
+  onToggleSidePanel,
+  token,
 }: {
   conversation: ConversationDetail | null;
   loading: boolean;
-  onSendReply?: (content: string, replyToExternalId?: string | null) => Promise<void>;
+  onSendReply?: (
+    content: string,
+    attachments?: OutboundAttachmentItem[],
+  ) => Promise<void>;
   replyDisabledReason?: string | null;
   typingAgents?: string[];
   onTypingChange?: (isTyping: boolean) => void;
   onLoadOlderMessages?: () => Promise<void>;
   onReadStatusChange?: (isRead: boolean) => Promise<void>;
+  showSidePanel?: boolean;
+  onToggleSidePanel?: () => void;
+  token?: string | null;
 }) {
   const sortedMessages = useMemo(
     () => conversation?.messages ?? [],
@@ -128,22 +138,37 @@ export function ConversationDetailPanel({
             </p>
           )}
         </div>
-        {onReadStatusChange && (
-          <button
-            onClick={() => onReadStatusChange(!conversation.isRead)}
-            className={`rounded-[8px] px-3 py-1.5 text-xs font-bold shadow-sm cursor-pointer transition-colors ${
-              conversation.isRead 
-                ? "bg-[#EE0033] text-white hover:bg-[#CC002B]" 
-                : "border border-slate-200 bg-white text-slate-600 hover:border-[#EE0033] hover:text-[#EE0033] hover:bg-red-50"
-            }`}
-          >
-            {conversation.isRead ? "Mark unread" : "Mark read"}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          {onReadStatusChange && (
+            <button
+              onClick={() => onReadStatusChange(!conversation.isRead)}
+              className={`rounded-[8px] px-3 py-1.5 text-xs font-bold shadow-sm cursor-pointer transition-colors ${
+                conversation.isRead 
+                  ? "bg-[#EE0033] text-white hover:bg-[#CC002B]" 
+                  : "border border-slate-200 bg-white text-slate-600 hover:border-[#EE0033] hover:text-[#EE0033] hover:bg-red-50"
+              }`}
+            >
+              {conversation.isRead ? "Mark unread" : "Mark read"}
+            </button>
+          )}
+          {onToggleSidePanel && (
+            <button
+              onClick={onToggleSidePanel}
+              title={showSidePanel ? "Collapse sidebar (Thu gọn)" : "Expand sidebar (Mở rộng thông tin)"}
+              className={`p-1.5 rounded-[8px] border transition-colors cursor-pointer ${
+                showSidePanel
+                  ? "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-[#EE0033] hover:text-[#EE0033]"
+              }`}
+            >
+              {showSidePanel ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 bg-[#F8F9FB]" ref={scrollRef} onScroll={handleScroll}>
-        <div className="mx-auto flex max-w-3xl flex-col gap-4">
+        <div className={`flex flex-col gap-4 w-full transition-all duration-200 ${showSidePanel ? "max-w-4xl mx-auto" : "max-w-none px-1 sm:px-4 lg:px-6"}`}>
           {isLoadingOlder && (
             <div className="text-center py-3">
               <span className="text-xs font-semibold text-slate-500 bg-slate-200/50 rounded-full px-3 py-1">Loading older messages...</span>
@@ -173,8 +198,9 @@ export function ConversationDetailPanel({
 
       <ReplyComposer
         disabledReason={replyDisabledReason}
-        onSendReply={async (content) => {
-          await onSendReply?.(content, replyingToMessage?.externalMessageId);
+        token={token}
+        onSendReply={async (content, attachments) => {
+          await onSendReply?.(content, attachments);
           setReplyingToMessage(null);
         }}
         replyingToMessage={replyingToMessage}
@@ -198,4 +224,3 @@ function scrollToBottom(element: HTMLElement) {
     element.scrollTop = element.scrollHeight;
   });
 }
-

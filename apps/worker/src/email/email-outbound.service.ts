@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ConversationStatus,
   MessageContentType,
@@ -9,6 +9,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import nodemailer from 'nodemailer';
+import * as Minio from 'minio';
 import { providerConfig } from '../config/provider.config';
 import { PrismaService } from '../database/prisma.service';
 
@@ -24,7 +25,20 @@ type EmailThreadHeaders = {
 
 @Injectable()
 export class EmailOutboundService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(EmailOutboundService.name);
+  private readonly minioClient: Minio.Client;
+  private readonly minioBucket: string;
+
+  constructor(private readonly prisma: PrismaService) {
+    this.minioBucket = process.env.MINIO_BUCKET ?? 'omnidesk';
+    this.minioClient = new Minio.Client({
+      endPoint: process.env.MINIO_ENDPOINT ?? 'localhost',
+      port: parseInt(process.env.MINIO_PORT ?? '9000', 10),
+      useSSL: process.env.MINIO_USE_SSL === 'true',
+      accessKey: process.env.MINIO_ACCESS_KEY ?? 'omnidesk',
+      secretKey: process.env.MINIO_SECRET_KEY ?? 'omnidesk123',
+    });
+  }
 
   async sendOutboundMessage(
     outboundMessageId: string,
@@ -73,11 +87,18 @@ export class EmailOutboundService {
       outboundMessage.replyToMessageId,
     );
 
+    // Fetch attachments linked to the pending outbound message via Message record
+    const pendingAttachments =
+      await this.fetchPendingAttachments(outboundMessageId);
+
+    const mailAttachments = await this.downloadAttachments(pendingAttachments);
+
     const sent = await transporter.sendMail({
       from: providerConfig.email.smtp.fromAddress,
       to: outboundMessage.recipientExternalId,
       subject: this.buildReplySubject(outboundMessage.conversation.subject),
       text: outboundMessage.content,
+      attachments: mailAttachments,
       ...threadHeaders,
     });
 
@@ -119,35 +140,52 @@ export class EmailOutboundService {
     }
 
     const sentAt = new Date();
+    const pendingAttachments =
+      await this.fetchPendingAttachments(outboundMessageId);
+    const contentType =
+      pendingAttachments.length > 0
+        ? MessageContentType.ATTACHMENT
+        : MessageContentType.TEXT;
 
-    await this.prisma.$transaction([
-      this.prisma.message.create({
-        data: {
-          conversationId: outboundMessage.conversationId,
-          direction: MessageDirection.OUTBOUND,
-          senderType: MessageSenderType.AGENT,
-          senderId: outboundMessage.createdBy,
-          content: outboundMessage.content,
-          contentType: MessageContentType.TEXT,
-          externalMessageId,
-          deliveryStatus: MessageDeliveryStatus.SENT,
-          sentAt,
-          createdAt: sentAt,
-        },
-      }),
-      this.prisma.conversation.update({
-        where: { id: outboundMessage.conversationId },
-        data: {
-          lastMessageAt: sentAt,
-          status:
-            outboundMessage.conversation.status === ConversationStatus.NEW
-              ? ConversationStatus.IN_PROGRESS
-              : undefined,
-          firstResponseAt:
-            outboundMessage.conversation.firstResponseAt ?? sentAt,
-        },
-      }),
-    ]);
+    const createdMsg = await this.prisma.message.create({
+      data: {
+        conversationId: outboundMessage.conversationId,
+        direction: MessageDirection.OUTBOUND,
+        senderType: MessageSenderType.AGENT,
+        senderId: outboundMessage.createdBy,
+        content: outboundMessage.content,
+        contentType,
+        externalMessageId,
+        deliveryStatus: MessageDeliveryStatus.SENT,
+        sentAt,
+        createdAt: sentAt,
+      },
+    });
+
+    await this.prisma.conversation.update({
+      where: { id: outboundMessage.conversationId },
+      data: {
+        lastMessageAt: sentAt,
+        status:
+          outboundMessage.conversation.status === ConversationStatus.NEW
+            ? ConversationStatus.IN_PROGRESS
+            : undefined,
+        firstResponseAt: outboundMessage.conversation.firstResponseAt ?? sentAt,
+      },
+    });
+
+    // Link pre-uploaded attachments to the newly created timeline message
+    if (pendingAttachments.length > 0) {
+      await this.prisma.$transaction(
+        pendingAttachments.map((att) => {
+          const realKey = att.storageKey.split(':').slice(2).join(':');
+          return this.prisma.attachment.update({
+            where: { id: att.id },
+            data: { messageId: createdMsg.id, storageKey: realKey },
+          });
+        }),
+      );
+    }
   }
 
   private async resolveThreadHeaders(
@@ -269,5 +307,83 @@ export class EmailOutboundService {
     }
 
     return rawPayload as Record<string, unknown>;
+  }
+
+  // ── Attachment helpers ────────────────────────────────────────────────────
+
+  /**
+   * Looks up attachments that were saved against the outbound message ID
+   * (stored in storageKey as a reference before the timeline message exists).
+   */
+  private async fetchPendingAttachments(outboundMessageId: string) {
+    return this.prisma.attachment.findMany({
+      where: { storageKey: { startsWith: `pending:${outboundMessageId}:` } },
+    });
+  }
+
+  private async downloadAttachments(
+    attachments: { storageKey: string; fileName: string; mimeType: string }[],
+  ) {
+    const results: {
+      filename: string;
+      content: Buffer;
+      contentType: string;
+    }[] = [];
+    for (const att of attachments) {
+      // storageKey format: "pending:<outboundId>:<realKey>"
+      const realKey = att.storageKey.split(':').slice(2).join(':');
+      try {
+        const stream = await this.minioClient.getObject(
+          this.minioBucket,
+          realKey,
+        );
+        const chunks: Buffer[] = [];
+        await new Promise<void>((resolve, reject) => {
+          stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+          stream.on('end', resolve);
+          stream.on('error', reject);
+        });
+        results.push({
+          filename: att.fileName,
+          content: Buffer.concat(chunks),
+          contentType: att.mimeType,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to download attachment ${realKey}: ${String(err)}`,
+        );
+      }
+    }
+    return results;
+  }
+
+  private async linkAttachmentsToMessage(
+    outboundMessageId: string,
+    externalMessageId: string,
+    conversationId: string,
+  ) {
+    const pendingAttachments =
+      await this.fetchPendingAttachments(outboundMessageId);
+    if (pendingAttachments.length === 0) return;
+
+    const message = await this.prisma.message.findUnique({
+      where: {
+        conversationId_externalMessageId: { conversationId, externalMessageId },
+      },
+      select: { id: true },
+    });
+
+    if (!message) return;
+
+    // Update each pending attachment: set real messageId and strip the pending: prefix from storageKey
+    await this.prisma.$transaction(
+      pendingAttachments.map((att) => {
+        const realKey = att.storageKey.split(':').slice(2).join(':');
+        return this.prisma.attachment.update({
+          where: { id: att.id },
+          data: { messageId: message.id, storageKey: realKey },
+        });
+      }),
+    );
   }
 }

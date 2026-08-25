@@ -76,13 +76,26 @@ export class OutboundMessagesProcessor {
           lastError: null,
         },
       });
+
+      await outboundAdapter.createTimelineMessage(outboundMessage.id);
+
       await this.publishOutboundMessageUpdated(
         sentMessage.id,
         sentMessage.conversationId,
         sentMessage.status,
       );
-
-      await outboundAdapter.createTimelineMessage(outboundMessage.id);
+      await this.realtimeEventsPublisher.publish(
+        {
+          type: REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
+          conversationId: sentMessage.conversationId,
+          occurredAt: new Date().toISOString(),
+        },
+        [
+          this.realtimeEventsPublisher.conversationRoom(
+            sentMessage.conversationId,
+          ),
+        ],
+      );
     } catch (error) {
       const attempts = Number(job.opts.attempts ?? 1);
       const finalAttempt = job.attemptsMade + 1 >= attempts;

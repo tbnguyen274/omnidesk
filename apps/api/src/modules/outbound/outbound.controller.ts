@@ -1,5 +1,17 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../common/auth/current-user.type';
@@ -25,6 +37,22 @@ export class OutboundController {
     @CurrentUser() user: CurrentUserType,
   ) {
     const data = await this.outboundService.create(dto, user);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Upload attachment',
+    description:
+      'Uploads a file to object storage and returns the public URL. Allowed: JPEG, PNG, GIF, WEBP (≤5 MB), PDF, DOCX, XLSX (≤10 MB).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @Post('attachments')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAttachment(@UploadedFile() file: Express.Multer.File) {
+    const data = await this.outboundService.uploadAttachment(file);
     return {
       success: true,
       data,

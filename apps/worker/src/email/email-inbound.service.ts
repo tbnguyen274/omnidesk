@@ -18,6 +18,7 @@ import {
   Prisma,
   TicketStatus,
 } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
 
@@ -124,6 +125,26 @@ export class EmailInboundService {
           },
         });
         messageId = message.id;
+
+        if (
+          normalized.message.attachments &&
+          normalized.message.attachments.length > 0
+        ) {
+          await tx.attachment.createMany({
+            data: normalized.message.attachments.map((att) => {
+              const attachmentId = randomUUID();
+              return {
+                id: attachmentId,
+                messageId: message.id,
+                storageKey: att.key,
+                url: `/api/v1/attachments/${attachmentId}/content`,
+                fileName: att.fileName,
+                mimeType: att.mimeType,
+                sizeBytes: att.sizeBytes,
+              };
+            }),
+          });
+        }
       }
 
       if (!conversation.ticket) {
@@ -252,8 +273,12 @@ export class EmailInboundService {
       message: {
         subject: rawPayload.subject,
         content,
-        contentType,
+        contentType:
+          rawPayload.attachments && rawPayload.attachments.length > 0
+            ? MessageContentType.ATTACHMENT
+            : contentType,
         receivedAt: rawPayload.receivedAt ?? new Date().toISOString(),
+        attachments: rawPayload.attachments,
       },
       source: {
         mailbox: rawPayload.mailbox,

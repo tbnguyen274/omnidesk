@@ -15,6 +15,7 @@ import type {
   UserRole,
   DeadLetterJobsResponse,
   QueueName,
+  UploadAttachmentResponse,
 } from "./api-types";
 import { API_BASE_URL } from "./app-config";
 
@@ -236,6 +237,31 @@ export const apiClient = {
       token,
       body: payload,
     });
+  },
+
+  async uploadAttachment(token: string, file: File): Promise<UploadAttachmentResponse> {
+    const url = new URL(`${API_BASE_URL}/outbound/attachments`);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+      // Do NOT set Content-Type — browser sets it with boundary automatically
+    });
+
+    const payload = (await response.json().catch(() => null)) as
+      | ApiResponse<UploadAttachmentResponse>
+      | null;
+
+    if (!response.ok || !payload || !("data" in payload)) {
+      throw new Error(
+        (payload as { message?: string } | null)?.message ?? "Upload failed"
+      );
+    }
+
+    return payload.data;
   },
 
   getDashboardSummary(token: string) {

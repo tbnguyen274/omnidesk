@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { QUEUE_NAMES } from '@omnidesk/shared';
+import { InboundEventJobPayload, QUEUE_NAMES } from '@omnidesk/shared';
 import { QueuesService } from '../queues/queues.service';
 import { OutboxService } from './outbox.service';
 
@@ -63,7 +63,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
             job = await this.queues.addWithJobId(
               QUEUE_NAMES.INBOUND_EVENTS,
               'process-inbound-event',
-              payload as import('@omnidesk/shared').InboundEventJobPayload,
+              payload as InboundEventJobPayload,
               jobId,
             );
           } else {
