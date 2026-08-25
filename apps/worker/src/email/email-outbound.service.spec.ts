@@ -16,12 +16,16 @@ describe('EmailOutboundService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    providerConfig.email.outboundMode = originalOutboundMode;
+    Object.assign(providerConfig.email, {
+      outboundMode: originalOutboundMode,
+    });
     Object.assign(providerConfig.email.smtp, originalSmtpConfig);
   });
 
   it('sends SMTP replies with email threading headers', async () => {
-    providerConfig.email.outboundMode = 'live';
+    Object.assign(providerConfig.email, {
+      outboundMode: 'live',
+    });
     Object.assign(providerConfig.email.smtp, {
       host: 'smtp.example.com',
       port: 587,
@@ -61,6 +65,9 @@ describe('EmailOutboundService', () => {
           },
         }),
       },
+      attachment: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
     const service = new EmailOutboundService(prisma as never);
 
@@ -88,6 +95,7 @@ describe('EmailOutboundService', () => {
       to: 'customer@example.com',
       subject: 'Re: Need help',
       text: 'Thanks for contacting us.',
+      attachments: [],
       inReplyTo: '<message-1@example.com>',
       references: [
         '<root@example.com>',
@@ -98,7 +106,9 @@ describe('EmailOutboundService', () => {
   });
 
   it('falls back to latest inbound message when reply target is not provided', async () => {
-    providerConfig.email.outboundMode = 'live';
+    Object.assign(providerConfig.email, {
+      outboundMode: 'live',
+    });
     Object.assign(providerConfig.email.smtp, {
       host: 'smtp.example.com',
       port: 587,
@@ -134,6 +144,9 @@ describe('EmailOutboundService', () => {
           externalMessageId: 'latest@example.com',
           rawPayload: null,
         }),
+      },
+      attachment: {
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
     const service = new EmailOutboundService(prisma as never);

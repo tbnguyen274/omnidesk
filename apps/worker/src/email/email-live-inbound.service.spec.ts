@@ -43,6 +43,7 @@ describe('EmailLiveInboundService', () => {
     });
 
     const lock = { release: jest.fn() };
+    const search = jest.fn().mockResolvedValue([42]);
     const fetch = jest.fn().mockReturnValue(
       (async function* () {
         await Promise.resolve();
@@ -55,6 +56,7 @@ describe('EmailLiveInboundService', () => {
     const client = {
       connect: jest.fn().mockResolvedValue(undefined),
       getMailboxLock: jest.fn().mockResolvedValue(lock),
+      search,
       fetch,
       logout: jest.fn().mockResolvedValue(undefined),
     };
@@ -111,10 +113,14 @@ describe('EmailLiveInboundService', () => {
         },
       }),
     );
-    expect(fetch).toHaveBeenCalledWith(
+    expect(search).toHaveBeenCalledWith(
       expect.objectContaining({ seen: false }),
-      { envelope: true, source: true, uid: true },
     );
+    expect(fetch).toHaveBeenCalledWith(42, {
+      envelope: true,
+      source: true,
+      uid: true,
+    });
     expect(prisma.inboundEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         provider: InboundProvider.EMAIL,
