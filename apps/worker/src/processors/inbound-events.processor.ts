@@ -1,14 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { InboundEventJobPayload } from '@omnidesk/shared';
-import {
-  InboundEventStatus,
-  InboundEventType,
-  InboundProvider,
-} from '@prisma/client';
+import { InboundEventStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
-import { EmailInboundService } from '../email/email-inbound.service';
-import { FacebookInboundService } from '../facebook/services/facebook-inbound.service';
+import { InboundAdapterRegistry } from '../inbound/adapters/inbound-adapter.registry';
 import { PermanentJobError } from '../errors/permanent-job.error';
 
 /** Lease duration: if processing has been in-flight for longer than this, it is
@@ -21,8 +16,7 @@ export class InboundEventsProcessor {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly emailInbound: EmailInboundService,
-    private readonly facebookInbound: FacebookInboundService,
+    private readonly inboundAdapters: InboundAdapterRegistry,
   ) {}
 
   async process(job: Job<InboundEventJobPayload>) {
@@ -102,24 +96,17 @@ export class InboundEventsProcessor {
     }
 
     try {
-      if (
-        inboundEvent.provider === InboundProvider.EMAIL &&
-        inboundEvent.eventType === InboundEventType.EMAIL_RECEIVED
-      ) {
-        await this.emailInbound.process(inboundEvent);
+      const adapter = this.inboundAdapters.find(inboundEvent);
+
+      if (adapter) {
+        await adapter.process(inboundEvent);
         return;
       }
 
-      if (
-        inboundEvent.provider === InboundProvider.FACEBOOK &&
-        (inboundEvent.eventType === InboundEventType.MESSAGE ||
-          inboundEvent.eventType === InboundEventType.COMMENT)
-      ) {
-        await this.facebookInbound.process(inboundEvent);
-        return;
-      }
-
-      // Unknown event type — mark as processed (no-op)
+      // No adapter found for this provider + eventType combination — treat as no-op.
+      this.logger.warn(
+        `No inbound adapter found for provider=${inboundEvent.provider} eventType=${inboundEvent.eventType} — marking as processed (no-op)`,
+      );
       await this.prisma.inboundEvent.update({
         where: { id: inboundEvent.id },
         data: {

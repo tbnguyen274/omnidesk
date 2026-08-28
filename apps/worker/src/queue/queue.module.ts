@@ -11,6 +11,9 @@ import { FacebookOutboundService } from '../facebook/services/facebook-outbound.
 import { EmailSyncProcessor } from '../processors/email-sync.processor';
 import { EmailActionsProcessor } from '../processors/email-actions.processor';
 import { EmailActionsService } from '../email/email-actions.service';
+import { EmailInboundAdapter } from '../inbound/adapters/email-inbound.adapter';
+import { FacebookInboundAdapter } from '../inbound/adapters/facebook-inbound.adapter';
+import { InboundAdapterRegistry } from '../inbound/adapters/inbound-adapter.registry';
 import { EmailOutboundAdapter } from '../outbound/adapters/email-outbound.adapter';
 import { FacebookOutboundAdapter } from '../outbound/adapters/facebook-outbound.adapter';
 import { OutboundAdapterRegistry } from '../outbound/adapters/outbound-adapter.registry';
@@ -27,17 +30,23 @@ import { QueueService } from './queue.service';
   providers: [
     PrismaService,
     RealtimeEventsPublisher,
+    // --- Inbound ---
     EmailInboundService,
     EmailLiveInboundService,
-    EmailOutboundService,
     EmailSyncScheduler,
     FacebookInboundRepository,
     FacebookInboundService,
+    EmailInboundAdapter,
+    FacebookInboundAdapter,
+    InboundAdapterRegistry,
+    // --- Outbound ---
+    EmailOutboundService,
     FacebookOutboundRepository,
     FacebookOutboundService,
     EmailOutboundAdapter,
     FacebookOutboundAdapter,
     OutboundAdapterRegistry,
+    // --- Processors & Schedulers ---
     InboundEventsProcessor,
     OutboundMessagesProcessor,
     EmailSyncProcessor,
