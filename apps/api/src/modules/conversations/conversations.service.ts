@@ -9,18 +9,15 @@ import {
   Message,
   Prisma,
   Priority,
-  ChannelType,
   UserRole,
   UserStatus,
 } from '@prisma/client';
 import {
   REALTIME_EVENT_TYPES,
-  QUEUE_NAMES,
   getPaginationParams,
   createPaginatedResponse,
 } from '@omnidesk/shared';
 import { NotificationsService } from '../notifications/notifications.service';
-import { QueuesService } from '../../common/queues/queues.service';
 import { ConversationsRepository } from './conversations.repository';
 import { ListConversationsDto } from './dto/list-conversations.dto';
 
@@ -57,7 +54,6 @@ export class ConversationsService {
   constructor(
     private readonly conversationsRepository: ConversationsRepository,
     private readonly notificationsService: NotificationsService,
-    private readonly queuesService: QueuesService,
   ) {}
 
   async list(query: ListConversationsDto) {
@@ -198,26 +194,6 @@ export class ConversationsService {
 
     this.publishConversationUpdated(conversation.id);
 
-    if (
-      conversation.channelType === ChannelType.EMAIL &&
-      conversation.externalConversationId &&
-      status === ConversationStatus.CLOSED
-    ) {
-      const messageId =
-        await this.conversationsRepository.getLatestExternalMessageId(id);
-      if (messageId) {
-        await this.queuesService.add(
-          QUEUE_NAMES.EMAIL_ACTIONS,
-          'move-to-archive',
-          {
-            action: 'MOVE_TO_ARCHIVE',
-            messageId,
-            channelAccountId: conversation.channelAccountId,
-          },
-        );
-      }
-    }
-
     return conversation;
   }
 
@@ -231,27 +207,6 @@ export class ConversationsService {
     );
 
     this.publishConversationUpdated(conversation.id);
-
-    if (
-      conversation.channelType === ChannelType.EMAIL &&
-      conversation.externalConversationId
-    ) {
-      const messageId =
-        await this.conversationsRepository.getLatestExternalMessageId(id);
-      if (messageId) {
-        const isUrgent =
-          priority === Priority.URGENT || priority === Priority.HIGH;
-        await this.queuesService.add(
-          QUEUE_NAMES.EMAIL_ACTIONS,
-          isUrgent ? 'mark-starred' : 'unmark-starred',
-          {
-            action: isUrgent ? 'MARK_STARRED' : 'UNMARK_STARRED',
-            messageId,
-            channelAccountId: conversation.channelAccountId,
-          },
-        );
-      }
-    }
 
     return conversation;
   }
@@ -318,25 +273,6 @@ export class ConversationsService {
     );
 
     this.publishConversationUpdated(conversation.id);
-
-    if (
-      conversation.channelType === ChannelType.EMAIL &&
-      conversation.externalConversationId
-    ) {
-      const messageId =
-        await this.conversationsRepository.getLatestExternalMessageId(id);
-      if (messageId) {
-        await this.queuesService.add(
-          QUEUE_NAMES.EMAIL_ACTIONS,
-          isRead ? 'mark-read' : 'mark-unread',
-          {
-            action: isRead ? 'MARK_READ' : 'MARK_UNREAD',
-            messageId,
-            channelAccountId: conversation.channelAccountId,
-          },
-        );
-      }
-    }
 
     return conversation;
   }

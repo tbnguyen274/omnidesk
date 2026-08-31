@@ -4,7 +4,13 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { InboundEventJobPayload, QUEUE_NAMES } from '@omnidesk/shared';
+import {
+  ConversationOutboxPayload,
+  EmailActionsJobPayload,
+  InboundEventJobPayload,
+  QUEUE_NAMES,
+} from '@omnidesk/shared';
+import { ConversationStatus, Priority } from '@prisma/client';
 import { QueuesService } from '../queues/queues.service';
 import { OutboxService } from './outbox.service';
 
@@ -57,28 +63,77 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
           const jobId = `outbox:${event.id}`;
           const payload = event.payload as Record<string, unknown>;
 
-          let job: { id?: string } | null = null;
-
           if (event.type === 'INBOUND_EVENT_CREATED') {
-            job = await this.queues.addWithJobId(
+            const job = await this.queues.addWithJobId(
               QUEUE_NAMES.INBOUND_EVENTS,
               'process-inbound-event',
               payload as InboundEventJobPayload,
               jobId,
             );
+            await this.outbox.markPublished(event.id, job?.id ?? jobId);
+            this.logger.log(
+              `Dispatched outbox event ${event.id} (type=${event.type}) → job ${job?.id ?? jobId}`,
+            );
+          } else if (
+            event.type === 'CONVERSATION_STATUS_CHANGED' ||
+            event.type === 'CONVERSATION_PRIORITY_CHANGED' ||
+            event.type === 'CONVERSATION_READ_STATUS_CHANGED'
+          ) {
+            const p = payload as unknown as ConversationOutboxPayload;
+            let action: EmailActionsJobPayload['action'] | null = null;
+
+            if (p.channelType === 'EMAIL' && p.externalMessageId && p.channelAccountId) {
+              switch (event.type) {
+                case 'CONVERSATION_STATUS_CHANGED':
+                  if (p.newStatus === ConversationStatus.CLOSED) {
+                    action = 'MOVE_TO_ARCHIVE';
+                  }
+                  break;
+                case 'CONVERSATION_PRIORITY_CHANGED':
+                  action =
+                    p.newPriority === Priority.HIGH ||
+                    p.newPriority === Priority.URGENT
+                      ? 'MARK_STARRED'
+                      : 'UNMARK_STARRED';
+                  break;
+                case 'CONVERSATION_READ_STATUS_CHANGED':
+                  action = p.isRead ? 'MARK_READ' : 'MARK_UNREAD';
+                  break;
+              }
+            }
+
+            if (action) {
+              const queuePayload: EmailActionsJobPayload = {
+                action,
+                messageId: p.externalMessageId!,
+                channelAccountId: p.channelAccountId!,
+              };
+              const job = await this.queues.addWithJobId(
+                QUEUE_NAMES.EMAIL_ACTIONS,
+                'email-channel-action',
+                queuePayload,
+                jobId,
+              );
+              await this.outbox.markPublished(event.id, job?.id ?? jobId);
+              this.logger.log(
+                `Dispatched outbox event ${event.id} (action=${action}) → job ${job?.id ?? jobId}`,
+              );
+            } else {
+              // No-op Consumed Handling: Event is valid but requires no downstream IMAP action
+              // (e.g. non-EMAIL channel or status transition like RESOLVED). Mark published immediately
+              // so it does not linger in PENDING.
+              await this.outbox.markPublished(event.id, 'no_action_required');
+              this.logger.log(
+                `Outbox event ${event.id} (type=${event.type}) consumed as no_action_required`,
+              );
+            }
           } else {
             this.logger.warn(`Unknown outbox event type: ${event.type}`);
             await this.outbox.markFailed(
               event.id,
               `Unknown event type: ${event.type}`,
             );
-            continue;
           }
-
-          await this.outbox.markPublished(event.id, job?.id ?? jobId);
-          this.logger.log(
-            `Dispatched outbox event ${event.id} (type=${event.type}) → job ${job?.id ?? jobId}`,
-          );
         } catch (error) {
           const message =
             error instanceof Error ? error.message : 'Dispatch failed';

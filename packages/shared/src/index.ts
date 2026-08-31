@@ -201,6 +201,19 @@ export type AutoCloseJobPayload = {
   requestedAt: string;
 };
 
+export type ConversationOutboxPayload = {
+  conversationId: string;
+  conversationVersion?: number;
+  previousStatus?: ConversationStatus;
+  newStatus?: ConversationStatus;
+  previousPriority?: Priority;
+  newPriority?: Priority;
+  isRead?: boolean;
+  channelType?: ChannelType;
+  channelAccountId?: string;
+  externalMessageId?: string | null;
+};
+
 export type QueuePayloadByName = {
   [QUEUE_NAMES.INBOUND_EVENTS]: InboundEventJobPayload;
   [QUEUE_NAMES.OUTBOUND_MESSAGES]: OutboundMessageJobPayload;
@@ -323,6 +336,7 @@ export type NormalizedFacebookMessage = {
   customer: {
     externalId: string;
     name?: string;
+    avatarUrl?: string;
   };
   message: {
     content: string;

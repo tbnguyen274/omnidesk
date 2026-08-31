@@ -42,7 +42,6 @@ describe('ConversationsService', () => {
     const service = new ConversationsService(
       conversationsRepository as never,
       notificationsService as never,
-      queuesService as never,
     );
     await expect(service.list({ page: 1, limit: 20 })).resolves.toMatchObject({
       items: [
@@ -74,7 +73,6 @@ describe('ConversationsService', () => {
     const service = new ConversationsService(
       conversationsRepository as never,
       { publishToConversation: jest.fn() } as never,
-      { add: jest.fn() } as never,
     );
 
     await expect(

@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 
-export type OutboxEventType = 'INBOUND_EVENT_CREATED';
+export type OutboxEventType =
+  | 'INBOUND_EVENT_CREATED'
+  | 'CONVERSATION_STATUS_CHANGED'
+  | 'CONVERSATION_PRIORITY_CHANGED'
+  | 'CONVERSATION_READ_STATUS_CHANGED';
 
 /**
  * OutboxService writes domain events to the outbox table within the same
