@@ -25,6 +25,14 @@ export class TicketsRepository {
           conversation: {
             include: {
               customer: true,
+              assignedAgent: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                },
+              },
             },
           },
         },
@@ -48,6 +56,14 @@ export class TicketsRepository {
         conversation: {
           include: {
             customer: true,
+            assignedAgent: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+              },
+            },
             messages: {
               orderBy: { createdAt: 'asc' },
             },

@@ -4,7 +4,6 @@ import {
   ChannelType,
   ConversationStatus,
   MessageDirection,
-  TicketStatus,
 } from '@prisma/client';
 import { Job } from 'bullmq';
 import { PrismaService } from '../database/prisma.service';
@@ -56,11 +55,6 @@ export class AutoCloseProcessor {
         // 2. Only emit OutboxEvent when update was actually committed
         if (result.count > 0) {
           closedCount++;
-
-          await tx.ticket.updateMany({
-            where: { conversationId: conv.id },
-            data: { status: TicketStatus.CLOSED, closedAt: now },
-          });
 
           let externalMessageId: string | null = null;
           if (conv.channelType === ChannelType.EMAIL) {

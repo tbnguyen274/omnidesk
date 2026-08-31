@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TicketStatus } from '@prisma/client';
+import { ConversationStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 
 @Injectable()
@@ -9,16 +9,24 @@ export class DashboardService {
   async getSummary() {
     const [total, newTickets, inProgress, resolved, overdue] =
       await Promise.all([
-        this.prisma.ticket.count(),
-        this.prisma.ticket.count({ where: { status: TicketStatus.NEW } }),
-        this.prisma.ticket.count({
-          where: { status: TicketStatus.IN_PROGRESS },
+        this.prisma.conversation.count(),
+        this.prisma.conversation.count({
+          where: { status: ConversationStatus.NEW },
         }),
-        this.prisma.ticket.count({ where: { status: TicketStatus.RESOLVED } }),
+        this.prisma.conversation.count({
+          where: { status: ConversationStatus.IN_PROGRESS },
+        }),
+        this.prisma.conversation.count({
+          where: { status: ConversationStatus.RESOLVED },
+        }),
         this.prisma.ticket.count({
           where: {
             isOverdue: true,
-            status: { notIn: [TicketStatus.RESOLVED, TicketStatus.CLOSED] },
+            conversation: {
+              status: {
+                notIn: [ConversationStatus.RESOLVED, ConversationStatus.CLOSED],
+              },
+            },
           },
         }),
       ]);
@@ -59,9 +67,7 @@ export class DashboardService {
           select: {
             assignedConversations: {
               where: {
-                ticket: {
-                  status: TicketStatus.RESOLVED,
-                },
+                status: ConversationStatus.RESOLVED,
               },
             },
           },

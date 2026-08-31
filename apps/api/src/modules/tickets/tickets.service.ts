@@ -24,18 +24,41 @@ export class TicketsService {
 
   async list(query: ListTicketsDto) {
     const { page, limit, skip, take } = getPaginationParams(query);
-    const where: Prisma.TicketWhereInput = {
-      status: query.status,
-      priority: query.priority,
-      assignedAgentId: query.assignedAgentId,
-    };
+    const conversationWhere: Prisma.ConversationWhereInput = {};
+
+    if (query.status) {
+      if (query.status === TicketStatus.ASSIGNED) {
+        conversationWhere.assignedAgentId = { not: null };
+        conversationWhere.status = {
+          in: [ConversationStatus.NEW, ConversationStatus.IN_PROGRESS],
+        };
+      } else {
+        conversationWhere.status = this.toConversationStatus(query.status);
+      }
+    }
+
+    if (query.priority) {
+      conversationWhere.priority = query.priority;
+    }
+
+    if (query.assignedAgentId) {
+      conversationWhere.assignedAgentId = query.assignedAgentId;
+    }
+
+    if (query.overdue) {
+      conversationWhere.status = {
+        notIn: [ConversationStatus.RESOLVED, ConversationStatus.CLOSED],
+      };
+    }
+
+    const where: Prisma.TicketWhereInput = {};
+    if (Object.keys(conversationWhere).length > 0) {
+      where.conversation = conversationWhere;
+    }
 
     if (query.overdue) {
       where.slaDueAt = {
         lt: new Date(),
-      };
-      where.status = {
-        notIn: [TicketStatus.RESOLVED, TicketStatus.CLOSED],
       };
     }
 
@@ -47,13 +70,18 @@ export class TicketsService {
 
     const mappedItems = items.map((ticket) => ({
       id: ticket.id,
-      status: ticket.status,
-      priority: ticket.priority,
+      status:
+        ticket.conversation.assignedAgentId &&
+        (ticket.conversation.status === ConversationStatus.NEW ||
+          ticket.conversation.status === ConversationStatus.IN_PROGRESS)
+          ? TicketStatus.ASSIGNED
+          : (ticket.conversation.status as unknown as TicketStatus),
+      priority: ticket.conversation.priority,
       slaDueAt: ticket.slaDueAt,
       firstResponseDueAt: ticket.firstResponseDueAt,
-      resolvedAt: ticket.resolvedAt,
+      resolvedAt: ticket.conversation.resolvedAt,
       closedAt: ticket.closedAt,
-      assignedAgent: ticket.assignedAgent,
+      assignedAgent: ticket.conversation.assignedAgent,
       conversation: {
         id: ticket.conversation.id,
         channelType: ticket.conversation.channelType,
@@ -82,7 +110,18 @@ export class TicketsService {
       throw new NotFoundException('Ticket not found');
     }
 
-    return ticket;
+    return {
+      ...ticket,
+      status:
+        ticket.conversation.assignedAgentId &&
+        (ticket.conversation.status === ConversationStatus.NEW ||
+          ticket.conversation.status === ConversationStatus.IN_PROGRESS)
+          ? TicketStatus.ASSIGNED
+          : (ticket.conversation.status as unknown as TicketStatus),
+      priority: ticket.conversation.priority,
+      assignedAgent: ticket.conversation.assignedAgent,
+      resolvedAt: ticket.conversation.resolvedAt,
+    };
   }
 
   async updateStatus(id: string, status: TicketStatus, version: number) {

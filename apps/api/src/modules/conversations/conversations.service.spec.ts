@@ -35,9 +35,6 @@ describe('ConversationsService', () => {
     const notificationsService = {
       publish: jest.fn(),
     };
-    const queuesService = {
-      add: jest.fn(),
-    };
 
     const service = new ConversationsService(
       conversationsRepository as never,

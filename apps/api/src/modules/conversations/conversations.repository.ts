@@ -4,11 +4,9 @@ import {
   MessageDirection,
   Prisma,
   Priority,
-  TicketStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
-import { toTicketStatus } from '../tickets/ticket-consistency';
 
 @Injectable()
 export class ConversationsRepository {
@@ -167,17 +165,14 @@ export class ConversationsRepository {
         );
       }
 
-      if (conversation.ticket) {
+      if (
+        conversation.ticket &&
+        (newSlaDueAt !== conversation.ticket.slaDueAt ||
+          newSlaPausedAt !== conversation.ticket.slaPausedAt)
+      ) {
         await tx.ticket.update({
           where: { id: conversation.ticket.id },
           data: {
-            status: toTicketStatus(status),
-            resolvedAt: isResolved
-              ? now
-              : isClosed
-                ? conversation.ticket.resolvedAt
-                : null,
-            closedAt: isClosed ? now : null,
             slaDueAt: newSlaDueAt,
             slaPausedAt: newSlaPausedAt,
           },
@@ -246,17 +241,10 @@ export class ConversationsRepository {
         );
       }
 
-      // Also update ticket priority if exists
       const conversation = await tx.conversation.findUniqueOrThrow({
         where: { id },
         include: { ticket: true },
       });
-      if (conversation?.ticket) {
-        await tx.ticket.update({
-          where: { id: conversation.ticket.id },
-          data: { priority },
-        });
-      }
 
       let externalMessageId: string | null = null;
       if (conversation.channelType === 'EMAIL') {
@@ -309,29 +297,6 @@ export class ConversationsRepository {
         throw new ConflictException(
           'Data was modified by another agent. Please refresh.',
         );
-      }
-
-      const conversation = await tx.conversation.findUniqueOrThrow({
-        where: { id },
-        include: { ticket: true },
-      });
-
-      if (conversation?.ticket) {
-        const shouldUpdateTicketStatus =
-          conversation.ticket.status === TicketStatus.NEW ||
-          conversation.ticket.status === TicketStatus.ASSIGNED;
-
-        await tx.ticket.update({
-          where: { id: conversation.ticket.id },
-          data: {
-            status: shouldUpdateTicketStatus
-              ? assignedAgentId
-                ? TicketStatus.ASSIGNED
-                : TicketStatus.NEW
-              : undefined,
-            assignedAgentId,
-          },
-        });
       }
 
       return tx.conversation.findUniqueOrThrow({

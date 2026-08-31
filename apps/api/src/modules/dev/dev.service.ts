@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import {
   ChannelAccountType,
   ChannelType,
+  ConversationStatus,
   MessageContentType,
   MessageDeliveryStatus,
   MessageDirection,
   MessageSenderType,
   Prisma,
   Priority,
-  TicketStatus,
   UserRole,
 } from '@prisma/client';
 import { calculateSlaDueAt, encrypt } from '@omnidesk/shared';
@@ -217,7 +217,7 @@ export class DevService {
       externalMessageId: 'email_seed_resolved_001',
       content: 'Tôi muốn đổi trả sản phẩm do bị lỗi.',
       tags: ['return'],
-      status: TicketStatus.RESOLVED,
+      status: ConversationStatus.RESOLVED,
       createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
     });
 
@@ -231,7 +231,7 @@ export class DevService {
       externalMessageId: 'fb_msg_seed_overdue_001',
       content: 'Dịch vụ của bên bạn quá tệ, tôi cần hỗ trợ gấp.',
       tags: ['complaint'],
-      status: TicketStatus.NEW,
+      status: ConversationStatus.NEW,
       isOverdue: true,
       createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
     });
@@ -247,7 +247,7 @@ export class DevService {
       externalMessageId: 'fb_msg_seed_waiting_001',
       content: 'Bạn cho mình xin thêm ảnh sản phẩm bị lỗi nhé.',
       tags: ['return'],
-      status: TicketStatus.WAITING_CUSTOMER,
+      status: ConversationStatus.WAITING_CUSTOMER,
       slaPausedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Paused 1 day ago
       createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // Created 2 days ago
     });
@@ -263,7 +263,7 @@ export class DevService {
       externalMessageId: 'email_seed_autoclose_001',
       content: 'Cho mình hỏi thời gian bảo hành là bao lâu?',
       tags: ['info'],
-      status: TicketStatus.RESOLVED,
+      status: ConversationStatus.RESOLVED,
       resolvedAt: new Date(Date.now() - 3.1 * 24 * 60 * 60 * 1000), // Resolved 3.1 days ago
       createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // Created 4 days ago
     });
@@ -357,7 +357,7 @@ export class DevService {
     content: string;
     tags: string[];
     isOverdue?: boolean;
-    status?: TicketStatus;
+    status?: ConversationStatus;
     createdAt?: Date;
     resolvedAt?: Date;
     slaPausedAt?: Date;
@@ -388,12 +388,7 @@ export class DevService {
             customerId: params.customerId,
             externalConversationId: params.externalConversationId,
             subject: params.subject,
-            status:
-              params.status === TicketStatus.RESOLVED
-                ? 'RESOLVED'
-                : params.status === TicketStatus.CLOSED
-                  ? 'CLOSED'
-                  : 'NEW',
+            status: params.status ?? ConversationStatus.NEW,
             priority: params.priority,
             assignedAgentId: params.assignedAgentId,
             lastMessageAt: new Date(),
@@ -428,18 +423,12 @@ export class DevService {
     await this.prisma.ticket.upsert({
       where: { conversationId: conversation.id },
       update: {
-        priority: params.priority,
-        assignedAgentId: params.assignedAgentId,
-        status: params.status ?? TicketStatus.NEW,
         isOverdue: params.isOverdue ?? false,
         resolvedAt: params.resolvedAt,
         slaPausedAt: params.slaPausedAt,
       },
       create: {
         conversationId: conversation.id,
-        status: params.status ?? TicketStatus.NEW,
-        priority: params.priority,
-        assignedAgentId: params.assignedAgentId,
         slaDueAt: calculateSlaDueAt(params.priority, creationTime),
         isOverdue: params.isOverdue ?? false,
         resolvedAt: params.resolvedAt,

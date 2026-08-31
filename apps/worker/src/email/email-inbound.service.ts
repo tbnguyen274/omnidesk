@@ -17,7 +17,6 @@ import {
   MessageDirection,
   MessageSenderType,
   Prisma,
-  TicketStatus,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../database/prisma.service';
@@ -125,16 +124,6 @@ export class EmailInboundService {
             'OCC Conflict: Conversation was updated by another process. Worker will retry.',
           );
         }
-
-        if (isResolved && conversation.ticket) {
-          await tx.ticket.update({
-            where: { id: conversation.ticket.id },
-            data: {
-              status: TicketStatus.IN_PROGRESS,
-              resolvedAt: null,
-            },
-          });
-        }
       }
 
       const existingMessage = await tx.message.findUnique({
@@ -189,8 +178,6 @@ export class EmailInboundService {
         const ticket = await tx.ticket.create({
           data: {
             conversationId: conversation.id,
-            status: TicketStatus.NEW,
-            priority,
             slaDueAt: calculateSlaDueAt(priority, receivedAt),
           },
         });

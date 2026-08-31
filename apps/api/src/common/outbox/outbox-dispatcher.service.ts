@@ -72,7 +72,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
             );
             await this.outbox.markPublished(event.id, job?.id ?? jobId);
             this.logger.log(
-              `Dispatched outbox event ${event.id} (type=${event.type}) → job ${job?.id ?? jobId}`,
+              `Dispatched outbox event ${event.id} (type=${event.type}) => job ${job?.id ?? jobId}`,
             );
           } else if (
             event.type === 'CONVERSATION_STATUS_CHANGED' ||
@@ -82,7 +82,11 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
             const p = payload as unknown as ConversationOutboxPayload;
             let action: EmailActionsJobPayload['action'] | null = null;
 
-            if (p.channelType === 'EMAIL' && p.externalMessageId && p.channelAccountId) {
+            if (
+              p.channelType === 'EMAIL' &&
+              p.externalMessageId &&
+              p.channelAccountId
+            ) {
               switch (event.type) {
                 case 'CONVERSATION_STATUS_CHANGED':
                   if (p.newStatus === ConversationStatus.CLOSED) {

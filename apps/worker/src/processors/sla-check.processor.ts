@@ -3,7 +3,7 @@ import {
   REALTIME_EVENT_TYPES,
   type SlaCheckJobPayload,
 } from '@omnidesk/shared';
-import { TicketStatus } from '@prisma/client';
+import { ConversationStatus } from '@prisma/client';
 import { Job } from 'bullmq';
 import { PrismaService } from '../database/prisma.service';
 import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
@@ -25,12 +25,14 @@ export class SlaCheckProcessor {
           lt: now,
         },
         isOverdue: false,
-        status: {
-          notIn: [
-            TicketStatus.RESOLVED,
-            TicketStatus.CLOSED,
-            TicketStatus.WAITING_CUSTOMER,
-          ],
+        conversation: {
+          status: {
+            notIn: [
+              ConversationStatus.RESOLVED,
+              ConversationStatus.CLOSED,
+              ConversationStatus.WAITING_CUSTOMER,
+            ],
+          },
         },
       },
       select: {

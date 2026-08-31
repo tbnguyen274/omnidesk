@@ -1,5 +1,5 @@
 import { AutoCloseProcessor } from './auto-close.processor';
-import { ChannelType, ConversationStatus, TicketStatus } from '@prisma/client';
+import { ChannelType, ConversationStatus } from '@prisma/client';
 
 describe('AutoCloseProcessor', () => {
   let processor: AutoCloseProcessor;
@@ -9,9 +9,6 @@ describe('AutoCloseProcessor', () => {
   beforeEach(() => {
     tx = {
       conversation: {
-        updateMany: jest.fn(),
-      },
-      ticket: {
         updateMany: jest.fn(),
       },
       message: {
@@ -71,11 +68,6 @@ describe('AutoCloseProcessor', () => {
       }),
     );
 
-    expect(tx.ticket.updateMany).toHaveBeenCalledWith({
-      where: { conversationId: 'conv-1' },
-      data: { status: TicketStatus.CLOSED, closedAt: requestedAt },
-    });
-
     expect(tx.outboxEvent.create).toHaveBeenCalledWith({
       data: {
         type: 'CONVERSATION_STATUS_CHANGED',
@@ -108,7 +100,6 @@ describe('AutoCloseProcessor', () => {
       data: { requestedAt: new Date().toISOString() },
     } as any);
 
-    expect(tx.ticket.updateMany).not.toHaveBeenCalled();
     expect(tx.outboxEvent.create).not.toHaveBeenCalled();
   });
 });

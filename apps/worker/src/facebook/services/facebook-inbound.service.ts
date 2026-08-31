@@ -9,7 +9,12 @@ import {
   FacebookCommentDedupKey,
   decrypt,
 } from '@omnidesk/shared';
-import { InboundEvent, InboundEventStatus, MessageContentType, Prisma } from '@prisma/client';
+import {
+  InboundEvent,
+  InboundEventStatus,
+  MessageContentType,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { FacebookInboundRepository } from '../repositories/facebook-inbound.repository';
 
@@ -141,7 +146,8 @@ export class FacebookInboundService {
               picture?: { data?: { url?: string } };
             };
 
-            const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+            const fullName =
+              `${data.first_name || ''} ${data.last_name || ''}`.trim();
             if (
               fullName &&
               (!normalized.customer.name ||

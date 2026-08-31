@@ -10,7 +10,6 @@ import {
   Prisma,
   PrismaClient,
   Priority,
-  TicketStatus,
   User,
   UserRole,
 } from '@prisma/client';
@@ -183,20 +182,12 @@ async function upsertMessage(params: {
 
 async function upsertTicket(params: {
   conversation: Conversation;
-  priority: Priority;
-  assignedAgentId?: string;
 }) {
   return prisma.ticket.upsert({
     where: { conversationId: params.conversation.id },
-    update: {
-      priority: params.priority,
-      assignedAgentId: params.assignedAgentId,
-    },
+    update: {},
     create: {
       conversationId: params.conversation.id,
-      status: TicketStatus.NEW,
-      priority: params.priority,
-      assignedAgentId: params.assignedAgentId,
       slaDueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       firstResponseDueAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
     },
@@ -288,8 +279,6 @@ async function seedDemoConversations(agent: User) {
 
   await upsertTicket({
     conversation: fbMessageConversation,
-    priority: Priority.HIGH,
-    assignedAgentId: agent.id,
   });
 
   await attachTags(fbMessageConversation, ['billing', 'complaint']);
@@ -313,7 +302,6 @@ async function seedDemoConversations(agent: User) {
 
   await upsertTicket({
     conversation: fbCommentConversation,
-    priority: Priority.MEDIUM,
   });
 
   const emailConversation = await upsertConversation({
@@ -347,8 +335,6 @@ async function seedDemoConversations(agent: User) {
 
   await upsertTicket({
     conversation: emailConversation,
-    priority: Priority.HIGH,
-    assignedAgentId: agent.id,
   });
 
   await attachTags(emailConversation, ['billing']);

@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InboundEvent, InboundEventType, InboundProvider } from '@prisma/client';
+import {
+  InboundEvent,
+  InboundEventType,
+  InboundProvider,
+} from '@prisma/client';
 import { EmailInboundService } from '../../email/email-inbound.service';
 import { InboundProviderAdapter } from './inbound-provider.adapter';
 

@@ -105,7 +105,11 @@ describe('ConversationsRepository', () => {
         externalMessageId: 'msg-ext-100',
       });
 
-      const result = await repository.updatePriority('conv-1', Priority.URGENT, 1);
+      const result = await repository.updatePriority(
+        'conv-1',
+        Priority.URGENT,
+        1,
+      );
 
       expect(result).toEqual(updatedConv);
       expect(outboxService.createEvent).toHaveBeenCalledWith(

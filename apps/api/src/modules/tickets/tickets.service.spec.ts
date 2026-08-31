@@ -13,6 +13,14 @@ describe('TicketsService mutations', () => {
       findById: jest.fn().mockResolvedValue({
         id: 'ticket-id',
         conversationId: 'conversation-id',
+        conversation: {
+          id: 'conversation-id',
+          status: ConversationStatus.RESOLVED,
+          priority: 'HIGH',
+          assignedAgentId: null,
+          assignedAgent: null,
+          resolvedAt: new Date(),
+        },
       }),
     };
     const notifications = {

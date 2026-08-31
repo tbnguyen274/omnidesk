@@ -43,7 +43,9 @@ export class InboundAdapterRegistry {
    * Returns `undefined` when no registered adapter matches both the provider
    * and the event type. The processor treats this as an unknown/no-op event.
    */
-  find(event: Pick<InboundEvent, 'provider' | 'eventType'>): InboundProviderAdapter | undefined {
+  find(
+    event: Pick<InboundEvent, 'provider' | 'eventType'>,
+  ): InboundProviderAdapter | undefined {
     const adapter = this.adapters.get(event.provider);
     if (!adapter) return undefined;
     return adapter.supports(event.eventType) ? adapter : undefined;

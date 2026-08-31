@@ -110,9 +110,11 @@ export class ConversationsService {
       ticket: conversation.ticket
         ? {
             id: conversation.ticket.id,
-            status: conversation.ticket.status,
-            priority: conversation.ticket.priority,
+            status: conversation.status,
+            priority: conversation.priority,
             slaDueAt: conversation.ticket.slaDueAt,
+            firstResponseDueAt: conversation.ticket.firstResponseDueAt,
+            isOverdue: conversation.ticket.isOverdue,
           }
         : null,
       lastMessage: conversation.messages[0]
@@ -153,7 +155,25 @@ export class ConversationsService {
       status: conversation.status,
       priority: conversation.priority,
       assignedAgent: conversation.assignedAgent,
-      ticket: conversation.ticket,
+      ticket: conversation.ticket
+        ? {
+            id: conversation.ticket.id,
+            status: conversation.status,
+            priority: conversation.priority,
+            assignedAgentId: conversation.assignedAgentId,
+            slaDueAt: conversation.ticket.slaDueAt,
+            firstResponseDueAt: conversation.ticket.firstResponseDueAt,
+            slaPausedAt: conversation.ticket.slaPausedAt,
+            isOverdue: conversation.ticket.isOverdue,
+            resolvedAt: conversation.resolvedAt,
+            closedAt:
+              conversation.status === ConversationStatus.CLOSED
+                ? (conversation.ticket.closedAt ?? conversation.updatedAt)
+                : null,
+            createdAt: conversation.ticket.createdAt,
+            updatedAt: conversation.ticket.updatedAt,
+          }
+        : null,
       tags: conversation.conversationTags.map(({ tag }) => ({
         id: tag.id,
         name: tag.name,

@@ -73,4 +73,3 @@ export class AttachmentsController {
     res.end(buffer);
   }
 }
-
