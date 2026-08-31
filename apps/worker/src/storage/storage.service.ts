@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as Minio from 'minio';
 import { Readable } from 'stream';
-import { MINIO_BUCKET, MINIO_CLIENT } from './storage.module';
+import { MINIO_BUCKET, MINIO_CLIENT } from './storage.tokens';
 
 @Injectable()
 export class StorageService {

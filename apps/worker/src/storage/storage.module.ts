@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import * as Minio from 'minio';
 import { StorageService } from './storage.service';
+import { MINIO_BUCKET, MINIO_CLIENT } from './storage.tokens';
 
-export const MINIO_CLIENT = 'MINIO_CLIENT';
-export const MINIO_BUCKET = 'MINIO_BUCKET';
+export { MINIO_BUCKET, MINIO_CLIENT };
 
 @Module({
   providers: [
