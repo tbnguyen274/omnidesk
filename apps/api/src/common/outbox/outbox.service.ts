@@ -53,6 +53,11 @@ export class OutboxService {
     });
   }
 
+  /**
+   * Marks an outbox event as PUBLISHED with the associated queue jobId.
+   * @param id The outbox event ID
+   * @param jobId The deterministic jobId assigned by BullMQ
+   */
   markPublished(id: string, jobId: string) {
     return this.prisma.outboxEvent.update({
       where: { id },
@@ -64,6 +69,11 @@ export class OutboxService {
     });
   }
 
+  /**
+   * Marks an outbox event as DEAD when max retries are exceeded or unrecoverable error occurs.
+   * @param id The outbox event ID
+   * @param errorMessage Reason for failure
+   */
   markFailed(id: string, errorMessage: string) {
     return this.prisma.outboxEvent.update({
       where: { id },
@@ -76,6 +86,11 @@ export class OutboxService {
     });
   }
 
+  /**
+   * Increments the retry attempt count on a pending outbox event.
+   * @param id The outbox event ID
+   * @param errorMessage Last encountered error message
+   */
   incrementAttempts(id: string, errorMessage: string) {
     return this.prisma.outboxEvent.update({
       where: { id },

@@ -20,7 +20,7 @@ const MAX_ATTEMPTS = 5;
 /**
  * OutboxDispatcherService periodically polls the outbox_events table for
  * PENDING events and enqueues them into BullMQ using a deterministic jobId
- * (outbox:<outboxEventId>) to prevent duplicates.
+ * (outbox_<outboxEventId>) to prevent duplicates.
  *
  * This decouples event dispatch from the HTTP request lifecycle so events
  * are not lost if Redis is temporarily unavailable when the webhook arrives.
