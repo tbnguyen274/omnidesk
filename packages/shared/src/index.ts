@@ -17,16 +17,6 @@ export const CONVERSATION_STATUSES = [
 ] as const;
 export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number];
 
-export const TICKET_STATUSES = [
-  'NEW',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'WAITING_CUSTOMER',
-  'RESOLVED',
-  'CLOSED',
-] as const;
-export type TicketStatus = (typeof TICKET_STATUSES)[number];
-
 export const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 

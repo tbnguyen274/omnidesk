@@ -6,13 +6,6 @@ export type ConversationStatus =
   | "WAITING_CUSTOMER"
   | "RESOLVED"
   | "CLOSED";
-export type TicketStatus =
-  | "NEW"
-  | "ASSIGNED"
-  | "IN_PROGRESS"
-  | "WAITING_CUSTOMER"
-  | "RESOLVED"
-  | "CLOSED";
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type MessageDirection = "INBOUND" | "OUTBOUND";
 export type MessageSenderType = "CUSTOMER" | "AGENT" | "SYSTEM";
@@ -76,7 +69,7 @@ export type ConversationListItem = {
   assignedAgent: CurrentUser | null;
   ticket: {
     id: string;
-    status: TicketStatus;
+    status: ConversationStatus;
     priority: Priority;
     slaDueAt: string | null;
   } | null;
@@ -129,7 +122,7 @@ export type ConversationDetail = {
   assignedAgent: CurrentUser | null;
   ticket: {
     id: string;
-    status: TicketStatus;
+    status: ConversationStatus;
     priority: Priority;
     assignedAgentId: string | null;
     slaDueAt: string | null;
