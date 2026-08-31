@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserStatus } from '@prisma/client';
@@ -18,6 +19,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -145,9 +148,9 @@ export class AuthService {
         html: `<p>You requested a password reset.</p><p><a href="${resetUrl}">Click here to reset your password</a>.</p>`,
       });
     } else {
-      // In mock mode or missing SMTP config, log the URL to console for local testing
-      console.log(`[Mock Email] Password reset requested for ${user.email}`);
-      console.log(`[Mock Email] Click here to reset: ${resetUrl}`);
+      // In mock mode or missing SMTP config, log the URL to logger for local testing
+      this.logger.debug(`[Mock Email] Password reset requested for ${user.email}`);
+      this.logger.debug(`[Mock Email] Click here to reset: ${resetUrl}`);
     }
 
     return { success: true };

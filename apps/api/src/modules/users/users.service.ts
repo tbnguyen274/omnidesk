@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { hash } from 'bcryptjs';
 import * as crypto from 'crypto';
@@ -14,6 +15,8 @@ import { appConfig } from '../../config/app.config';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   findByEmail(email: string) {
@@ -182,8 +185,8 @@ export class UsersService {
         html: `<p>Hello ${newUser.name},</p><p>Welcome to OmniDesk! You have been invited as a ${newUser.role}.</p><p><a href="${resetUrl}">Click here to set your password and log in</a>.</p>`,
       });
     } else {
-      console.log(`[Mock Email] Welcome email for ${newUser.email}`);
-      console.log(`[Mock Email] Set password link: ${resetUrl}`);
+      this.logger.debug(`[Mock Email] Welcome email for ${newUser.email}`);
+      this.logger.debug(`[Mock Email] Set password link: ${resetUrl}`);
     }
 
     return newUser;

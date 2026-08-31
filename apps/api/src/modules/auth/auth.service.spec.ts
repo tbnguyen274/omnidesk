@@ -125,7 +125,9 @@ describe('AuthService', () => {
 
   it('logs forgot-password reset URL in mock mode without SMTP delivery', async () => {
     const createTransport = jest.spyOn(nodemailer, 'createTransport');
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const loggerSpy = jest
+      .spyOn((authService as any).logger, 'debug')
+      .mockImplementation();
     Object.assign(providerConfig.email, { outboundMode: 'mock' });
     Object.assign(providerConfig.email.smtp, { host: undefined });
     usersService.findByEmail.mockResolvedValue(createUser());
@@ -135,10 +137,10 @@ describe('AuthService', () => {
     ).resolves.toEqual({ success: true });
 
     expect(createTransport).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(
+    expect(loggerSpy).toHaveBeenCalledWith(
       expect.stringContaining('[Mock Email] Password reset requested'),
     );
-    expect(consoleSpy).toHaveBeenCalledWith(
+    expect(loggerSpy).toHaveBeenCalledWith(
       expect.stringContaining('/auth/reset-password?token='),
     );
   });
