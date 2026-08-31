@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { type AutoCloseJobPayload } from '@omnidesk/shared';
-import { ConversationStatus, TicketStatus } from '@prisma/client';
+import {
+  ChannelType,
+  ConversationStatus,
+  MessageDirection,
+  TicketStatus,
+} from '@prisma/client';
 import { Job } from 'bullmq';
 import { PrismaService } from '../database/prisma.service';
 
@@ -24,6 +29,8 @@ export class AutoCloseProcessor {
       },
       select: {
         id: true,
+        channelType: true,
+        channelAccountId: true,
       },
     });
 
@@ -31,20 +38,62 @@ export class AutoCloseProcessor {
       return;
     }
 
-    const conversationIds = resolvedConversations.map((c) => c.id);
+    let closedCount = 0;
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.conversation.updateMany({
-        where: { id: { in: conversationIds } },
-        data: { status: ConversationStatus.CLOSED },
-      });
+      for (const conv of resolvedConversations) {
+        // 1. CONDITIONAL UPDATE: Only update if status is STILL RESOLVED at commit time
+        // Prevents race condition if customer reopened the conversation with an inbound message
+        const result = await tx.conversation.updateMany({
+          where: {
+            id: conv.id,
+            status: ConversationStatus.RESOLVED,
+            resolvedAt: { lt: thresholdDate },
+          },
+          data: { status: ConversationStatus.CLOSED },
+        });
 
-      await tx.ticket.updateMany({
-        where: { conversationId: { in: conversationIds } },
-        data: { status: TicketStatus.CLOSED, closedAt: now },
-      });
+        // 2. Only emit OutboxEvent when update was actually committed
+        if (result.count > 0) {
+          closedCount++;
+
+          await tx.ticket.updateMany({
+            where: { conversationId: conv.id },
+            data: { status: TicketStatus.CLOSED, closedAt: now },
+          });
+
+          let externalMessageId: string | null = null;
+          if (conv.channelType === ChannelType.EMAIL) {
+            const latestMsg = await tx.message.findFirst({
+              where: {
+                conversationId: conv.id,
+                direction: MessageDirection.INBOUND,
+                externalMessageId: { not: null },
+              },
+              orderBy: { createdAt: 'desc' },
+              select: { externalMessageId: true },
+            });
+            externalMessageId = latestMsg?.externalMessageId ?? null;
+          }
+
+          await tx.outboxEvent.create({
+            data: {
+              type: 'CONVERSATION_STATUS_CHANGED',
+              aggregateId: conv.id,
+              payload: {
+                conversationId: conv.id,
+                previousStatus: ConversationStatus.RESOLVED,
+                newStatus: ConversationStatus.CLOSED,
+                channelType: conv.channelType,
+                channelAccountId: conv.channelAccountId,
+                externalMessageId,
+              },
+            },
+          });
+        }
+      }
     });
 
-    this.logger.log(`Auto-closed ${conversationIds.length} tickets`);
+    this.logger.log(`Auto-closed ${closedCount} conversations/tickets`);
   }
 }

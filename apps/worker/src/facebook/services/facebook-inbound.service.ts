@@ -7,6 +7,7 @@ import {
   NormalizedFacebookMessage,
   FacebookMessageDedupKey,
   FacebookCommentDedupKey,
+  decrypt,
 } from '@omnidesk/shared';
 import { InboundEvent, InboundEventStatus, MessageContentType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -47,6 +48,10 @@ export class FacebookInboundService {
         this.assertMessageDedupKey(inboundEvent.dedupKey),
         inboundEvent.rawPayload,
       );
+
+      // Resolve profile outside of database transaction (Non-blocking I/O)
+      await this.resolveCustomerProfile(normalized);
+
       await this.facebookInboundRepository.persistInboundEvent(
         inboundEvent,
         normalized,
@@ -76,6 +81,10 @@ export class FacebookInboundService {
         this.assertCommentDedupKey(inboundEvent.dedupKey),
         inboundEvent.rawPayload,
       );
+
+      // Resolve profile outside of database transaction (Non-blocking I/O)
+      await this.resolveCustomerProfile(normalized);
+
       await this.facebookInboundRepository.persistInboundEvent(
         inboundEvent,
         normalized,
@@ -93,6 +102,64 @@ export class FacebookInboundService {
         errorMessage: `Invalid dedupKey prefix: ${inboundEvent.dedupKey}`,
       },
     });
+  }
+
+  private async resolveCustomerProfile(normalized: NormalizedFacebookMessage) {
+    if (
+      normalized.customer.name &&
+      normalized.customer.name !== 'Unknown Customer' &&
+      normalized.customer.avatarUrl
+    ) {
+      return;
+    }
+
+    // Only attempt Graph API lookup for Facebook Comment when name or avatar is missing
+    if (
+      normalized.channelType === 'FACEBOOK_COMMENT' &&
+      normalized.source.channelAccountId
+    ) {
+      try {
+        const ca = await this.prisma.channelAccount.findUnique({
+          where: { id: normalized.source.channelAccountId },
+          select: { accessTokenEncrypted: true },
+        });
+
+        if (ca?.accessTokenEncrypted) {
+          const encryptionKey = process.env.ENCRYPTION_KEY;
+          const plainToken = encryptionKey
+            ? decrypt(ca.accessTokenEncrypted, encryptionKey)
+            : ca.accessTokenEncrypted;
+
+          const response = await fetch(
+            `https://graph.facebook.com/v19.0/${normalized.customer.externalId}?fields=first_name,last_name,picture&access_token=${plainToken}`,
+          );
+
+          if (response.ok) {
+            const data = (await response.json()) as {
+              first_name?: string;
+              last_name?: string;
+              picture?: { data?: { url?: string } };
+            };
+
+            const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+            if (
+              fullName &&
+              (!normalized.customer.name ||
+                normalized.customer.name === 'Unknown Customer')
+            ) {
+              normalized.customer.name = fullName;
+            }
+            if (data.picture?.data?.url) {
+              normalized.customer.avatarUrl = data.picture.data.url;
+            }
+          }
+        }
+      } catch (e) {
+        this.logger.warn(
+          `Failed to fetch Facebook profile for customer ${normalized.customer.externalId}: ${e}`,
+        );
+      }
+    }
   }
 
   private normalizeMessagePayload(
