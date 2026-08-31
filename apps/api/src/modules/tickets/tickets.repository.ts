@@ -14,14 +14,6 @@ export class TicketsRepository {
         take: params.take,
         orderBy: { createdAt: 'desc' },
         include: {
-          assignedAgent: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-            },
-          },
           conversation: {
             include: {
               customer: true,
@@ -45,14 +37,6 @@ export class TicketsRepository {
     return this.prisma.ticket.findUnique({
       where: { id },
       include: {
-        assignedAgent: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
         conversation: {
           include: {
             customer: true,

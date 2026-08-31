@@ -8,12 +8,12 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Priority, TicketStatus } from '@prisma/client';
+import { ConversationStatus, Priority } from '@prisma/client';
 
 export class ListTicketsDto {
   @IsOptional()
-  @IsEnum(TicketStatus)
-  status?: TicketStatus;
+  @IsEnum(ConversationStatus)
+  status?: ConversationStatus;
 
   @IsOptional()
   @IsEnum(Priority)

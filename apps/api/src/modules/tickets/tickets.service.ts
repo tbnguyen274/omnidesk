@@ -1,9 +1,8 @@
 import {
-  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConversationStatus, Prisma, TicketStatus } from '@prisma/client';
+import { ConversationStatus, Prisma } from '@prisma/client';
 import {
   REALTIME_EVENT_TYPES,
   getPaginationParams,
@@ -27,14 +26,7 @@ export class TicketsService {
     const conversationWhere: Prisma.ConversationWhereInput = {};
 
     if (query.status) {
-      if (query.status === TicketStatus.ASSIGNED) {
-        conversationWhere.assignedAgentId = { not: null };
-        conversationWhere.status = {
-          in: [ConversationStatus.NEW, ConversationStatus.IN_PROGRESS],
-        };
-      } else {
-        conversationWhere.status = this.toConversationStatus(query.status);
-      }
+      conversationWhere.status = query.status;
     }
 
     if (query.priority) {
@@ -70,17 +62,11 @@ export class TicketsService {
 
     const mappedItems = items.map((ticket) => ({
       id: ticket.id,
-      status:
-        ticket.conversation.assignedAgentId &&
-        (ticket.conversation.status === ConversationStatus.NEW ||
-          ticket.conversation.status === ConversationStatus.IN_PROGRESS)
-          ? TicketStatus.ASSIGNED
-          : (ticket.conversation.status as unknown as TicketStatus),
+      status: ticket.conversation.status,
       priority: ticket.conversation.priority,
       slaDueAt: ticket.slaDueAt,
       firstResponseDueAt: ticket.firstResponseDueAt,
       resolvedAt: ticket.conversation.resolvedAt,
-      closedAt: ticket.closedAt,
       assignedAgent: ticket.conversation.assignedAgent,
       conversation: {
         id: ticket.conversation.id,
@@ -112,25 +98,19 @@ export class TicketsService {
 
     return {
       ...ticket,
-      status:
-        ticket.conversation.assignedAgentId &&
-        (ticket.conversation.status === ConversationStatus.NEW ||
-          ticket.conversation.status === ConversationStatus.IN_PROGRESS)
-          ? TicketStatus.ASSIGNED
-          : (ticket.conversation.status as unknown as TicketStatus),
+      status: ticket.conversation.status,
       priority: ticket.conversation.priority,
       assignedAgent: ticket.conversation.assignedAgent,
       resolvedAt: ticket.conversation.resolvedAt,
     };
   }
 
-  async updateStatus(id: string, status: TicketStatus, version: number) {
+  async updateStatus(id: string, status: ConversationStatus, version: number) {
     const existingTicket = await this.ensureTicketExists(id);
-    const conversationStatus = this.toConversationStatus(status);
 
     await this.conversationsService.updateStatus(
       existingTicket.conversationId,
-      conversationStatus,
+      status,
       version,
     );
     const ticket = await this.findById(id);
@@ -179,26 +159,5 @@ export class TicketsService {
       conversationId,
       occurredAt: new Date().toISOString(),
     });
-  }
-
-  private toConversationStatus(status: TicketStatus): ConversationStatus {
-    if (status === TicketStatus.ASSIGNED) {
-      throw new BadRequestException(
-        'Use the assignment endpoint to move a ticket to ASSIGNED',
-      );
-    }
-
-    const statusMap: Record<
-      Exclude<TicketStatus, typeof TicketStatus.ASSIGNED>,
-      ConversationStatus
-    > = {
-      [TicketStatus.NEW]: ConversationStatus.NEW,
-      [TicketStatus.IN_PROGRESS]: ConversationStatus.IN_PROGRESS,
-      [TicketStatus.WAITING_CUSTOMER]: ConversationStatus.WAITING_CUSTOMER,
-      [TicketStatus.RESOLVED]: ConversationStatus.RESOLVED,
-      [TicketStatus.CLOSED]: ConversationStatus.CLOSED,
-    };
-
-    return statusMap[status];
   }
 }

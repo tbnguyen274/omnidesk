@@ -10,7 +10,6 @@ import {
   ChannelType,
   ConversationStatus,
   Priority,
-  TicketStatus,
   UserRole,
 } from '@prisma/client';
 import request from 'supertest';
@@ -192,7 +191,7 @@ describe('API Contract & Regression Baseline Suite (e2e)', () => {
     it('successfully transitions ticket status', async () => {
       mockTicketsService.updateStatus.mockResolvedValueOnce({
         id: ticketId,
-        status: TicketStatus.RESOLVED,
+        status: ConversationStatus.RESOLVED,
         priority: Priority.HIGH,
         resolvedAt: new Date().toISOString(),
       });
@@ -200,7 +199,7 @@ describe('API Contract & Regression Baseline Suite (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/tickets/${ticketId}/status`)
         .send({
-          status: TicketStatus.RESOLVED,
+          status: ConversationStatus.RESOLVED,
           version: 2,
         })
         .expect(200);
@@ -208,28 +207,8 @@ describe('API Contract & Regression Baseline Suite (e2e)', () => {
       expect(res.body.success).toBe(true);
       expect(mockTicketsService.updateStatus).toHaveBeenCalledWith(
         ticketId,
-        TicketStatus.RESOLVED,
+        ConversationStatus.RESOLVED,
         2,
-      );
-    });
-
-    it('rejects status update with 400 when attempting to set ASSIGNED directly', async () => {
-      mockTicketsService.updateStatus.mockRejectedValueOnce(
-        new BadRequestException(
-          'Use the assignment endpoint to move a ticket to ASSIGNED',
-        ),
-      );
-
-      const res = await request(app.getHttpServer())
-        .patch(`/api/v1/tickets/${ticketId}/status`)
-        .send({
-          status: TicketStatus.ASSIGNED,
-          version: 1,
-        })
-        .expect(400);
-
-      expect(res.body.message).toContain(
-        'Use the assignment endpoint to move a ticket to ASSIGNED',
       );
     });
 
@@ -237,7 +216,7 @@ describe('API Contract & Regression Baseline Suite (e2e)', () => {
       const agentId = '44444444-4444-4444-8444-444444444444';
       mockTicketsService.updateAssignment.mockResolvedValueOnce({
         id: ticketId,
-        status: TicketStatus.ASSIGNED,
+        status: ConversationStatus.IN_PROGRESS,
         assignedAgent: {
           id: agentId,
           name: 'Support Agent',

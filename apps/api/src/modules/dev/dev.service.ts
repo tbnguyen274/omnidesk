@@ -424,14 +424,12 @@ export class DevService {
       where: { conversationId: conversation.id },
       update: {
         isOverdue: params.isOverdue ?? false,
-        resolvedAt: params.resolvedAt,
         slaPausedAt: params.slaPausedAt,
       },
       create: {
         conversationId: conversation.id,
         slaDueAt: calculateSlaDueAt(params.priority, creationTime),
         isOverdue: params.isOverdue ?? false,
-        resolvedAt: params.resolvedAt,
         slaPausedAt: params.slaPausedAt,
       },
     });

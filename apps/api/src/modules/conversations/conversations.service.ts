@@ -168,7 +168,7 @@ export class ConversationsService {
             resolvedAt: conversation.resolvedAt,
             closedAt:
               conversation.status === ConversationStatus.CLOSED
-                ? (conversation.ticket.closedAt ?? conversation.updatedAt)
+                ? conversation.updatedAt
                 : null,
             createdAt: conversation.ticket.createdAt,
             updatedAt: conversation.ticket.updatedAt,
