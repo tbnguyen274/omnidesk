@@ -60,7 +60,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
 
       for (const event of events) {
         try {
-          const jobId = `outbox:${event.id}`;
+          const jobId = `outbox_${event.id}`;
           const payload = event.payload as Record<string, unknown>;
 
           if (event.type === 'INBOUND_EVENT_CREATED') {

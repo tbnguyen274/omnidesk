@@ -43,7 +43,7 @@ describe('OutboxDispatcherService', () => {
       QUEUE_NAMES.INBOUND_EVENTS,
       'process-inbound-event',
       { inboundEventId: 'inbound-123' },
-      'outbox:evt-1',
+      'outbox_evt-1',
     );
     expect(outboxService.markPublished).toHaveBeenCalledWith(
       'evt-1',
@@ -77,7 +77,7 @@ describe('OutboxDispatcherService', () => {
         messageId: 'msg-ext-1',
         channelAccountId: 'ca-1',
       },
-      'outbox:evt-2',
+      'outbox_evt-2',
     );
     expect(outboxService.markPublished).toHaveBeenCalledWith(
       'evt-2',
@@ -111,7 +111,7 @@ describe('OutboxDispatcherService', () => {
         messageId: 'msg-ext-1',
         channelAccountId: 'ca-1',
       },
-      'outbox:evt-3',
+      'outbox_evt-3',
     );
     expect(outboxService.markPublished).toHaveBeenCalledWith(
       'evt-3',
@@ -145,7 +145,7 @@ describe('OutboxDispatcherService', () => {
         messageId: 'msg-ext-1',
         channelAccountId: 'ca-1',
       },
-      'outbox:evt-4',
+      'outbox_evt-4',
     );
     expect(outboxService.markPublished).toHaveBeenCalledWith(
       'evt-4',
