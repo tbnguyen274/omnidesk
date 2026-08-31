@@ -25,6 +25,7 @@ import { QueuesModule } from './common/queues/queues.module';
 import { ReconcileModule } from './common/reconcile/reconcile.module';
 import { RedisModule } from './common/redis/redis.module';
 import { StorageModule } from './common/storage/storage.module';
+import { MailModule } from './common/mail/mail.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     OutboxModule,
     ReconcileModule,
     StorageModule,
+    MailModule,
     AttachmentsModule,
     HealthModule,
     AuthModule,

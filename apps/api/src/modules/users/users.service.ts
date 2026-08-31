@@ -2,22 +2,21 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
-  Logger,
 } from '@nestjs/common';
 import { hash } from 'bcryptjs';
 import * as crypto from 'crypto';
-import * as nodemailer from 'nodemailer';
 import { PrismaService } from '../../common/database/prisma.service';
+import { MailService } from '../../common/mail/mail.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
-import { providerConfig } from '../../config/provider.config';
 import { appConfig } from '../../config/app.config';
 
 @Injectable()
 export class UsersService {
-  private readonly logger = new Logger(UsersService.name);
-
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   findByEmail(email: string) {
     return this.prisma.user.findUnique({
@@ -163,31 +162,10 @@ export class UsersService {
 
     const resetUrl = `${appConfig.webOrigin}/auth/reset-password?token=${token}`;
 
-    if (
-      providerConfig.email.outboundMode !== 'mock' &&
-      providerConfig.email.smtp.host
-    ) {
-      const transporter = nodemailer.createTransport({
-        host: providerConfig.email.smtp.host,
-        port: providerConfig.email.smtp.port,
-        secure: providerConfig.email.smtp.secure,
-        auth: {
-          user: providerConfig.email.smtp.user,
-          pass: providerConfig.email.smtp.password,
-        },
-      });
-
-      await transporter.sendMail({
-        from: providerConfig.email.smtp.fromAddress,
-        to: newUser.email,
-        subject: 'Welcome to OmniDesk! Set up your account',
-        text: `Hello ${newUser.name}, welcome to OmniDesk. Please set your password by clicking this link: ${resetUrl}`,
-        html: `<p>Hello ${newUser.name},</p><p>Welcome to OmniDesk! You have been invited as a ${newUser.role}.</p><p><a href="${resetUrl}">Click here to set your password and log in</a>.</p>`,
-      });
-    } else {
-      this.logger.debug(`[Mock Email] Welcome email for ${newUser.email}`);
-      this.logger.debug(`[Mock Email] Set password link: ${resetUrl}`);
-    }
+    await this.mailService.sendWelcomeEmail(
+      { name: newUser.name, email: newUser.email, role: newUser.role },
+      resetUrl,
+    );
 
     return newUser;
   }
