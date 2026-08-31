@@ -56,7 +56,11 @@ export class OutboundMessagesProcessor {
         sendingMessage.status,
       );
 
-      if (outboundMessage.content.toLowerCase().includes('mock_fail')) {
+      // Fault Injection for testing: Only trigger simulated provider failures in non-production environments
+      if (
+        process.env.NODE_ENV !== 'production' &&
+        outboundMessage.content.toLowerCase().includes('mock_fail')
+      ) {
         throw new Error('Mock outbound provider failure');
       }
 
