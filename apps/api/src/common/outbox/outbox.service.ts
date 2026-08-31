@@ -99,4 +99,23 @@ export class OutboxService {
       },
     });
   }
+
+  /**
+   * Replays dead events within a given time window (default 24 hours).
+   * Resets status to PENDING, attempts to 0, and clears error message.
+   */
+  replayDeadEvents(windowHours = 24) {
+    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    return this.prisma.outboxEvent.updateMany({
+      where: {
+        status: OutboxEventStatus.DEAD,
+        createdAt: { gte: cutoff },
+      },
+      data: {
+        status: OutboxEventStatus.PENDING,
+        attempts: 0,
+        errorMessage: null,
+      },
+    });
+  }
 }
