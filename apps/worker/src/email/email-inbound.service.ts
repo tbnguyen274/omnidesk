@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
-  MockInboundEmailPayload,
+  InboundEmailPayload,
+  InboundEmailPayloadSchema,
   NormalizedEmailMessage,
   REALTIME_EVENT_TYPES,
   calculateSlaDueAt,
@@ -24,15 +25,33 @@ import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
 
 @Injectable()
 export class EmailInboundService {
+  private readonly logger = new Logger(EmailInboundService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEventsPublisher: RealtimeEventsPublisher,
   ) {}
 
   async process(inboundEvent: InboundEvent) {
+    const parsed = InboundEmailPayloadSchema.safeParse(inboundEvent.rawPayload);
+    if (!parsed.success) {
+      this.logger.error(
+        `Permanent schema mismatch for inbound event ${inboundEvent.id}: ${parsed.error.message}`,
+      );
+      await this.prisma.inboundEvent.update({
+        where: { id: inboundEvent.id },
+        data: {
+          normalizedStatus: InboundEventStatus.FAILED,
+          errorMessage: parsed.error.message,
+        },
+      });
+      return;
+    }
+
     const normalized = this.normalizePayload(
-      inboundEvent.rawPayload,
+      parsed.data,
       inboundEvent.dedupKey,
+      inboundEvent.rawPayload,
     );
     const receivedAt = new Date(normalized.message.receivedAt);
 
@@ -64,6 +83,11 @@ export class EmailInboundService {
         },
       });
 
+      // If the latest conversation is CLOSED, ignore it and force a new one
+      if (conversation && conversation.status === ConversationStatus.CLOSED) {
+        conversation = null;
+      }
+
       if (!conversation) {
         conversationCreated = true;
         conversation = await tx.conversation.create({
@@ -83,12 +107,15 @@ export class EmailInboundService {
           },
         });
       } else {
+        const isResolved = conversation.status === ConversationStatus.RESOLVED;
         const result = await tx.conversation.updateMany({
           where: { id: conversation.id, version: conversation.version },
           data: {
             customerId: customer.id,
             subject: conversation.subject ?? normalized.message.subject,
             lastMessageAt: receivedAt,
+            status: isResolved ? ConversationStatus.IN_PROGRESS : undefined,
+            resolvedAt: isResolved ? null : undefined,
             version: { increment: 1 },
           },
         });
@@ -97,6 +124,16 @@ export class EmailInboundService {
           throw new Error(
             'OCC Conflict: Conversation was updated by another process. Worker will retry.',
           );
+        }
+
+        if (isResolved && conversation.ticket) {
+          await tx.ticket.update({
+            where: { id: conversation.ticket.id },
+            data: {
+              status: TicketStatus.IN_PROGRESS,
+              resolvedAt: null,
+            },
+          });
         }
       }
 
@@ -241,73 +278,53 @@ export class EmailInboundService {
   }
 
   private normalizePayload(
-    rawPayload: Prisma.JsonValue,
+    payload: InboundEmailPayload,
     dedupKey: string,
+    rawPayload: Prisma.JsonValue,
   ): NormalizedEmailMessage {
-    if (!this.isEmailPayload(rawPayload)) {
-      throw new Error('Invalid email payload');
-    }
-
     const contentType =
-      rawPayload.contentType === MessageContentType.HTML || rawPayload.html
+      payload.contentType === MessageContentType.HTML || payload.html
         ? MessageContentType.HTML
         : MessageContentType.TEXT;
     const content =
       contentType === MessageContentType.HTML
-        ? this.sanitizeHtml(rawPayload.html ?? rawPayload.text ?? '')
-        : (rawPayload.text ?? this.stripHtml(rawPayload.html ?? ''));
+        ? this.sanitizeHtml(payload.html ?? payload.text ?? '')
+        : (payload.text ?? this.stripHtml(payload.html ?? ''));
     const threadKey =
-      rawPayload.threadId ??
-      rawPayload.inReplyTo ??
-      this.normalizeSubject(rawPayload.subject);
+      payload.threadId ??
+      payload.inReplyTo ??
+      this.normalizeSubject(payload.subject);
 
     return {
       provider: 'EMAIL',
       channelType: 'EMAIL',
-      externalMessageId: rawPayload.messageId,
-      externalConversationId: `EMAIL:${rawPayload.mailbox.toLowerCase()}:${threadKey}`,
+      externalMessageId: payload.messageId,
+      externalConversationId: `EMAIL:${payload.mailbox.toLowerCase()}:${threadKey}`,
       customer: {
-        name: rawPayload.fromName,
-        email: rawPayload.fromEmail.toLowerCase(),
+        name: payload.fromName,
+        email: payload.fromEmail.toLowerCase(),
       },
       message: {
-        subject: rawPayload.subject,
+        subject: payload.subject,
         content,
         contentType:
-          rawPayload.attachments && rawPayload.attachments.length > 0
+          payload.attachments && payload.attachments.length > 0
             ? MessageContentType.ATTACHMENT
             : contentType,
-        receivedAt: rawPayload.receivedAt ?? new Date().toISOString(),
-        attachments: rawPayload.attachments,
+        receivedAt: payload.receivedAt ?? new Date().toISOString(),
+        attachments: payload.attachments,
       },
       source: {
-        mailbox: rawPayload.mailbox,
-        channelAccountId: rawPayload.channelAccountId,
-        toEmail: rawPayload.toEmail,
-        threadId: rawPayload.threadId,
-        inReplyTo: rawPayload.inReplyTo,
-        references: rawPayload.references,
+        mailbox: payload.mailbox,
+        channelAccountId: payload.channelAccountId,
+        toEmail: payload.toEmail,
+        threadId: payload.threadId,
+        inReplyTo: payload.inReplyTo,
+        references: payload.references,
       },
-      rawPayload,
+      rawPayload: rawPayload as any,
       dedupKey,
     };
-  }
-
-  private isEmailPayload(
-    value: Prisma.JsonValue,
-  ): value is MockInboundEmailPayload {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return false;
-    }
-
-    const payload = value as Record<string, unknown>;
-    return (
-      typeof payload.mailbox === 'string' &&
-      typeof payload.messageId === 'string' &&
-      typeof payload.fromEmail === 'string' &&
-      typeof payload.subject === 'string' &&
-      (typeof payload.text === 'string' || typeof payload.html === 'string')
-    );
   }
 
   private async findOrCreateChannelAccount(
@@ -358,7 +375,9 @@ export class EmailInboundService {
 
     return tx.customer.upsert({
       where: { email: normalized.customer.email },
-      update: {},
+      update: normalized.customer.name
+        ? { name: normalized.customer.name }
+        : {},
       create: {
         name: normalized.customer.name,
         email: normalized.customer.email,

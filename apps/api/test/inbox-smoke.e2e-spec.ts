@@ -6,6 +6,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { ChannelType, OutboundProvider, UserRole } from '@prisma/client';
 import request from 'supertest';
+import { AttachmentsService } from '../src/modules/attachments/attachments.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { ConversationsController } from '../src/modules/conversations/conversations.controller';
@@ -58,6 +59,9 @@ describe('login -> inbox -> reply smoke flow (e2e)', () => {
       queued: true,
     }),
   };
+  const attachmentsService = {
+    uploadAttachment: jest.fn(),
+  };
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -71,6 +75,7 @@ describe('login -> inbox -> reply smoke flow (e2e)', () => {
         { provide: UsersService, useValue: usersService },
         { provide: ConversationsService, useValue: conversationsService },
         { provide: OutboundService, useValue: outboundService },
+        { provide: AttachmentsService, useValue: attachmentsService },
       ],
     }).compile();
 

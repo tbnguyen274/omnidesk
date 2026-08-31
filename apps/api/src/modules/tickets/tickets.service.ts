@@ -4,7 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConversationStatus, Prisma, TicketStatus } from '@prisma/client';
-import { REALTIME_EVENT_TYPES } from '@omnidesk/shared';
+import {
+  REALTIME_EVENT_TYPES,
+  getPaginationParams,
+  createPaginatedResponse,
+} from '@omnidesk/shared';
 import { ConversationsService } from '../conversations/conversations.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ListTicketsDto } from './dto/list-tickets.dto';
@@ -19,8 +23,7 @@ export class TicketsService {
   ) {}
 
   async list(query: ListTicketsDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const { page, limit, skip, take } = getPaginationParams(query);
     const where: Prisma.TicketWhereInput = {
       status: query.status,
       priority: query.priority,
@@ -38,41 +41,38 @@ export class TicketsService {
 
     const [items, total] = await this.ticketsRepository.list({
       where,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip,
+      take,
     });
 
-    return {
-      items: items.map((ticket) => ({
-        id: ticket.id,
-        status: ticket.status,
-        priority: ticket.priority,
-        slaDueAt: ticket.slaDueAt,
-        firstResponseDueAt: ticket.firstResponseDueAt,
-        resolvedAt: ticket.resolvedAt,
-        closedAt: ticket.closedAt,
-        assignedAgent: ticket.assignedAgent,
-        conversation: {
-          id: ticket.conversation.id,
-          channelType: ticket.conversation.channelType,
-          subject: ticket.conversation.subject,
-          status: ticket.conversation.status,
-          version: ticket.conversation.version,
-          lastMessageAt: ticket.conversation.lastMessageAt,
-          customer: {
-            id: ticket.conversation.customer.id,
-            name: ticket.conversation.customer.name,
-            email: ticket.conversation.customer.email,
-            avatarUrl: ticket.conversation.customer.avatarUrl,
-          },
+    const mappedItems = items.map((ticket) => ({
+      id: ticket.id,
+      status: ticket.status,
+      priority: ticket.priority,
+      slaDueAt: ticket.slaDueAt,
+      firstResponseDueAt: ticket.firstResponseDueAt,
+      resolvedAt: ticket.resolvedAt,
+      closedAt: ticket.closedAt,
+      assignedAgent: ticket.assignedAgent,
+      conversation: {
+        id: ticket.conversation.id,
+        channelType: ticket.conversation.channelType,
+        subject: ticket.conversation.subject,
+        status: ticket.conversation.status,
+        version: ticket.conversation.version,
+        lastMessageAt: ticket.conversation.lastMessageAt,
+        customer: {
+          id: ticket.conversation.customer.id,
+          name: ticket.conversation.customer.name,
+          email: ticket.conversation.customer.email,
+          avatarUrl: ticket.conversation.customer.avatarUrl,
         },
-        createdAt: ticket.createdAt,
-        updatedAt: ticket.updatedAt,
-      })),
-      page,
-      limit,
-      total,
-    };
+      },
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt,
+    }));
+
+    return createPaginatedResponse(mappedItems, total, page, limit);
   }
 
   async findById(id: string) {

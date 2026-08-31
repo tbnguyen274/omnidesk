@@ -318,6 +318,7 @@ export class FacebookInboundRepository {
     }
 
     let customerName = normalized.customer.name;
+    let avatarUrl: string | undefined = undefined;
     if (!customerName || customerName === 'Unknown Customer') {
       if (normalized.channelType === 'FACEBOOK_COMMENT') {
         try {
@@ -331,17 +332,21 @@ export class FacebookInboundRepository {
               ? decrypt(ca.accessTokenEncrypted, encryptionKey)
               : ca.accessTokenEncrypted;
             const response = await fetch(
-              `https://graph.facebook.com/v19.0/${normalized.customer.externalId}?fields=first_name,last_name&access_token=${plainToken}`,
+              `https://graph.facebook.com/v19.0/${normalized.customer.externalId}?fields=first_name,last_name,picture&access_token=${plainToken}`,
             );
             if (response.ok) {
               const data = (await response.json()) as {
                 first_name?: string;
                 last_name?: string;
+                picture?: { data?: { url?: string } };
               };
               customerName =
                 `${data.first_name || ''} ${data.last_name || ''}`.trim();
               if (customerName) {
                 normalized.customer.name = customerName;
+              }
+              if (data.picture?.data?.url) {
+                avatarUrl = data.picture.data.url;
               }
             }
           }
@@ -351,11 +356,20 @@ export class FacebookInboundRepository {
       }
     }
 
+    const updateData: Prisma.CustomerUpdateInput = {};
+    if (customerName && customerName !== 'Unknown Customer') {
+      updateData.name = customerName;
+    }
+    if (avatarUrl) {
+      updateData.avatarUrl = avatarUrl;
+    }
+
     return tx.customer.upsert({
       where: { externalFacebookId: normalized.customer.externalId },
-      update: {},
+      update: updateData,
       create: {
         name: customerName,
+        avatarUrl,
         externalFacebookId: normalized.customer.externalId,
       },
     });

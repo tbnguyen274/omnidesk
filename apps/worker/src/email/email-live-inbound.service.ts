@@ -4,7 +4,7 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser, type AddressObject } from 'mailparser';
 import {
   InboundEmailAttachment,
-  MockInboundEmailPayload,
+  InboundEmailPayload,
 } from '@omnidesk/shared';
 import { providerConfig } from '../config/provider.config';
 import { PrismaService } from '../database/prisma.service';
@@ -136,7 +136,7 @@ export class EmailLiveInboundService {
           }
         }
 
-        const rawPayload: MockInboundEmailPayload = {
+        const rawPayload: InboundEmailPayload = {
           mailbox: channelAccount.externalId,
           messageId,
           fromEmail: from.address,

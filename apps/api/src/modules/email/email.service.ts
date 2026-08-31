@@ -10,7 +10,12 @@ import {
   InboundProvider,
   Prisma,
 } from '@prisma/client';
-import { MockInboundEmailPayload, QUEUE_NAMES } from '@omnidesk/shared';
+import {
+  InboundEmailPayload,
+  QUEUE_NAMES,
+  getPaginationParams,
+  createPaginatedResponse,
+} from '@omnidesk/shared';
 import { QueuesService } from '../../common/queues/queues.service';
 import { providerConfig } from '../../config/provider.config';
 import { EventsService } from '../events/events.service';
@@ -28,7 +33,7 @@ export class EmailService {
   ) {}
 
   async mockInbound(dto: MockInboundEmailDto) {
-    const rawPayload: MockInboundEmailPayload = {
+    const rawPayload: InboundEmailPayload = {
       mailbox: dto.mailbox,
       messageId: dto.messageId,
       fromEmail: dto.fromEmail,
@@ -77,8 +82,7 @@ export class EmailService {
   }
 
   async listSyncLogs(query: ListEmailSyncLogsDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const { page, limit, skip, take } = getPaginationParams(query);
     const where: Prisma.EmailSyncLogWhereInput = {
       channelAccountId: query.channelAccountId,
       status: query.status,
@@ -86,16 +90,11 @@ export class EmailService {
 
     const [items, total] = await this.emailRepository.listSyncLogs({
       where,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip,
+      take,
     });
 
-    return {
-      items,
-      page,
-      limit,
-      total,
-    };
+    return createPaginatedResponse(items, total, page, limit);
   }
 
   private buildDedupKey(mailbox: string, messageId: string) {

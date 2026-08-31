@@ -42,7 +42,6 @@ describe('OutboundService', () => {
         outboundRepository as never,
         queues as never,
         notifications as never,
-        { upload: jest.fn() } as never,
       ),
       outboundRepository,
       queues,

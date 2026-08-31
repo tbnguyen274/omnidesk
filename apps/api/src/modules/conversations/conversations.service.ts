@@ -13,7 +13,12 @@ import {
   UserRole,
   UserStatus,
 } from '@prisma/client';
-import { REALTIME_EVENT_TYPES, QUEUE_NAMES } from '@omnidesk/shared';
+import {
+  REALTIME_EVENT_TYPES,
+  QUEUE_NAMES,
+  getPaginationParams,
+  createPaginatedResponse,
+} from '@omnidesk/shared';
 import { NotificationsService } from '../notifications/notifications.service';
 import { QueuesService } from '../../common/queues/queues.service';
 import { ConversationsRepository } from './conversations.repository';
@@ -56,8 +61,7 @@ export class ConversationsService {
   ) {}
 
   async list(query: ListConversationsDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const { page, limit, skip, take } = getPaginationParams(query);
     const where: Prisma.ConversationWhereInput = {
       channelType: query.channelType,
       status: query.status,
@@ -90,49 +94,46 @@ export class ConversationsService {
 
     const [items, total] = await this.conversationsRepository.list({
       where,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip,
+      take,
     });
 
-    return {
-      items: items.map((conversation) => ({
-        id: conversation.id,
-        channelType: conversation.channelType,
-        customer: {
-          id: conversation.customer.id,
-          name: conversation.customer.name,
-          email: conversation.customer.email,
-          avatarUrl: conversation.customer.avatarUrl,
-        },
-        subject: conversation.subject,
-        status: conversation.status,
-        priority: conversation.priority,
-        assignedAgent: conversation.assignedAgent,
-        ticket: conversation.ticket
-          ? {
-              id: conversation.ticket.id,
-              status: conversation.ticket.status,
-              priority: conversation.ticket.priority,
-              slaDueAt: conversation.ticket.slaDueAt,
-            }
-          : null,
-        lastMessage: conversation.messages[0]
-          ? {
-              id: conversation.messages[0].id,
-              content: conversation.messages[0].content,
-              contentType: conversation.messages[0].contentType,
-              direction: conversation.messages[0].direction,
-              createdAt: conversation.messages[0].createdAt,
-            }
-          : null,
-        lastMessageAt: conversation.lastMessageAt,
-        version: conversation.version,
-        isRead: conversation.isRead,
-      })),
-      page,
-      limit,
-      total,
-    };
+    const mappedItems = items.map((conversation) => ({
+      id: conversation.id,
+      channelType: conversation.channelType,
+      customer: {
+        id: conversation.customer.id,
+        name: conversation.customer.name,
+        email: conversation.customer.email,
+        avatarUrl: conversation.customer.avatarUrl,
+      },
+      subject: conversation.subject,
+      status: conversation.status,
+      priority: conversation.priority,
+      assignedAgent: conversation.assignedAgent,
+      ticket: conversation.ticket
+        ? {
+            id: conversation.ticket.id,
+            status: conversation.ticket.status,
+            priority: conversation.ticket.priority,
+            slaDueAt: conversation.ticket.slaDueAt,
+          }
+        : null,
+      lastMessage: conversation.messages[0]
+        ? {
+            id: conversation.messages[0].id,
+            content: conversation.messages[0].content,
+            contentType: conversation.messages[0].contentType,
+            direction: conversation.messages[0].direction,
+            createdAt: conversation.messages[0].createdAt,
+          }
+        : null,
+      lastMessageAt: conversation.lastMessageAt,
+      version: conversation.version,
+      isRead: conversation.isRead,
+    }));
+
+    return createPaginatedResponse(mappedItems, total, page, limit);
   }
 
   async findById(id: string) {
