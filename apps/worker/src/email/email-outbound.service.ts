@@ -9,9 +9,9 @@ import {
   Prisma,
 } from '@prisma/client';
 import nodemailer from 'nodemailer';
-import * as Minio from 'minio';
 import { providerConfig } from '../config/provider.config';
 import { PrismaService } from '../database/prisma.service';
+import { StorageService } from '../storage/storage.service';
 
 type SendOutboundResult = {
   externalMessageId: string;
@@ -26,19 +26,11 @@ type EmailThreadHeaders = {
 @Injectable()
 export class EmailOutboundService {
   private readonly logger = new Logger(EmailOutboundService.name);
-  private readonly minioClient: Minio.Client;
-  private readonly minioBucket: string;
 
-  constructor(private readonly prisma: PrismaService) {
-    this.minioBucket = process.env.MINIO_BUCKET ?? 'omnidesk';
-    this.minioClient = new Minio.Client({
-      endPoint: process.env.MINIO_ENDPOINT ?? 'localhost',
-      port: parseInt(process.env.MINIO_PORT ?? '9000', 10),
-      useSSL: process.env.MINIO_USE_SSL === 'true',
-      accessKey: process.env.MINIO_ACCESS_KEY ?? 'omnidesk',
-      secretKey: process.env.MINIO_SECRET_KEY ?? 'omnidesk123',
-    });
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
 
   async sendOutboundMessage(
     outboundMessageId: string,
@@ -333,19 +325,10 @@ export class EmailOutboundService {
       // storageKey format: "pending:<outboundId>:<realKey>"
       const realKey = att.storageKey.split(':').slice(2).join(':');
       try {
-        const stream = await this.minioClient.getObject(
-          this.minioBucket,
-          realKey,
-        );
-        const chunks: Buffer[] = [];
-        await new Promise<void>((resolve, reject) => {
-          stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-          stream.on('end', resolve);
-          stream.on('error', reject);
-        });
+        const content = await this.storageService.getObject(realKey);
         results.push({
           filename: att.fileName,
-          content: Buffer.concat(chunks),
+          content,
           contentType: att.mimeType,
         });
       } catch (err) {

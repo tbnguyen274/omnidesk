@@ -69,7 +69,16 @@ describe('EmailOutboundService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
     };
-    const service = new EmailOutboundService(prisma as never);
+    const storageService = {
+      getObject: jest.fn(),
+      getStream: jest.fn(),
+      hasObject: jest.fn(),
+      putObject: jest.fn(),
+    };
+    const service = new EmailOutboundService(
+      prisma as never,
+      storageService as never,
+    );
 
     await expect(service.sendOutboundMessage('outbound-1')).resolves.toEqual({
       externalMessageId: '<smtp-reply@example.com>',
@@ -149,7 +158,16 @@ describe('EmailOutboundService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
     };
-    const service = new EmailOutboundService(prisma as never);
+    const storageService = {
+      getObject: jest.fn(),
+      getStream: jest.fn(),
+      hasObject: jest.fn(),
+      putObject: jest.fn(),
+    };
+    const service = new EmailOutboundService(
+      prisma as never,
+      storageService as never,
+    );
 
     await service.sendOutboundMessage('outbound-1');
 

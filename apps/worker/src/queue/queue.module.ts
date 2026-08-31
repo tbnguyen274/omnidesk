@@ -23,10 +23,12 @@ import { SlaCheckProcessor } from '../processors/sla-check.processor';
 import { SlaCheckScheduler } from '../processors/sla-check.scheduler';
 import { AutoCloseProcessor } from '../processors/auto-close.processor';
 import { AutoCloseScheduler } from '../processors/auto-close.scheduler';
-import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
+import { StorageModule } from '../storage/storage.module';
 import { QueueService } from './queue.service';
+import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
 
 @Module({
+  imports: [StorageModule],
   providers: [
     PrismaService,
     RealtimeEventsPublisher,
