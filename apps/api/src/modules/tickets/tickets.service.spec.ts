@@ -1,5 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
-import { ConversationStatus, TicketStatus } from '@prisma/client';
+import { ConversationStatus } from '@prisma/client';
 import { TicketsService } from './tickets.service';
 
 describe('TicketsService mutations', () => {
@@ -13,6 +12,14 @@ describe('TicketsService mutations', () => {
       findById: jest.fn().mockResolvedValue({
         id: 'ticket-id',
         conversationId: 'conversation-id',
+        conversation: {
+          id: 'conversation-id',
+          status: ConversationStatus.RESOLVED,
+          priority: 'HIGH',
+          assignedAgentId: null,
+          assignedAgent: null,
+          resolvedAt: new Date(),
+        },
       }),
     };
     const notifications = {
@@ -41,7 +48,7 @@ describe('TicketsService mutations', () => {
       createService();
 
     await expect(
-      service.updateStatus('ticket-id', TicketStatus.RESOLVED, 3),
+      service.updateStatus('ticket-id', ConversationStatus.RESOLVED, 3),
     ).resolves.toMatchObject({ id: 'ticket-id' });
 
     expect(conversationsService.updateStatus).toHaveBeenCalledWith(
@@ -50,15 +57,6 @@ describe('TicketsService mutations', () => {
       3,
     );
     expect(ticketsRepository.findById).toHaveBeenCalledWith('ticket-id');
-  });
-
-  it('requires the assignment endpoint for ASSIGNED transitions', async () => {
-    const { service, conversationsService } = createService();
-
-    await expect(
-      service.updateStatus('ticket-id', TicketStatus.ASSIGNED, 3),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(conversationsService.updateStatus).not.toHaveBeenCalled();
   });
 
   it('routes assignment updates through the conversation aggregate', async () => {

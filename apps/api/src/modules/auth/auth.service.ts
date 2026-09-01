@@ -7,10 +7,9 @@ import { JwtService } from '@nestjs/jwt';
 import { UserStatus } from '@prisma/client';
 import { compare, hash } from 'bcryptjs';
 import * as crypto from 'crypto';
-import * as nodemailer from 'nodemailer';
 import { appConfig } from '../../config/app.config';
-import { providerConfig } from '../../config/provider.config';
 import { JwtPayload } from '../../common/auth/current-user.type';
+import { MailService } from '../../common/mail/mail.service';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -21,6 +20,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -123,32 +123,7 @@ export class AuthService {
 
     const resetUrl = `${appConfig.webOrigin}/auth/reset-password?token=${token}`;
 
-    if (
-      providerConfig.email.outboundMode !== 'mock' &&
-      providerConfig.email.smtp.host
-    ) {
-      const transporter = nodemailer.createTransport({
-        host: providerConfig.email.smtp.host,
-        port: providerConfig.email.smtp.port,
-        secure: providerConfig.email.smtp.secure,
-        auth: {
-          user: providerConfig.email.smtp.user,
-          pass: providerConfig.email.smtp.password,
-        },
-      });
-
-      await transporter.sendMail({
-        from: providerConfig.email.smtp.fromAddress,
-        to: user.email,
-        subject: 'Password Reset Request',
-        text: `You requested a password reset. Please click the link to reset your password: ${resetUrl}`,
-        html: `<p>You requested a password reset.</p><p><a href="${resetUrl}">Click here to reset your password</a>.</p>`,
-      });
-    } else {
-      // In mock mode or missing SMTP config, log the URL to console for local testing
-      console.log(`[Mock Email] Password reset requested for ${user.email}`);
-      console.log(`[Mock Email] Click here to reset: ${resetUrl}`);
-    }
+    await this.mailService.sendPasswordResetEmail(user.email, resetUrl);
 
     return { success: true };
   }

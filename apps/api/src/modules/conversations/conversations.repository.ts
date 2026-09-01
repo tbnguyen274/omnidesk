@@ -4,14 +4,18 @@ import {
   MessageDirection,
   Prisma,
   Priority,
-  TicketStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
-import { toTicketStatus } from '../tickets/ticket-consistency';
+import { OutboxService } from '../../common/outbox/outbox.service';
+import { OutboxDispatcherService } from '../../common/outbox/outbox-dispatcher.service';
 
 @Injectable()
 export class ConversationsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly outbox: OutboxService,
+    private readonly outboxDispatcher: OutboxDispatcherService,
+  ) {}
 
   list(params: {
     where: Prisma.ConversationWhereInput;
@@ -109,7 +113,7 @@ export class ConversationsRepository {
   }
 
   async updateStatus(id: string, status: ConversationStatus, version: number) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const conversation = await tx.conversation.findUnique({
         where: { id },
         include: { ticket: true },
@@ -119,6 +123,7 @@ export class ConversationsRepository {
         throw new Error('Conversation not found');
       }
 
+      const previousStatus = conversation.status;
       const now = new Date();
       const isWaitingCustomer = status === ConversationStatus.WAITING_CUSTOMER;
       const isResolved = status === ConversationStatus.RESOLVED;
@@ -162,32 +167,74 @@ export class ConversationsRepository {
         );
       }
 
-      if (conversation.ticket) {
+      if (
+        conversation.ticket &&
+        (newSlaDueAt !== conversation.ticket.slaDueAt ||
+          newSlaPausedAt !== conversation.ticket.slaPausedAt)
+      ) {
         await tx.ticket.update({
           where: { id: conversation.ticket.id },
           data: {
-            status: toTicketStatus(status),
-            resolvedAt: isResolved
-              ? now
-              : isClosed
-                ? conversation.ticket.resolvedAt
-                : null,
-            closedAt: isClosed ? now : null,
             slaDueAt: newSlaDueAt,
             slaPausedAt: newSlaPausedAt,
           },
         });
       }
 
-      return tx.conversation.findUniqueOrThrow({
+      const updated = await tx.conversation.findUniqueOrThrow({
         where: { id },
         include: { ticket: true },
       });
+
+      let externalMessageId: string | null = null;
+      if (updated.channelType === 'EMAIL') {
+        const latestMsg = await tx.message.findFirst({
+          where: {
+            conversationId: updated.id,
+            direction: MessageDirection.INBOUND,
+            externalMessageId: { not: null },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { externalMessageId: true },
+        });
+        externalMessageId = latestMsg?.externalMessageId ?? null;
+      }
+
+      await this.outbox.createEvent(
+        tx,
+        'CONVERSATION_STATUS_CHANGED',
+        updated.id,
+        {
+          conversationId: updated.id,
+          conversationVersion: updated.version,
+          previousStatus,
+          newStatus: updated.status,
+          channelType: updated.channelType,
+          channelAccountId: updated.channelAccountId,
+          externalMessageId,
+        },
+      );
+
+      return updated;
     });
+
+    this.outboxDispatcher.trigger();
+    return result;
   }
 
   async updatePriority(id: string, priority: Priority, version: number) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.conversation.findUnique({
+        where: { id },
+        select: { priority: true, channelType: true, channelAccountId: true },
+      });
+
+      if (!current) {
+        throw new Error('Conversation not found');
+      }
+
+      const previousPriority = current.priority;
+
       const result = await tx.conversation.updateMany({
         where: { id, version },
         data: { priority, version: { increment: 1 } },
@@ -199,20 +246,45 @@ export class ConversationsRepository {
         );
       }
 
-      // Also update ticket priority if exists
       const conversation = await tx.conversation.findUniqueOrThrow({
         where: { id },
         include: { ticket: true },
       });
-      if (conversation?.ticket) {
-        await tx.ticket.update({
-          where: { id: conversation.ticket.id },
-          data: { priority },
+
+      let externalMessageId: string | null = null;
+      if (conversation.channelType === 'EMAIL') {
+        const latestMsg = await tx.message.findFirst({
+          where: {
+            conversationId: conversation.id,
+            direction: MessageDirection.INBOUND,
+            externalMessageId: { not: null },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { externalMessageId: true },
         });
+        externalMessageId = latestMsg?.externalMessageId ?? null;
       }
+
+      await this.outbox.createEvent(
+        tx,
+        'CONVERSATION_PRIORITY_CHANGED',
+        conversation.id,
+        {
+          conversationId: conversation.id,
+          conversationVersion: conversation.version,
+          previousPriority,
+          newPriority: conversation.priority,
+          channelType: conversation.channelType,
+          channelAccountId: conversation.channelAccountId,
+          externalMessageId,
+        },
+      );
 
       return conversation;
     });
+
+    this.outboxDispatcher.trigger();
+    return result;
   }
 
   async updateAssignment(
@@ -235,29 +307,6 @@ export class ConversationsRepository {
         );
       }
 
-      const conversation = await tx.conversation.findUniqueOrThrow({
-        where: { id },
-        include: { ticket: true },
-      });
-
-      if (conversation?.ticket) {
-        const shouldUpdateTicketStatus =
-          conversation.ticket.status === TicketStatus.NEW ||
-          conversation.ticket.status === TicketStatus.ASSIGNED;
-
-        await tx.ticket.update({
-          where: { id: conversation.ticket.id },
-          data: {
-            status: shouldUpdateTicketStatus
-              ? assignedAgentId
-                ? TicketStatus.ASSIGNED
-                : TicketStatus.NEW
-              : undefined,
-            assignedAgentId,
-          },
-        });
-      }
-
       return tx.conversation.findUniqueOrThrow({
         where: { id },
         include: {
@@ -275,23 +324,58 @@ export class ConversationsRepository {
   }
 
   async updateReadStatus(id: string, isRead: boolean, version: number) {
-    const result = await this.prisma.conversation.updateMany({
-      where: { id, version },
-      data: {
-        isRead,
-        version: { increment: 1 },
-      },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.conversation.updateMany({
+        where: { id, version },
+        data: {
+          isRead,
+          version: { increment: 1 },
+        },
+      });
 
-    if (result.count === 0) {
-      throw new ConflictException(
-        'Data was modified by another agent. Please refresh.',
+      if (result.count === 0) {
+        throw new ConflictException(
+          'Data was modified by another agent. Please refresh.',
+        );
+      }
+
+      const conversation = await tx.conversation.findUniqueOrThrow({
+        where: { id },
+      });
+
+      let externalMessageId: string | null = null;
+      if (conversation.channelType === 'EMAIL') {
+        const latestMsg = await tx.message.findFirst({
+          where: {
+            conversationId: conversation.id,
+            direction: MessageDirection.INBOUND,
+            externalMessageId: { not: null },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { externalMessageId: true },
+        });
+        externalMessageId = latestMsg?.externalMessageId ?? null;
+      }
+
+      await this.outbox.createEvent(
+        tx,
+        'CONVERSATION_READ_STATUS_CHANGED',
+        conversation.id,
+        {
+          conversationId: conversation.id,
+          conversationVersion: conversation.version,
+          isRead: conversation.isRead,
+          channelType: conversation.channelType,
+          channelAccountId: conversation.channelAccountId,
+          externalMessageId,
+        },
       );
-    }
 
-    return this.prisma.conversation.findUniqueOrThrow({
-      where: { id },
+      return conversation;
     });
+
+    this.outboxDispatcher.trigger();
+    return result;
   }
 
   async getLatestExternalMessageId(

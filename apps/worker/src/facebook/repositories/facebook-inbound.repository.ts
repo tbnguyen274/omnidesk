@@ -3,7 +3,6 @@ import {
   NormalizedFacebookMessage,
   REALTIME_EVENT_TYPES,
   calculateSlaDueAt,
-  decrypt,
 } from '@omnidesk/shared';
 import {
   ChannelAccountType,
@@ -16,7 +15,6 @@ import {
   MessageDirection,
   MessageSenderType,
   Prisma,
-  TicketStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { RealtimeEventsPublisher } from '../../realtime/realtime-events.publisher';
@@ -47,11 +45,7 @@ export class FacebookInboundRepository {
         tx,
         normalized,
       );
-      const customer = await this.findOrCreateCustomer(
-        tx,
-        normalized,
-        channelAccount,
-      );
+      const customer = await this.findOrCreateCustomer(tx, normalized);
 
       // Acquire a row-level lock on the customer to prevent race conditions
       // for concurrent webhooks of the same customer.
@@ -122,16 +116,6 @@ export class FacebookInboundRepository {
             'OCC Conflict: Conversation was updated by another process. Worker will retry.',
           );
         }
-
-        if (isResolved && conversation.ticket) {
-          await tx.ticket.update({
-            where: { id: conversation.ticket.id },
-            data: {
-              status: TicketStatus.IN_PROGRESS,
-              resolvedAt: null,
-            },
-          });
-        }
       }
 
       const existingMessage = await tx.message.findUnique({
@@ -191,8 +175,6 @@ export class FacebookInboundRepository {
         const ticket = await tx.ticket.create({
           data: {
             conversationId: conversation.id,
-            status: TicketStatus.NEW,
-            priority,
             slaDueAt: calculateSlaDueAt(priority, receivedAt),
           },
         });
@@ -234,40 +216,48 @@ export class FacebookInboundRepository {
     ];
     const occurredAt = new Date().toISOString();
 
-    await this.realtimeEventsPublisher.publish(
-      {
-        type: plan.conversationCreated
-          ? REALTIME_EVENT_TYPES.CONVERSATION_CREATED
-          : REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
-        conversationId: plan.conversationId,
-        occurredAt,
-      },
-      rooms,
-    );
-
-    if (plan.messageId) {
-      await this.realtimeEventsPublisher.publish(
+    const publishPromises = [
+      this.realtimeEventsPublisher.publish(
         {
-          type: REALTIME_EVENT_TYPES.MESSAGE_CREATED,
+          type: plan.conversationCreated
+            ? REALTIME_EVENT_TYPES.CONVERSATION_CREATED
+            : REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
           conversationId: plan.conversationId,
-          messageId: plan.messageId,
           occurredAt,
         },
         rooms,
+      ),
+    ];
+
+    if (plan.messageId) {
+      publishPromises.push(
+        this.realtimeEventsPublisher.publish(
+          {
+            type: REALTIME_EVENT_TYPES.MESSAGE_CREATED,
+            conversationId: plan.conversationId,
+            messageId: plan.messageId,
+            occurredAt,
+          },
+          rooms,
+        ),
       );
     }
 
     if (plan.ticketId) {
-      await this.realtimeEventsPublisher.publish(
-        {
-          type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
-          ticketId: plan.ticketId,
-          conversationId: plan.conversationId,
-          occurredAt,
-        },
-        rooms,
+      publishPromises.push(
+        this.realtimeEventsPublisher.publish(
+          {
+            type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
+            ticketId: plan.ticketId,
+            conversationId: plan.conversationId,
+            occurredAt,
+          },
+          rooms,
+        ),
       );
     }
+
+    await Promise.all(publishPromises);
   }
 
   private async findOrCreateChannelAccount(
@@ -311,51 +301,28 @@ export class FacebookInboundRepository {
   private async findOrCreateCustomer(
     tx: Prisma.TransactionClient,
     normalized: NormalizedFacebookMessage,
-    channelAccount: { id: string },
   ) {
     if (!normalized.customer.externalId) {
       throw new Error('Customer external ID is missing');
     }
 
-    let customerName = normalized.customer.name;
-    if (!customerName || customerName === 'Unknown Customer') {
-      if (normalized.channelType === 'FACEBOOK_COMMENT') {
-        try {
-          const ca = await tx.channelAccount.findUnique({
-            where: { id: channelAccount.id },
-            select: { accessTokenEncrypted: true },
-          });
-          if (ca?.accessTokenEncrypted) {
-            const encryptionKey = process.env.ENCRYPTION_KEY;
-            const plainToken = encryptionKey
-              ? decrypt(ca.accessTokenEncrypted, encryptionKey)
-              : ca.accessTokenEncrypted;
-            const response = await fetch(
-              `https://graph.facebook.com/v19.0/${normalized.customer.externalId}?fields=first_name,last_name&access_token=${plainToken}`,
-            );
-            if (response.ok) {
-              const data = (await response.json()) as {
-                first_name?: string;
-                last_name?: string;
-              };
-              customerName =
-                `${data.first_name || ''} ${data.last_name || ''}`.trim();
-              if (customerName) {
-                normalized.customer.name = customerName;
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Failed to fetch Facebook profile:', e);
-        }
-      }
+    const customerName = normalized.customer.name;
+    const avatarUrl = normalized.customer.avatarUrl;
+
+    const updateData: Prisma.CustomerUpdateInput = {};
+    if (customerName && customerName !== 'Unknown Customer') {
+      updateData.name = customerName;
+    }
+    if (avatarUrl) {
+      updateData.avatarUrl = avatarUrl;
     }
 
     return tx.customer.upsert({
       where: { externalFacebookId: normalized.customer.externalId },
-      update: {},
+      update: updateData,
       create: {
         name: customerName,
+        avatarUrl,
         externalFacebookId: normalized.customer.externalId,
       },
     });

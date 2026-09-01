@@ -240,7 +240,7 @@ export const apiClient = {
   },
 
   async uploadAttachment(token: string, file: File): Promise<UploadAttachmentResponse> {
-    const url = new URL(`${API_BASE_URL}/outbound/attachments`);
+    const url = new URL(`${API_BASE_URL}/attachments/upload`);
     const formData = new FormData();
     formData.append("file", file);
 

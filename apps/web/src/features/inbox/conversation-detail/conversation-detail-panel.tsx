@@ -1,14 +1,14 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { ChannelBadge, PriorityBadge, StatusBadge } from "@/features/inbox/components/badges";
 import { PaneState } from "@/features/inbox/components/pane-state";
 import { MessageBubble } from "@/features/inbox/conversation-detail/message-bubble";
 import { ReplyComposer } from "@/features/inbox/reply/reply-composer";
+import { useConversationScroll } from "@/features/inbox/conversation-detail/hooks/use-conversation-scroll";
+import { useMessagePagination } from "@/features/inbox/conversation-detail/hooks/use-message-pagination";
 import type { ConversationDetail, OutboundAttachmentItem } from "@/lib/api-types";
-
-const SCROLL_BOTTOM_THRESHOLD = 120;
 
 export function ConversationDetailPanel({
   conversation,
@@ -43,73 +43,27 @@ export function ConversationDetailPanel({
     [conversation],
   );
 
-  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const previousScrollHeightRef = useRef<number>(0);
-  const shouldStickToBottomRef = useRef(true);
-
   const [replyingToMessage, setReplyingToMessage] = useState<
     ConversationDetail["messages"][number] | null
   >(null);
 
-  const isAdjustingScrollRef = useRef(false);
+  const { scrollRef, prepareForOlderMessages, updateStickToBottom } =
+    useConversationScroll({
+      conversationId: conversation?.id,
+      messages: sortedMessages,
+    });
 
-  const isInitialLoadRef = useRef(true);
-  const currentConversationIdRef = useRef<string | null>(null);
-
-  useLayoutEffect(() => {
-    if (conversation?.id !== currentConversationIdRef.current) {
-      isInitialLoadRef.current = true;
-      shouldStickToBottomRef.current = true;
-      currentConversationIdRef.current = conversation?.id ?? null;
-      setHasMoreMessages(true);
-
-      setReplyingToMessage(null);
-    }
-  }, [conversation?.id]);
-
-  useLayoutEffect(() => {
-    if (scrollRef.current) {
-      if (isAdjustingScrollRef.current) {
-        // Adjust scroll position after loading older messages so the view doesn't jump
-        const newScrollHeight = scrollRef.current.scrollHeight;
-        scrollRef.current.scrollTop = newScrollHeight - previousScrollHeightRef.current;
-        isAdjustingScrollRef.current = false;
-      } else if (
-        isInitialLoadRef.current ||
-        shouldStickToBottomRef.current
-      ) {
-        // Only auto-scroll to bottom if the user was already near the bottom OR it's the initial load
-        scrollToBottom(scrollRef.current);
-        // If we successfully scrolled and have messages, we can mark initial load as done
-        if (sortedMessages.length > 0) {
-          isInitialLoadRef.current = false;
-        }
-      }
-    }
-  }, [sortedMessages, conversation?.id]);
+  const { isLoadingOlder, loadOlder } = useMessagePagination({
+    conversationId: conversation?.id,
+    messageCount: sortedMessages.length,
+    onLoadOlderMessages,
+    onPrepareScroll: prepareForOlderMessages,
+  });
 
   const handleScroll = async () => {
-    if (!scrollRef.current || !onLoadOlderMessages || isLoadingOlder || !hasMoreMessages) return;
-
-    shouldStickToBottomRef.current = isNearBottom(scrollRef.current);
-
-    if (scrollRef.current.scrollTop === 0) {
-      const prevMessageCount = sortedMessages.length;
-      previousScrollHeightRef.current = scrollRef.current.scrollHeight;
-      isAdjustingScrollRef.current = true;
-      shouldStickToBottomRef.current = false;
-      setIsLoadingOlder(true);
-      
-      await onLoadOlderMessages();
-      
-      // If we didn't get any new messages, we've reached the end
-      if (conversation?.messages && conversation.messages.length === prevMessageCount) {
-        setHasMoreMessages(false);
-      }
-      setIsLoadingOlder(false); // Reset loading state
-    }
+    if (!scrollRef.current) return;
+    updateStickToBottom();
+    await loadOlder(scrollRef.current.scrollTop);
   };
 
   if (loading && !conversation) {
@@ -209,18 +163,4 @@ export function ConversationDetailPanel({
       />
     </div>
   );
-}
-
-function isNearBottom(element: HTMLElement) {
-  return (
-    element.scrollHeight - element.scrollTop - element.clientHeight <=
-    SCROLL_BOTTOM_THRESHOLD
-  );
-}
-
-function scrollToBottom(element: HTMLElement) {
-  element.scrollTop = element.scrollHeight;
-  requestAnimationFrame(() => {
-    element.scrollTop = element.scrollHeight;
-  });
 }

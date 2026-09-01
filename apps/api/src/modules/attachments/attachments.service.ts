@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { PrismaService } from '../../common/database/prisma.service';
@@ -20,6 +25,47 @@ export class AttachmentsService {
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
   ) {}
+
+  async uploadAttachment(file: Express.Multer.File) {
+    const ALLOWED_MIME_TYPES = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ]);
+
+    const IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+    const DOC_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+    if (!file || !file.mimetype) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      throw new BadRequestException(
+        `File type "${file.mimetype}" is not allowed. Supported: JPEG, PNG, GIF, WEBP, PDF, DOCX, XLSX`,
+      );
+    }
+
+    const isImage = file.mimetype.startsWith('image/');
+    const maxBytes = isImage ? IMAGE_MAX_BYTES : DOC_MAX_BYTES;
+
+    if (file.size > maxBytes) {
+      const limitMb = maxBytes / 1024 / 1024;
+      throw new BadRequestException(
+        `File size ${(file.size / 1024 / 1024).toFixed(1)} MB exceeds the ${limitMb} MB limit`,
+      );
+    }
+
+    return this.storageService.upload(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+  }
 
   async getAttachmentContent(
     attachmentId: string,

@@ -1,10 +1,10 @@
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, Min } from 'class-validator';
-import { TicketStatus } from '@prisma/client';
+import { ConversationStatus } from '@prisma/client';
 
 export class UpdateTicketStatusDto {
-  @IsEnum(TicketStatus)
-  status!: TicketStatus;
+  @IsEnum(ConversationStatus)
+  status!: ConversationStatus;
 
   @Type(() => Number)
   @IsInt()

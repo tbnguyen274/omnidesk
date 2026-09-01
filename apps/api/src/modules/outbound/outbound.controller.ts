@@ -16,6 +16,7 @@ import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../common/auth/current-user.type';
 import { Roles } from '../../common/auth/roles.decorator';
+import { AttachmentsService } from '../attachments/attachments.service';
 import { CreateOutboundMessageDto } from './dto/create-outbound-message.dto';
 import { OutboundService } from './outbound.service';
 
@@ -24,7 +25,10 @@ import { OutboundService } from './outbound.service';
 @Controller('outbound')
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class OutboundController {
-  constructor(private readonly outboundService: OutboundService) {}
+  constructor(
+    private readonly outboundService: OutboundService,
+    private readonly attachmentsService: AttachmentsService,
+  ) {}
 
   @ApiOperation({
     summary: 'Send outbound message',
@@ -44,15 +48,16 @@ export class OutboundController {
   }
 
   @ApiOperation({
-    summary: 'Upload attachment',
+    summary: 'Upload attachment (Deprecated alias -> /attachments/upload)',
     description:
       'Uploads a file to object storage and returns the public URL. Allowed: JPEG, PNG, GIF, WEBP (≤5 MB), PDF, DOCX, XLSX (≤10 MB).',
+    deprecated: true,
   })
   @ApiConsumes('multipart/form-data')
   @Post('attachments')
   @UseInterceptors(FileInterceptor('file'))
   async uploadAttachment(@UploadedFile() file: Express.Multer.File) {
-    const data = await this.outboundService.uploadAttachment(file);
+    const data = await this.attachmentsService.uploadAttachment(file);
     return {
       success: true,
       data,

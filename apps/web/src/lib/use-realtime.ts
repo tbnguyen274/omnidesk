@@ -19,7 +19,7 @@ type UseRealtimeOptions = {
 
 export function useRealtime({
   conversationId,
-  debounceMs = 250,
+  debounceMs = 50,
   onEvents,
   token,
 }: UseRealtimeOptions) {

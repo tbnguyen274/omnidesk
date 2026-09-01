@@ -1,4 +1,8 @@
-import { InboundEvent, InboundEventType, InboundProvider } from '@prisma/client';
+import {
+  InboundEvent,
+  InboundEventType,
+  InboundProvider,
+} from '@prisma/client';
 
 /**
  * Shared port (interface) for all inbound provider adapters.

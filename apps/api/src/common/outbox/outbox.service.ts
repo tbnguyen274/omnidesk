@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { OutboxEventStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 
-export type OutboxEventType = 'INBOUND_EVENT_CREATED';
+export type OutboxEventType =
+  | 'INBOUND_EVENT_CREATED'
+  | 'CONVERSATION_STATUS_CHANGED'
+  | 'CONVERSATION_PRIORITY_CHANGED'
+  | 'CONVERSATION_READ_STATUS_CHANGED';
 
 /**
  * OutboxService writes domain events to the outbox table within the same
@@ -49,6 +53,11 @@ export class OutboxService {
     });
   }
 
+  /**
+   * Marks an outbox event as PUBLISHED with the associated queue jobId.
+   * @param id The outbox event ID
+   * @param jobId The deterministic jobId assigned by BullMQ
+   */
   markPublished(id: string, jobId: string) {
     return this.prisma.outboxEvent.update({
       where: { id },
@@ -60,6 +69,11 @@ export class OutboxService {
     });
   }
 
+  /**
+   * Marks an outbox event as DEAD when max retries are exceeded or unrecoverable error occurs.
+   * @param id The outbox event ID
+   * @param errorMessage Reason for failure
+   */
   markFailed(id: string, errorMessage: string) {
     return this.prisma.outboxEvent.update({
       where: { id },
@@ -72,6 +86,11 @@ export class OutboxService {
     });
   }
 
+  /**
+   * Increments the retry attempt count on a pending outbox event.
+   * @param id The outbox event ID
+   * @param errorMessage Last encountered error message
+   */
   incrementAttempts(id: string, errorMessage: string) {
     return this.prisma.outboxEvent.update({
       where: { id },
@@ -92,6 +111,25 @@ export class OutboxService {
       where: {
         status: OutboxEventStatus.PUBLISHED,
         publishedAt: { lt: cutoff },
+      },
+    });
+  }
+
+  /**
+   * Replays dead events within a given time window (default 24 hours).
+   * Resets status to PENDING, attempts to 0, and clears error message.
+   */
+  replayDeadEvents(windowHours = 24) {
+    const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    return this.prisma.outboxEvent.updateMany({
+      where: {
+        status: OutboxEventStatus.DEAD,
+        createdAt: { gte: cutoff },
+      },
+      data: {
+        status: OutboxEventStatus.PENDING,
+        attempts: 0,
+        errorMessage: null,
       },
     });
   }

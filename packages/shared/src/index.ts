@@ -17,16 +17,6 @@ export const CONVERSATION_STATUSES = [
 ] as const;
 export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number];
 
-export const TICKET_STATUSES = [
-  'NEW',
-  'ASSIGNED',
-  'IN_PROGRESS',
-  'WAITING_CUSTOMER',
-  'RESOLVED',
-  'CLOSED',
-] as const;
-export type TicketStatus = (typeof TICKET_STATUSES)[number];
-
 export const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
@@ -201,6 +191,19 @@ export type AutoCloseJobPayload = {
   requestedAt: string;
 };
 
+export type ConversationOutboxPayload = {
+  conversationId: string;
+  conversationVersion?: number;
+  previousStatus?: ConversationStatus;
+  newStatus?: ConversationStatus;
+  previousPriority?: Priority;
+  newPriority?: Priority;
+  isRead?: boolean;
+  channelType?: ChannelType;
+  channelAccountId?: string;
+  externalMessageId?: string | null;
+};
+
 export type QueuePayloadByName = {
   [QUEUE_NAMES.INBOUND_EVENTS]: InboundEventJobPayload;
   [QUEUE_NAMES.OUTBOUND_MESSAGES]: OutboundMessageJobPayload;
@@ -219,7 +222,7 @@ export type InboundEmailAttachment = {
   sizeBytes: number;
 };
 
-export type MockInboundEmailPayload = {
+export type InboundEmailPayload = {
   mailbox: string;
   messageId: string;
   fromEmail: string;
@@ -236,6 +239,8 @@ export type MockInboundEmailPayload = {
   channelAccountId?: string;
   attachments?: InboundEmailAttachment[];
 };
+
+export type MockInboundEmailPayload = InboundEmailPayload;
 
 export type NormalizedEmailMessage = {
   provider: Extract<ChannelProvider, 'EMAIL'>;
@@ -261,7 +266,7 @@ export type NormalizedEmailMessage = {
     inReplyTo?: string;
     references?: string[];
   };
-  rawPayload: MockInboundEmailPayload;
+  rawPayload: InboundEmailPayload;
   dedupKey: string;
 };
 
@@ -280,7 +285,7 @@ export type FacebookMessageConversationId = `FB_MSG:${string}:${string}`;
 export type FacebookCommentConversationId =
   `FB_COMMENT:${string}:${string}:${string}`;
 
-export type MockFacebookMessagePayload = {
+export type FacebookMessageInboundPayload = {
   pageId: string;
   senderId: string;
   senderName?: string;
@@ -291,7 +296,9 @@ export type MockFacebookMessagePayload = {
   channelAccountId?: string;
 };
 
-export type MockFacebookCommentPayload = {
+export type MockFacebookMessagePayload = FacebookMessageInboundPayload;
+
+export type FacebookCommentInboundPayload = {
   pageId: string;
   postId: string;
   commentId: string;
@@ -304,6 +311,8 @@ export type MockFacebookCommentPayload = {
   postUrl?: string;
 };
 
+export type MockFacebookCommentPayload = FacebookCommentInboundPayload;
+
 export type NormalizedFacebookMessage = {
   provider: Extract<ChannelProvider, 'FACEBOOK'>;
   channelType: Extract<
@@ -312,11 +321,12 @@ export type NormalizedFacebookMessage = {
   >;
   externalMessageId: string;
   externalConversationId:
-    | FacebookMessageConversationId
-    | FacebookCommentConversationId;
+  | FacebookMessageConversationId
+  | FacebookCommentConversationId;
   customer: {
     externalId: string;
     name?: string;
+    avatarUrl?: string;
   };
   message: {
     content: string;
@@ -332,7 +342,7 @@ export type NormalizedFacebookMessage = {
     parentCommentId?: string;
     postUrl?: string;
   };
-  rawPayload: MockFacebookMessagePayload | MockFacebookCommentPayload;
+  rawPayload: FacebookMessageInboundPayload | FacebookCommentInboundPayload;
   dedupKey: FacebookMessageDedupKey | FacebookCommentDedupKey;
 };
 
@@ -389,3 +399,5 @@ export function getSlaHours(priority: PriorityLevel | string): number {
 }
 
 export * from './encryption';
+export * from './pagination';
+export * from './validation';

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { getPaginationParams, createPaginatedResponse } from '@omnidesk/shared';
 import { PrismaService } from '../../common/database/prisma.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
+import { OutboxDispatcherService } from '../../common/outbox/outbox-dispatcher.service';
 import { CreateInboundEventDto } from './dto/create-inbound-event.dto';
 import { ListInboundEventsDto } from './dto/list-inbound-events.dto';
 import { ListOutboundEventsDto } from './dto/list-outbound-events.dto';
@@ -13,11 +15,11 @@ export class EventsService {
     private readonly eventsRepository: EventsRepository,
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
+    private readonly outboxDispatcher: OutboxDispatcherService,
   ) {}
 
   async listInbound(query: ListInboundEventsDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const { page, limit, skip, take } = getPaginationParams(query);
     const where: Prisma.InboundEventWhereInput = {
       provider: query.provider,
       eventType: query.eventType,
@@ -26,21 +28,15 @@ export class EventsService {
 
     const [items, total] = await this.eventsRepository.listInbound({
       where,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip,
+      take,
     });
 
-    return {
-      items,
-      page,
-      limit,
-      total,
-    };
+    return createPaginatedResponse(items, total, page, limit);
   }
 
   async listOutbound(query: ListOutboundEventsDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const { page, limit, skip, take } = getPaginationParams(query);
     const where: Prisma.OutboundMessageWhereInput = {
       provider: query.provider,
       status: query.status,
@@ -48,16 +44,11 @@ export class EventsService {
 
     const [items, total] = await this.eventsRepository.listOutbound({
       where,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip,
+      take,
     });
 
-    return {
-      items,
-      page,
-      limit,
-      total,
-    };
+    return createPaginatedResponse(items, total, page, limit);
   }
 
   async createInbound(dto: CreateInboundEventDto) {
@@ -97,6 +88,9 @@ export class EventsService {
 
         return { inboundEvent: event };
       });
+
+      // Fast-path: immediately trigger non-blocking outbox dispatch (< 5ms)
+      this.outboxDispatcher.trigger();
 
       return {
         inboundEvent,

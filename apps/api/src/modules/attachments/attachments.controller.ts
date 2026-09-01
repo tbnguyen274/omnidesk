@@ -1,5 +1,20 @@
-import { Controller, Get, Param, Query, Res } from '@nestjs/common';
-import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { Response } from 'express';
 import { Roles } from '../../common/auth/roles.decorator';
@@ -11,6 +26,22 @@ import { AttachmentsService } from './attachments.service';
 @Roles(UserRole.ADMIN, UserRole.AGENT)
 export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
+
+  @ApiOperation({
+    summary: 'Upload attachment',
+    description:
+      'Uploads a file to object storage and returns the public URL. Allowed: JPEG, PNG, GIF, WEBP (<= 5 MB), PDF, DOCX, XLSX (<= 10 MB).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAttachment(@UploadedFile() file: Express.Multer.File) {
+    const data = await this.attachmentsService.uploadAttachment(file);
+    return {
+      success: true,
+      data,
+    };
+  }
 
   @ApiOperation({
     summary: 'Stream attachment content',

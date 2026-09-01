@@ -3,14 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { User, UserRole, UserStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { AuthService } from './auth.service';
-import { providerConfig } from '../../config/provider.config';
 import { UsersService } from '../users/users.service';
-
-jest.mock('nodemailer', () => ({
-  createTransport: jest.fn(),
-}));
-
-import * as nodemailer from 'nodemailer';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -21,8 +14,11 @@ describe('AuthService', () => {
     >
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
-  const originalOutboundMode = providerConfig.email.outboundMode;
-  const originalSmtpConfig = { ...providerConfig.email.smtp };
+  let mailService: {
+    sendMail: jest.Mock;
+    sendPasswordResetEmail: jest.Mock;
+    sendWelcomeEmail: jest.Mock;
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -34,17 +30,17 @@ describe('AuthService', () => {
     jwtService = {
       signAsync: jest.fn().mockResolvedValue('jwt-token'),
     };
+    mailService = {
+      sendMail: jest.fn().mockResolvedValue(undefined),
+      sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+      sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
+    };
 
     authService = new AuthService(
       usersService as unknown as UsersService,
       jwtService as unknown as JwtService,
+      mailService as never,
     );
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-    Object.assign(providerConfig.email, { outboundMode: originalOutboundMode });
-    Object.assign(providerConfig.email.smtp, originalSmtpConfig);
   });
 
   it('returns an access token for valid credentials', async () => {
@@ -80,20 +76,7 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('sends forgot-password email through SMTP when outbound mode is live', async () => {
-    const sendMail = jest.fn().mockResolvedValue({ messageId: 'smtp-1' });
-    jest.spyOn(nodemailer, 'createTransport').mockReturnValue({
-      sendMail,
-    } as unknown as ReturnType<typeof nodemailer.createTransport>);
-    Object.assign(providerConfig.email, { outboundMode: 'live' });
-    Object.assign(providerConfig.email.smtp, {
-      host: 'smtp.example.com',
-      port: 587,
-      secure: false,
-      user: 'support@example.com',
-      password: 'app-password',
-      fromAddress: 'support@example.com',
-    });
+  it('sends forgot-password email by delegating to mailService', async () => {
     usersService.findByEmail.mockResolvedValue(createUser());
 
     await expect(
@@ -105,40 +88,8 @@ describe('AuthService', () => {
       expect.any(String),
       expect.any(Date),
     );
-    expect(nodemailer.createTransport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        host: 'smtp.example.com',
-        auth: {
-          user: 'support@example.com',
-          pass: 'app-password',
-        },
-      }),
-    );
-    expect(sendMail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        from: 'support@example.com',
-        to: 'agent@omnidesk.local',
-        subject: 'Password Reset Request',
-      }),
-    );
-  });
-
-  it('logs forgot-password reset URL in mock mode without SMTP delivery', async () => {
-    const createTransport = jest.spyOn(nodemailer, 'createTransport');
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-    Object.assign(providerConfig.email, { outboundMode: 'mock' });
-    Object.assign(providerConfig.email.smtp, { host: undefined });
-    usersService.findByEmail.mockResolvedValue(createUser());
-
-    await expect(
-      authService.forgotPassword({ email: 'agent@omnidesk.local' }),
-    ).resolves.toEqual({ success: true });
-
-    expect(createTransport).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[Mock Email] Password reset requested'),
-    );
-    expect(consoleSpy).toHaveBeenCalledWith(
+    expect(mailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+      'agent@omnidesk.local',
       expect.stringContaining('/auth/reset-password?token='),
     );
   });

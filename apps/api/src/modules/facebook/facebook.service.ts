@@ -1,8 +1,8 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { ChannelType, InboundEventType, InboundProvider } from '@prisma/client';
 import {
-  MockFacebookCommentPayload,
-  MockFacebookMessagePayload,
+  FacebookCommentInboundPayload,
+  FacebookMessageInboundPayload,
 } from '@omnidesk/shared';
 import { providerConfig } from '../../config/provider.config';
 import { EventsService } from '../events/events.service';
@@ -62,7 +62,7 @@ export class FacebookService {
   }
 
   async mockMessage(dto: MockFacebookMessageDto) {
-    const rawPayload: MockFacebookMessagePayload = {
+    const rawPayload: FacebookMessageInboundPayload = {
       pageId: dto.pageId,
       senderId: dto.senderId,
       senderName: dto.senderName,
@@ -83,7 +83,7 @@ export class FacebookService {
   }
 
   async mockComment(dto: MockFacebookCommentDto) {
-    const rawPayload: MockFacebookCommentPayload = {
+    const rawPayload: FacebookCommentInboundPayload = {
       pageId: dto.pageId,
       postId: dto.postId,
       commentId: dto.commentId,
@@ -105,7 +105,7 @@ export class FacebookService {
   }
 
   private createInboundEventFromPayload(
-    rawPayload: MockFacebookMessagePayload | MockFacebookCommentPayload,
+    rawPayload: FacebookMessageInboundPayload | FacebookCommentInboundPayload,
     eventType: InboundEventType,
     channelType: ChannelType,
     externalEventId: string,

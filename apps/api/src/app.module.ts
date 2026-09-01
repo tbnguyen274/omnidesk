@@ -6,21 +6,16 @@ import { RolesGuard } from './common/auth/roles.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './modules/admin/admin.module';
-import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { ChannelsModule } from './modules/channels/channels.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
-import { CustomersModule } from './modules/customers/customers.module';
 import { EventsModule } from './modules/events/events.module';
 import { DevModule } from './modules/dev/dev.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EmailModule } from './modules/email/email.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
 import { HealthModule } from './modules/health/health.module';
-import { MessagesModule } from './modules/messages/messages.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OutboundModule } from './modules/outbound/outbound.module';
-import { SlaModule } from './modules/sla/sla.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { UsersModule } from './modules/users/users.module';
 import { TagsModule } from './modules/tags/tags.module';
@@ -30,6 +25,7 @@ import { QueuesModule } from './common/queues/queues.module';
 import { ReconcileModule } from './common/reconcile/reconcile.module';
 import { RedisModule } from './common/redis/redis.module';
 import { StorageModule } from './common/storage/storage.module';
+import { MailModule } from './common/mail/mail.module';
 import { AttachmentsModule } from './modules/attachments/attachments.module';
 
 @Module({
@@ -46,19 +42,15 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
     OutboxModule,
     ReconcileModule,
     StorageModule,
+    MailModule,
     AttachmentsModule,
     HealthModule,
     AuthModule,
     UsersModule,
-    CustomersModule,
     ConversationsModule,
-    MessagesModule,
     TicketsModule,
-    ChannelsModule,
     OutboundModule,
     NotificationsModule,
-    SlaModule,
-    AnalyticsModule,
     EventsModule,
     AdminModule,
     ...(process.env.NODE_ENV === 'production' ? [] : [DevModule]),

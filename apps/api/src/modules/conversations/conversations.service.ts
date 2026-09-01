@@ -9,13 +9,15 @@ import {
   Message,
   Prisma,
   Priority,
-  ChannelType,
   UserRole,
   UserStatus,
 } from '@prisma/client';
-import { REALTIME_EVENT_TYPES, QUEUE_NAMES } from '@omnidesk/shared';
+import {
+  REALTIME_EVENT_TYPES,
+  getPaginationParams,
+  createPaginatedResponse,
+} from '@omnidesk/shared';
 import { NotificationsService } from '../notifications/notifications.service';
-import { QueuesService } from '../../common/queues/queues.service';
 import { ConversationsRepository } from './conversations.repository';
 import { ListConversationsDto } from './dto/list-conversations.dto';
 
@@ -52,12 +54,10 @@ export class ConversationsService {
   constructor(
     private readonly conversationsRepository: ConversationsRepository,
     private readonly notificationsService: NotificationsService,
-    private readonly queuesService: QueuesService,
   ) {}
 
   async list(query: ListConversationsDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const { page, limit, skip, take } = getPaginationParams(query);
     const where: Prisma.ConversationWhereInput = {
       channelType: query.channelType,
       status: query.status,
@@ -90,49 +90,48 @@ export class ConversationsService {
 
     const [items, total] = await this.conversationsRepository.list({
       where,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip,
+      take,
     });
 
-    return {
-      items: items.map((conversation) => ({
-        id: conversation.id,
-        channelType: conversation.channelType,
-        customer: {
-          id: conversation.customer.id,
-          name: conversation.customer.name,
-          email: conversation.customer.email,
-          avatarUrl: conversation.customer.avatarUrl,
-        },
-        subject: conversation.subject,
-        status: conversation.status,
-        priority: conversation.priority,
-        assignedAgent: conversation.assignedAgent,
-        ticket: conversation.ticket
-          ? {
-              id: conversation.ticket.id,
-              status: conversation.ticket.status,
-              priority: conversation.ticket.priority,
-              slaDueAt: conversation.ticket.slaDueAt,
-            }
-          : null,
-        lastMessage: conversation.messages[0]
-          ? {
-              id: conversation.messages[0].id,
-              content: conversation.messages[0].content,
-              contentType: conversation.messages[0].contentType,
-              direction: conversation.messages[0].direction,
-              createdAt: conversation.messages[0].createdAt,
-            }
-          : null,
-        lastMessageAt: conversation.lastMessageAt,
-        version: conversation.version,
-        isRead: conversation.isRead,
-      })),
-      page,
-      limit,
-      total,
-    };
+    const mappedItems = items.map((conversation) => ({
+      id: conversation.id,
+      channelType: conversation.channelType,
+      customer: {
+        id: conversation.customer.id,
+        name: conversation.customer.name,
+        email: conversation.customer.email,
+        avatarUrl: conversation.customer.avatarUrl,
+      },
+      subject: conversation.subject,
+      status: conversation.status,
+      priority: conversation.priority,
+      assignedAgent: conversation.assignedAgent,
+      ticket: conversation.ticket
+        ? {
+            id: conversation.ticket.id,
+            status: conversation.status,
+            priority: conversation.priority,
+            slaDueAt: conversation.ticket.slaDueAt,
+            firstResponseDueAt: conversation.ticket.firstResponseDueAt,
+            isOverdue: conversation.ticket.isOverdue,
+          }
+        : null,
+      lastMessage: conversation.messages[0]
+        ? {
+            id: conversation.messages[0].id,
+            content: conversation.messages[0].content,
+            contentType: conversation.messages[0].contentType,
+            direction: conversation.messages[0].direction,
+            createdAt: conversation.messages[0].createdAt,
+          }
+        : null,
+      lastMessageAt: conversation.lastMessageAt,
+      version: conversation.version,
+      isRead: conversation.isRead,
+    }));
+
+    return createPaginatedResponse(mappedItems, total, page, limit);
   }
 
   async findById(id: string) {
@@ -156,7 +155,25 @@ export class ConversationsService {
       status: conversation.status,
       priority: conversation.priority,
       assignedAgent: conversation.assignedAgent,
-      ticket: conversation.ticket,
+      ticket: conversation.ticket
+        ? {
+            id: conversation.ticket.id,
+            status: conversation.status,
+            priority: conversation.priority,
+            assignedAgentId: conversation.assignedAgentId,
+            slaDueAt: conversation.ticket.slaDueAt,
+            firstResponseDueAt: conversation.ticket.firstResponseDueAt,
+            slaPausedAt: conversation.ticket.slaPausedAt,
+            isOverdue: conversation.ticket.isOverdue,
+            resolvedAt: conversation.resolvedAt,
+            closedAt:
+              conversation.status === ConversationStatus.CLOSED
+                ? conversation.updatedAt
+                : null,
+            createdAt: conversation.ticket.createdAt,
+            updatedAt: conversation.ticket.updatedAt,
+          }
+        : null,
       tags: conversation.conversationTags.map(({ tag }) => ({
         id: tag.id,
         name: tag.name,
@@ -197,26 +214,6 @@ export class ConversationsService {
 
     this.publishConversationUpdated(conversation.id);
 
-    if (
-      conversation.channelType === ChannelType.EMAIL &&
-      conversation.externalConversationId &&
-      status === ConversationStatus.CLOSED
-    ) {
-      const messageId =
-        await this.conversationsRepository.getLatestExternalMessageId(id);
-      if (messageId) {
-        await this.queuesService.add(
-          QUEUE_NAMES.EMAIL_ACTIONS,
-          'move-to-archive',
-          {
-            action: 'MOVE_TO_ARCHIVE',
-            messageId,
-            channelAccountId: conversation.channelAccountId,
-          },
-        );
-      }
-    }
-
     return conversation;
   }
 
@@ -230,27 +227,6 @@ export class ConversationsService {
     );
 
     this.publishConversationUpdated(conversation.id);
-
-    if (
-      conversation.channelType === ChannelType.EMAIL &&
-      conversation.externalConversationId
-    ) {
-      const messageId =
-        await this.conversationsRepository.getLatestExternalMessageId(id);
-      if (messageId) {
-        const isUrgent =
-          priority === Priority.URGENT || priority === Priority.HIGH;
-        await this.queuesService.add(
-          QUEUE_NAMES.EMAIL_ACTIONS,
-          isUrgent ? 'mark-starred' : 'unmark-starred',
-          {
-            action: isUrgent ? 'MARK_STARRED' : 'UNMARK_STARRED',
-            messageId,
-            channelAccountId: conversation.channelAccountId,
-          },
-        );
-      }
-    }
 
     return conversation;
   }
@@ -317,25 +293,6 @@ export class ConversationsService {
     );
 
     this.publishConversationUpdated(conversation.id);
-
-    if (
-      conversation.channelType === ChannelType.EMAIL &&
-      conversation.externalConversationId
-    ) {
-      const messageId =
-        await this.conversationsRepository.getLatestExternalMessageId(id);
-      if (messageId) {
-        await this.queuesService.add(
-          QUEUE_NAMES.EMAIL_ACTIONS,
-          isRead ? 'mark-read' : 'mark-unread',
-          {
-            action: isRead ? 'MARK_READ' : 'MARK_UNREAD',
-            messageId,
-            channelAccountId: conversation.channelAccountId,
-          },
-        );
-      }
-    }
 
     return conversation;
   }

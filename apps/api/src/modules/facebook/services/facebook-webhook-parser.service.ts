@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ChannelType, InboundEventType } from '@prisma/client';
 import {
-  MockFacebookCommentPayload,
-  MockFacebookMessagePayload,
+  FacebookCommentInboundPayload,
+  FacebookMessageInboundPayload,
 } from '@omnidesk/shared';
 
 export type ParsedFacebookWebhookEvent = {
-  rawPayload: MockFacebookMessagePayload | MockFacebookCommentPayload;
+  rawPayload: FacebookMessageInboundPayload | FacebookCommentInboundPayload;
   eventType: InboundEventType;
   channelType: ChannelType;
   externalEventId: string;
@@ -123,7 +123,7 @@ export class FacebookWebhookParserService {
       messageId,
       text,
       sentAt: this.timestampToIso(itemRecord.timestamp),
-    } satisfies MockFacebookMessagePayload;
+    } satisfies FacebookMessageInboundPayload;
   }
 
   private parseCommentChange(pageId: string, change: unknown) {
@@ -178,7 +178,7 @@ export class FacebookWebhookParserService {
       postUrl: this.stringValue(
         (value?.post as Record<string, unknown>)?.permalink_url,
       ),
-    } satisfies MockFacebookCommentPayload;
+    } satisfies FacebookCommentInboundPayload;
   }
 
   private asRecord(value: unknown) {
