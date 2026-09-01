@@ -2,10 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InboundEventType, InboundProvider } from '@prisma/client';
 import { ImapFlow } from 'imapflow';
 import { simpleParser, type AddressObject } from 'mailparser';
-import {
-  InboundEmailAttachment,
-  InboundEmailPayload,
-} from '@omnidesk/shared';
+import { InboundEmailAttachment, InboundEmailPayload } from '@omnidesk/shared';
 import { providerConfig } from '../config/provider.config';
 import { PrismaService } from '../database/prisma.service';
 import { EmailInboundService } from './email-inbound.service';

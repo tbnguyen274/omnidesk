@@ -39,34 +39,6 @@ function formatDate(ts: number | undefined) {
   }).format(new Date(ts));
 }
 
-function JobPayloadPreview({ data }: { data: Record<string, unknown> }) {
-  const [open, setOpen] = useState(false);
-  const preview = Object.entries(data)
-    .filter(([, v]) => typeof v === "string" || typeof v === "number")
-    .slice(0, 3)
-    .map(([k, v]) => `${k}: ${String(v)}`)
-    .join(" · ");
-
-  return (
-    <div className="text-xs">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 text-slate-500 hover:text-slate-700 transition-colors"
-      >
-        <ChevronDown
-          className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-        {preview || "No scalar fields"}
-      </button>
-      {open && (
-        <pre className="mt-2 rounded-lg bg-slate-900 text-emerald-300 p-3 text-[11px] leading-relaxed overflow-x-auto max-h-40 scrollbar-thin">
-          {JSON.stringify(data, null, 2)}
-        </pre>
-      )}
-    </div>
-  );
-}
-
 export default function DeadLetterPage() {
   const { token, currentUser } = useAuth();
   const [queue, setQueue] = useState<QueueName>("inbound-events");

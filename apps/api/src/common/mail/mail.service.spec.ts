@@ -71,7 +71,9 @@ describe('MailService', () => {
 
     expect(nodemailer.createTransport).not.toHaveBeenCalled();
     expect(debugSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[Mock Email] Welcome email for john@example.com'),
+      expect.stringContaining(
+        '[Mock Email] Welcome email for john@example.com',
+      ),
     );
   });
 });

@@ -17,7 +17,10 @@ export function useMessagePagination({
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const currentConversationIdRef = useRef<string | null>(null);
   const messageCountRef = useRef(messageCount);
-  messageCountRef.current = messageCount;
+
+  useLayoutEffect(() => {
+    messageCountRef.current = messageCount;
+  }, [messageCount]);
 
   useLayoutEffect(() => {
     if (conversationId !== currentConversationIdRef.current) {

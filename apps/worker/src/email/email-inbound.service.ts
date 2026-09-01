@@ -388,26 +388,34 @@ export class EmailInboundService {
   private sanitizeHtml(html: string): string {
     if (!html) return '';
 
-    return html
-      // 1. Remove dangerous executable tags and their inner content
-      .replace(/<script\b[\s\S]*?<\/script>/gi, '')
-      .replace(/<iframe\b[\s\S]*?<\/iframe>/gi, '')
-      .replace(/<object\b[\s\S]*?<\/object>/gi, '')
-      .replace(/<embed\b[\s\S]*?<\/embed>/gi, '')
-      .replace(/<applet\b[\s\S]*?<\/applet>/gi, '')
-      .replace(/<form\b[\s\S]*?<\/form>/gi, '')
-      .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, '')
-      // 2. Remove lingering self-closing or unclosed dangerous tags
-      .replace(/<\/?(?:script|iframe|object|embed|applet|form|base|meta|link)\b[^>]*>/gi, '')
-      // 3. Remove all inline event handlers (e.g. onerror=..., onload=..., onclick=...)
-      .replace(/\s+on[a-z0-9_-]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '')
-      // 4. Neutralize javascript:, vbscript:, and non-image data: URIs in link/resource attributes
-      .replace(
-        /(href|src|action|formaction|background|poster)\s*=\s*(["']?)\s*(?:javascript|vbscript|data:(?!image\/))/gi,
-        '$1=$2unsafe-blocked:',
-      )
-      // 5. Remove CSS expressions (IE legacy XSS vector)
-      .replace(/expression\s*\([^)]*\)/gi, '');
+    return (
+      html
+        // 1. Remove dangerous executable tags and their inner content
+        .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+        .replace(/<iframe\b[\s\S]*?<\/iframe>/gi, '')
+        .replace(/<object\b[\s\S]*?<\/object>/gi, '')
+        .replace(/<embed\b[\s\S]*?<\/embed>/gi, '')
+        .replace(/<applet\b[\s\S]*?<\/applet>/gi, '')
+        .replace(/<form\b[\s\S]*?<\/form>/gi, '')
+        .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, '')
+        // 2. Remove lingering self-closing or unclosed dangerous tags
+        .replace(
+          /<\/?(?:script|iframe|object|embed|applet|form|base|meta|link)\b[^>]*>/gi,
+          '',
+        )
+        // 3. Remove all inline event handlers (e.g. onerror=..., onload=..., onclick=...)
+        .replace(
+          /\s+on[a-z0-9_-]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi,
+          '',
+        )
+        // 4. Neutralize javascript:, vbscript:, and non-image data: URIs in link/resource attributes
+        .replace(
+          /(href|src|action|formaction|background|poster)\s*=\s*(["']?)\s*(?:javascript|vbscript|data:(?!image\/))/gi,
+          '$1=$2unsafe-blocked:',
+        )
+        // 5. Remove CSS expressions (IE legacy XSS vector)
+        .replace(/expression\s*\([^)]*\)/gi, '')
+    );
   }
 
   private stripHtml(html: string) {
