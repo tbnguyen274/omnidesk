@@ -210,4 +210,39 @@ describe('OutboxDispatcherService', () => {
       'Unknown event type: UNKNOWN_TYPE',
     );
   });
+
+  it('triggers immediate dispatch via trigger() fast-path', async () => {
+    outboxService.findPending.mockResolvedValueOnce([
+      {
+        id: 'evt-fast',
+        type: 'INBOUND_EVENT_CREATED',
+        payload: { inboundEventId: 'inbound-fast' },
+        attempts: 0,
+      },
+    ]);
+
+    dispatcher.trigger();
+
+    // Wait for setImmediate tick
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(queuesService.addWithJobId).toHaveBeenCalledWith(
+      QUEUE_NAMES.INBOUND_EVENTS,
+      'process-inbound-event',
+      { inboundEventId: 'inbound-fast' },
+      'outbox_evt-fast',
+    );
+    expect(outboxService.markPublished).toHaveBeenCalledWith(
+      'evt-fast',
+      'job-123',
+    );
+  });
+
+  it('runs periodic cleanup via runCleanup', async () => {
+    outboxService.cleanup.mockResolvedValueOnce({ count: 5 });
+
+    await dispatcher.runCleanup(7);
+
+    expect(outboxService.cleanup).toHaveBeenCalledWith(7);
+  });
 });

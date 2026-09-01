@@ -7,12 +7,14 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
+import { OutboxDispatcherService } from '../../common/outbox/outbox-dispatcher.service';
 
 @Injectable()
 export class ConversationsRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
+    private readonly outboxDispatcher: OutboxDispatcherService,
   ) {}
 
   list(params: {
@@ -111,7 +113,7 @@ export class ConversationsRepository {
   }
 
   async updateStatus(id: string, status: ConversationStatus, version: number) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const conversation = await tx.conversation.findUnique({
         where: { id },
         include: { ticket: true },
@@ -215,10 +217,13 @@ export class ConversationsRepository {
 
       return updated;
     });
+
+    this.outboxDispatcher.trigger();
+    return result;
   }
 
   async updatePriority(id: string, priority: Priority, version: number) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const current = await tx.conversation.findUnique({
         where: { id },
         select: { priority: true, channelType: true, channelAccountId: true },
@@ -277,6 +282,9 @@ export class ConversationsRepository {
 
       return conversation;
     });
+
+    this.outboxDispatcher.trigger();
+    return result;
   }
 
   async updateAssignment(
@@ -316,7 +324,7 @@ export class ConversationsRepository {
   }
 
   async updateReadStatus(id: string, isRead: boolean, version: number) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const result = await tx.conversation.updateMany({
         where: { id, version },
         data: {
@@ -365,6 +373,9 @@ export class ConversationsRepository {
 
       return conversation;
     });
+
+    this.outboxDispatcher.trigger();
+    return result;
   }
 
   async getLatestExternalMessageId(

@@ -219,49 +219,48 @@ export class EmailInboundService {
     ];
     const occurredAt = new Date().toISOString();
 
-    if (plan.conversationCreated) {
-      await this.realtimeEventsPublisher.publish(
+    const publishPromises = [
+      this.realtimeEventsPublisher.publish(
         {
-          type: REALTIME_EVENT_TYPES.CONVERSATION_CREATED,
+          type: plan.conversationCreated
+            ? REALTIME_EVENT_TYPES.CONVERSATION_CREATED
+            : REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
           conversationId: plan.conversationId,
           occurredAt,
         },
         rooms,
-      );
-    } else {
-      await this.realtimeEventsPublisher.publish(
-        {
-          type: REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
-          conversationId: plan.conversationId,
-          occurredAt,
-        },
-        rooms,
-      );
-    }
+      ),
+    ];
 
     if (plan.messageId) {
-      await this.realtimeEventsPublisher.publish(
-        {
-          type: REALTIME_EVENT_TYPES.MESSAGE_CREATED,
-          conversationId: plan.conversationId,
-          messageId: plan.messageId,
-          occurredAt,
-        },
-        rooms,
+      publishPromises.push(
+        this.realtimeEventsPublisher.publish(
+          {
+            type: REALTIME_EVENT_TYPES.MESSAGE_CREATED,
+            conversationId: plan.conversationId,
+            messageId: plan.messageId,
+            occurredAt,
+          },
+          rooms,
+        ),
       );
     }
 
     if (plan.ticketId) {
-      await this.realtimeEventsPublisher.publish(
-        {
-          type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
-          conversationId: plan.conversationId,
-          ticketId: plan.ticketId,
-          occurredAt,
-        },
-        rooms,
+      publishPromises.push(
+        this.realtimeEventsPublisher.publish(
+          {
+            type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
+            conversationId: plan.conversationId,
+            ticketId: plan.ticketId,
+            occurredAt,
+          },
+          rooms,
+        ),
       );
     }
+
+    await Promise.all(publishPromises);
   }
 
   private normalizePayload(

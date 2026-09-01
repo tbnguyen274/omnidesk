@@ -216,40 +216,48 @@ export class FacebookInboundRepository {
     ];
     const occurredAt = new Date().toISOString();
 
-    await this.realtimeEventsPublisher.publish(
-      {
-        type: plan.conversationCreated
-          ? REALTIME_EVENT_TYPES.CONVERSATION_CREATED
-          : REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
-        conversationId: plan.conversationId,
-        occurredAt,
-      },
-      rooms,
-    );
-
-    if (plan.messageId) {
-      await this.realtimeEventsPublisher.publish(
+    const publishPromises = [
+      this.realtimeEventsPublisher.publish(
         {
-          type: REALTIME_EVENT_TYPES.MESSAGE_CREATED,
+          type: plan.conversationCreated
+            ? REALTIME_EVENT_TYPES.CONVERSATION_CREATED
+            : REALTIME_EVENT_TYPES.CONVERSATION_UPDATED,
           conversationId: plan.conversationId,
-          messageId: plan.messageId,
           occurredAt,
         },
         rooms,
+      ),
+    ];
+
+    if (plan.messageId) {
+      publishPromises.push(
+        this.realtimeEventsPublisher.publish(
+          {
+            type: REALTIME_EVENT_TYPES.MESSAGE_CREATED,
+            conversationId: plan.conversationId,
+            messageId: plan.messageId,
+            occurredAt,
+          },
+          rooms,
+        ),
       );
     }
 
     if (plan.ticketId) {
-      await this.realtimeEventsPublisher.publish(
-        {
-          type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
-          ticketId: plan.ticketId,
-          conversationId: plan.conversationId,
-          occurredAt,
-        },
-        rooms,
+      publishPromises.push(
+        this.realtimeEventsPublisher.publish(
+          {
+            type: REALTIME_EVENT_TYPES.TICKET_UPDATED,
+            ticketId: plan.ticketId,
+            conversationId: plan.conversationId,
+            occurredAt,
+          },
+          rooms,
+        ),
       );
     }
+
+    await Promise.all(publishPromises);
   }
 
   private async findOrCreateChannelAccount(

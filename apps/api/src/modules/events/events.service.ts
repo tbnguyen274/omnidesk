@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { getPaginationParams, createPaginatedResponse } from '@omnidesk/shared';
 import { PrismaService } from '../../common/database/prisma.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
+import { OutboxDispatcherService } from '../../common/outbox/outbox-dispatcher.service';
 import { CreateInboundEventDto } from './dto/create-inbound-event.dto';
 import { ListInboundEventsDto } from './dto/list-inbound-events.dto';
 import { ListOutboundEventsDto } from './dto/list-outbound-events.dto';
@@ -14,6 +15,7 @@ export class EventsService {
     private readonly eventsRepository: EventsRepository,
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
+    private readonly outboxDispatcher: OutboxDispatcherService,
   ) {}
 
   async listInbound(query: ListInboundEventsDto) {
@@ -86,6 +88,9 @@ export class EventsService {
 
         return { inboundEvent: event };
       });
+
+      // Fast-path: immediately trigger non-blocking outbox dispatch (< 5ms)
+      this.outboxDispatcher.trigger();
 
       return {
         inboundEvent,

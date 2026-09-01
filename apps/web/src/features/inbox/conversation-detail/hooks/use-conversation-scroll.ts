@@ -14,9 +14,6 @@ export function isNearBottom(element: HTMLElement): boolean {
 
 export function scrollToBottom(element: HTMLElement): void {
   element.scrollTop = element.scrollHeight;
-  requestAnimationFrame(() => {
-    element.scrollTop = element.scrollHeight;
-  });
 }
 
 export function useConversationScroll({

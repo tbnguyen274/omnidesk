@@ -30,7 +30,15 @@ describe('ConversationsRepository', () => {
       createEvent: jest.fn().mockResolvedValue({ id: 'outbox-1' }),
     };
 
-    repository = new ConversationsRepository(prisma, outboxService);
+    const outboxDispatcher = {
+      trigger: jest.fn(),
+    };
+
+    repository = new ConversationsRepository(
+      prisma,
+      outboxService,
+      outboxDispatcher as any,
+    );
   });
 
   describe('updateStatus', () => {

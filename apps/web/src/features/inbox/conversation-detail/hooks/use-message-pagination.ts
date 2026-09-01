@@ -16,6 +16,8 @@ export function useMessagePagination({
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const currentConversationIdRef = useRef<string | null>(null);
+  const messageCountRef = useRef(messageCount);
+  messageCountRef.current = messageCount;
 
   useLayoutEffect(() => {
     if (conversationId !== currentConversationIdRef.current) {
@@ -28,7 +30,7 @@ export function useMessagePagination({
     if (!onLoadOlderMessages || isLoadingOlder || !hasMoreMessages) return;
 
     if (currentScrollTop === 0) {
-      const prevMessageCount = messageCount;
+      const prevMessageCount = messageCountRef.current;
       onPrepareScroll?.();
       setIsLoadingOlder(true);
 
@@ -38,8 +40,8 @@ export function useMessagePagination({
         setIsLoadingOlder(false);
       }
 
-      // If no new messages were added, we have reached the end
-      if (messageCount === prevMessageCount) {
+      // If no new messages were added after loading, we have reached the end
+      if (messageCountRef.current === prevMessageCount) {
         setHasMoreMessages(false);
       }
     }
