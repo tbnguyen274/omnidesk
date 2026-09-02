@@ -70,15 +70,17 @@ Deliverables:
 
 Tasks:
 
-- Setup Redis + BullMQ.
-- Tạo queue:
-  - inbound-events
-  - outbound-messages
-  - email-sync
-  - sla-check
-- Tạo `inbound_events`.
-- Tạo `outbound_messages`.
-- Tạo worker processors.
+- Setup Redis 7 + BullMQ 5.
+- Tạo 7 queues tiêu chuẩn:
+  - `inbound-events`
+  - `outbound-messages`
+  - `email-sync`
+  - `email-actions`
+  - `sla-check`
+  - `analytics-aggregation`
+  - `auto-close`
+- Tạo bảng `inbound_events`, `outbound_messages`, và `outbox_events`.
+- Tạo worker processors và schedulers.
 
 Deliverables:
 

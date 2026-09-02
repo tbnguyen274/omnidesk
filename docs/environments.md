@@ -8,11 +8,12 @@ This document records the environment boundaries established during the producti
 
 Runtime components:
 
-- Web: Next.js on port `3002`.
-- API: NestJS on port `3000`.
-- Worker: NestJS health endpoint on port `3001`.
+- Web: Next.js 16 on port `3002`.
+- API: NestJS 11 on port `3000`.
+- Worker: NestJS 11 health endpoint on port `3001`.
 - PostgreSQL: Docker Compose host port `55432` by default.
 - Redis: Docker Compose host port `6379` by default.
+- MinIO Object Storage: S3 API on port `9000`, web console on port `9001`.
 
 Configuration sources:
 
@@ -27,7 +28,7 @@ Local development may use mock providers. Development endpoints must not be expo
 
 CI currently uses Ubuntu, Node.js 22 and pnpm 11.8. It runs lint, unit tests, API/worker smoke E2E, dependency audit, secret scanning, Docker Compose validation and production builds.
 
-CI starts clean PostgreSQL and Redis services, applies every committed migration, seeds the database, and starts the production API/worker builds for health smoke checks. The existing application E2E suites still mock most services; deeper provider and queue integration tests remain part of Stage 4.
+CI starts clean PostgreSQL, Redis, and MinIO services, applies every committed migration, seeds the database, and starts the production API/worker builds for health smoke checks.
 
 ## Staging infrastructure
 
@@ -61,14 +62,13 @@ Stage 5 must provide:
 
 - Managed PostgreSQL with automated backup and point-in-time recovery.
 - Managed Redis with authentication and TLS.
+- S3-compatible Object Storage (AWS S3, Cloudflare R2, or high-availability MinIO cluster).
 - Independent API and worker deployments.
-- A one-time migration release job.
+- A one-time migration release job (`prisma migrate deploy`).
 - Secret manager integration.
 - TLS ingress/load balancing, metrics, alerting and rollback automation.
 
-The API image only starts the API process. Deployments must run the Compose `migrate` service, or an equivalent one-time release job, before rolling out API replicas.
-
-After upgrading an existing database, inspect historical Conversation/Ticket drift with `pnpm db:reconcile-tickets`. Review the JSON report before running `pnpm db:reconcile-tickets --apply`; the command is dry-run by default.
+The API image only starts the API process. Deployments must run the Compose `migrate` service (`prisma migrate deploy`), or an equivalent one-time release job, before rolling out API replicas.
 
 ## Ownership
 
@@ -83,3 +83,4 @@ Named owners have not been provided. Until team members are assigned, accountabi
 | Production go/no-go decision | Engineering lead |
 
 Actual names must be assigned before Stage 1 starts.
+

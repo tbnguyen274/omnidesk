@@ -4,14 +4,14 @@
 
 OmniDesk chọn kiến trúc:
 
-> Modular Monolith + Worker + Queue/Event Bus
+> Modular Monolith + Worker + Queue/Event Bus + Object Storage
 
 Lý do:
 
-- Phù hợp phạm vi mini-project.
-- Dễ triển khai, debug và demo hơn full microservice.
-- Vẫn thể hiện được tư duy service boundary, event-driven processing, queue, retry và idempotency.
-- Có khả năng tách dần thành microservice trong tương lai.
+- Phù hợp phạm vi dự án thực tế và đồ án tốt nghiệp nâng cao.
+- Dễ triển khai, debug và demo hơn full microservice phân tán.
+- Vẫn thể hiện trọn vẹn tư duy Domain-Driven Boundaries, Event-Driven Architecture, Transactional Outbox, Queuing, Retry và Idempotency.
+- Có khả năng tách dần từng module thành Microservice độc lập trong tương lai.
 
 ## 2. High-level Architecture
 
@@ -21,18 +21,20 @@ flowchart LR
     CustomerEmail[Email Sender] --> Mailbox[Support Mailbox]
 
     FB -->|Webhook| API[Backend API]
-    Mailbox -->|IMAP/Gmail API Polling| Worker[Worker]
+    Mailbox -->|IMAP Polling| Worker[Worker]
 
-    API --> Queue[(Redis Queue / Kafka Topic)]
+    API --> Queue[(Redis Queue / BullMQ)]
     Worker --> Queue
 
     Queue --> Processor[Inbound Processor]
     Processor --> DB[(PostgreSQL)]
-    Processor --> Realtime[Realtime Gateway]
+    Processor --> Realtime[Realtime Gateway - WebSockets]
 
-    FE[Agent Dashboard] --> API
+    FE[Agent Dashboard - Next.js] --> API
     API --> DB
     API --> Queue
+    API --> Storage[(MinIO / S3 Storage)]
+    Worker --> Storage
     Realtime --> FE
 
     Queue --> Outbound[Outbound Processor]
@@ -47,13 +49,12 @@ flowchart LR
 
 | Component | Vai trò |
 |---|---|
-| `apps/web` | Giao diện agent/admin: inbox, conversation, ticket, dashboard |
-| `apps/api` | Backend API chính: auth, RBAC, user management, inbox API, webhook endpoint, WebSocket/SSE |
-| `apps/worker` | Xử lý nền: email polling, inbound processing, outbound sending, retry, SLA |
-| `PostgreSQL` | Lưu dữ liệu chính |
-| `Redis` | Queue, cache, pub/sub, rate limiting |
-| `Kafka/Redpanda` | Optional future event streaming |
-| `Object Storage` | Optional, lưu attachment |
+| `apps/web` | Giao diện agent/admin (Next.js 16, React 19): unified inbox, timeline, chat, attachments, dashboard |
+| `apps/api` | Backend API chính (NestJS 11): auth, RBAC, user management, inbox API, outbox dispatcher, attachment upload/streaming, WebSockets gateway |
+| `apps/worker` | Xử lý nền (NestJS 11): email polling (IMAP), inbound normalization, outbox message delivery, attachment storage sync, SLA check & auto-close cronjobs |
+| `PostgreSQL` | Lưu trữ dữ liệu quan hệ chính (Prisma ORM 6) |
+| `Redis` | Hàng đợi công việc (BullMQ 5), cache, pub/sub realtime |
+| `MinIO / S3` | Object Storage lưu trữ ảnh, tài liệu đính kèm với cơ chế streaming & pre-signed URL |
 
 Luồng production/live-ready ưu tiên provider thật: Facebook Webhooks/Graph API cho message/comment và IMAP/SMTP cho email. Mock adapter chỉ giữ vai trò fallback cho local development, demo khi mạng/Ngrok/provider lỗi, hoặc test contract mà không gọi external API.
 
@@ -69,6 +70,7 @@ omnidesk/
     shared/
   docs/
   docker-compose.yml
+  docker-compose.staging.yml
   package.json
   README.md
 ```
@@ -81,11 +83,16 @@ apps/web/src/
   components/
   features/
     inbox/
+      conversation-detail/
+      conversation-list/
+      reply/
     conversations/
     tickets/
     dashboard/
     settings/
   lib/
+    use-realtime.ts
+    api-client.ts
 ```
 
 ### 4.2. `apps/api`
@@ -100,6 +107,7 @@ apps/api/src/
     customers/
     conversations/
     messages/
+    attachments/
     tickets/
     channels/
       facebook/
@@ -108,14 +116,24 @@ apps/api/src/
     notifications/
     sla/
     analytics/
-    ai-assist/
   common/
     database/
+      prisma.service.ts
     guards/
     filters/
     interceptors/
+    mail/
+      mail.service.ts
     queues/
-    events/
+      queues.service.ts
+      queues.module.ts
+    outbox/
+      outbox-dispatcher.service.ts
+      outbox.service.ts
+      outbox.module.ts
+    storage/
+      storage.service.ts
+    observability/
 ```
 
 ### 4.3. `apps/worker`
@@ -123,17 +141,35 @@ apps/api/src/
 ```txt
 apps/worker/src/
   main.ts
+  app.module.ts
+  database/
+    prisma.service.ts
+  storage/
+    storage.service.ts
+    storage.tokens.ts
+    storage.module.ts
+  facebook/
+    services/
+      facebook-inbound.service.ts
+    repositories/
+      facebook-inbound.repository.ts
+      facebook-outbound.repository.ts
+  email/
+    email-inbound.service.ts
+    email-outbound.service.ts
+    email-actions.service.ts
+    email-sync.scheduler.ts
+  realtime/
+    realtime-events.publisher.ts
   processors/
-    inbound-message.processor.ts
-    outbound-message.processor.ts
+    inbound-events.processor.ts
+    outbound-messages.processor.ts
     email-sync.processor.ts
     email-actions.processor.ts
     sla-check.processor.ts
     sla-check.scheduler.ts
     auto-close.processor.ts
     auto-close.scheduler.ts
-  jobs/
-  common/
 ```
 
 ### 4.4. `packages/shared`
@@ -144,24 +180,27 @@ packages/shared/src/
     normalized-message.ts
     conversation.ts
     ticket.ts
+    realtime.ts
   events/
     event-names.ts
     event-payloads.ts
+  pagination.ts
+  validation.ts
   constants/
-  utils/
 ```
 
 ## 5. Module Boundaries
 
-### 5.1. Auth Module
+### 5.1. Auth & Mail Module
 
 Trách nhiệm:
 
 - Đăng nhập, Đăng xuất, Gia hạn phiên.
 - Cấp phát và quản lý Access Token (stateless, 15m) & Refresh Token (stateful, hash trong DB, 7d).
 - Bảo mật 100% qua HttpOnly Cookies.
-- Role-based access control.
-- Quên mật khẩu và đặt lại mật khẩu bằng token có thời hạn.
+- Role-based access control (`ADMIN`, `AGENT`).
+- Quản lý gửi mail xác thực, mời user, đặt lại mật khẩu qua centralized `MailService`.
+- Quên mật khẩu và đặt lại mật khẩu bằng reset token có thời hạn.
 
 Không chịu trách nhiệm:
 
@@ -267,15 +306,21 @@ Trách nhiệm:
 - Dashboard metrics.
 - Có thể consume event trong tương lai.
 
-## 6. Data Integrity & Concurrency Control
+## 6. Data Integrity, Outbox & Concurrency Control
 
 Hệ thống được thiết kế đặc biệt để chịu tải cao và xử lý đồng thời an toàn:
 
 ### 6.1. Optimistic Concurrency Control (OCC)
-Các hành động nhạy cảm như Gán Agent (Assign), Đổi Trạng Thái (Status), Đổi Độ ưu tiên (Priority) được bảo vệ bằng cơ chế OCC. Mỗi bản ghi `Conversation` lưu trữ một trường `version`. Mọi thao tác cập nhật sẽ kiểm tra `version` khớp với lúc đọc. Nếu có xung đột (Race Condition), hệ thống sẽ trả về lỗi **HTTP 409 Conflict** để frontend xử lý (ví dụ: tự động reload lại dữ liệu mới nhất).
+Các hành động nhạy cảm như Gán Agent (Assign), Đổi Trạng Thái (Status), Đổi Độ ưu tiên (Priority) được bảo vệ bằng cơ chế OCC. Mỗi bản ghi `Conversation` lưu trữ một trường `version`. Mọi thao tác cập nhật sẽ kiểm tra `version` khớp với lúc đọc. Nếu có xung đột (Race Condition), hệ thống sẽ trả về lỗi **HTTP 409 Conflict** để frontend xử lý (tự động reload lại dữ liệu mới nhất).
 
-### 6.2. Queue Idempotency
-Worker Queue (BullMQ) kết hợp với Prisma Unique Constraints (như lỗi `P2002`) để tạo cơ chế **Idempotency**. Việc tiếp nhận Webhook từ Facebook/Email có thể bị lặp lại hoặc xử lý đồng thời, nhưng nhờ chặn ở Database và bắt lỗi chủ động trong quá trình chèn dữ liệu (`events.service.ts`), hệ thống không bao giờ bị Crash hay sinh ra dữ liệu rác (Data Corruption).
+### 6.2. Transactional Outbox Pattern
+Để đảm bảo tin nhắn không bao giờ bị thất lạc (At-Least-Once Delivery), toàn bộ tin nhắn gửi đi được lưu vào bảng `outbound_messages` và `outbox_events` trong cùng một Database Transaction. `OutboxDispatcherService` chịu trách nhiệm dispatch job sang Redis Queue (BullMQ) với cơ chế Retry lũy thừa, Dead-Letter Queue (`DEAD` status) và replay protocol đảm bảo phục hồi khi có sự cố.
+
+### 6.3. Queue Idempotency
+Worker Queue (BullMQ) kết hợp với Prisma Unique Constraints (lỗi `P2002`) để tạo cơ chế **Idempotency**. Việc tiếp nhận Webhook từ Facebook/Email có thể bị lặp lại hoặc xử lý đồng thời, nhưng nhờ chặn ở Database và bắt lỗi chủ động trong quá trình chèn dữ liệu (`events.service.ts`), hệ thống không bao giờ bị Crash hay sinh ra dữ liệu rác (Data Corruption).
+
+### 6.4. Real-time & WebSocket Engine
+Sử dụng Socket.io với namespace `/notifications`, hỗ trợ xác thực qua HttpOnly Cookie, phân quyền theo Rooms (`agent:${userId}`, `team:inbox`, `conversation:${conversationId}`). Hỗ trợ chỉ báo đang soạn tin nhắn (`agent_typing`), phân trang tin nhắn dạng Cursor Pagination và cập nhật optimistic không độ trễ.
 
 ## 7. Main Data Flow
 
@@ -324,27 +369,28 @@ sequenceDiagram
     WS->>FE: Update inbox
 ```
 
-### 7.3. Outbound Reply Flow
+### 7.3. Outbound Reply & Outbox Flow
 
 ```mermaid
 sequenceDiagram
     participant Agent
-    participant FE
-    participant API
-    participant DB
-    participant Queue
-    participant Worker
-    participant Provider as Facebook/Email
+    participant FE as Web UI
+    participant API as API Service
+    participant DB as PostgreSQL
+    participant Queue as Redis BullMQ
+    participant Worker as Background Worker
+    participant Provider as Facebook / Email
 
-    Agent->>FE: Click Send
-    FE->>API: POST /conversations/:id/reply
-    API->>DB: Create outbound_message PENDING
+    Agent->>FE: Click Send Reply (with attachments)
+    FE->>API: POST /api/v1/outbound/messages
+    API->>DB: Create OutboundMessage (PENDING) + OutboxEvent (PENDING)
     API->>Queue: Enqueue outbound job
-    API-->>FE: Reply accepted
+    API-->>FE: Reply accepted (201 Created)
     Queue->>Worker: Process outbound job
-    Worker->>Provider: Send message/email
-    Provider-->>Worker: Success/Failure
-    Worker->>DB: Update outbound status
+    Worker->>Provider: Send message / email via Graph API or SMTP
+    Provider-->>Worker: Success / Failure result
+    Worker->>DB: Update OutboundMessage (SENT) & OutboxEvent (PUBLISHED)
+    Worker->>WS: Emit realtime event to connected agents
 ```
 
 ### 7.4. Password Reset Flow

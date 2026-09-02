@@ -4,21 +4,20 @@
 
 Event contract giúp OmniDesk xử lý bất đồng bộ qua queue/event bus và sẵn sàng nâng cấp lên microservice.
 
-Trong MVP có thể dùng:
+Trong hệ thống hiện tại sử dụng:
 
-- Redis Queue / BullMQ
-- Internal EventEmitter
-- Redis Pub/Sub
+- Redis 7 & BullMQ 5
+- Socket.io Realtime Events
+- Database Transactional Outbox (`outbox_events`)
 
-Trong tương lai có thể thay bằng:
+Trong tương lai có thể mở rộng sang:
 
-- Kafka
-- Redpanda
+- Kafka / Redpanda
 - RabbitMQ
 
 ## 2. Standard Event Envelope
 
-Mọi event nên có envelope chung:
+Mọi event có envelope chuẩn:
 
 ```ts
 export type EventEnvelope<TPayload> = {
@@ -57,9 +56,10 @@ Ví dụ:
 | `conversation.updated` | Conversation module | Notification, Analytics |
 | `ticket.created` | Ticket module | Notification, Analytics |
 | `ticket.updated` | Ticket module | Notification, Analytics |
-| `reply.requested` | API/Conversation module | Outbound worker |
+| `reply.requested` | Outbound module | Outbound worker |
 | `reply.sent` | Outbound worker | Conversation, Notification |
 | `reply.failed` | Outbound worker | Conversation, Notification |
+| `agent.typing` | Client WebSocket Gateway | Other agents in conversation room |
 | `sla.near_due` | SLA worker | Notification |
 | `sla.overdue` | SLA worker | Notification, Analytics |
 | `cron.auto_close` | AutoCloseScheduler | AutoCloseProcessor |
@@ -67,7 +67,6 @@ Ví dụ:
 ## 4. `channel.message.received`
 
 Producer:
-
 - Facebook module.
 - Email module.
 
@@ -83,25 +82,9 @@ export type ChannelMessageReceivedPayload = {
 };
 ```
 
-Example:
-
-```json
-{
-  "eventName": "channel.message.received",
-  "eventVersion": 1,
-  "payload": {
-    "provider": "FACEBOOK",
-    "channelType": "FACEBOOK_MESSAGE",
-    "inboundEventId": "uuid",
-    "dedupKey": "FACEBOOK_MESSAGE:page_1:mid_1"
-  }
-}
-```
-
 ## 5. `message.normalized`
 
 Producer:
-
 - Inbound processor.
 
 Payload:
@@ -116,7 +99,6 @@ export type MessageNormalizedPayload = {
 ## 6. `conversation.created`
 
 Producer:
-
 - Conversation module.
 
 Payload:
@@ -154,9 +136,8 @@ Payload:
 export type TicketCreatedPayload = {
   ticketId: string;
   conversationId: string;
-  status: "NEW" | "ASSIGNED" | "IN_PROGRESS" | "WAITING_CUSTOMER" | "RESOLVED" | "CLOSED";
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   slaDueAt?: string;
+  firstResponseDueAt?: string;
   createdAt: string;
 };
 ```
@@ -169,10 +150,10 @@ Payload:
 export type TicketUpdatedPayload = {
   ticketId: string;
   conversationId: string;
-  status?: string;
-  priority?: string;
-  assignedAgentId?: string;
   slaDueAt?: string;
+  slaPausedAt?: string;
+  isOverdue?: boolean;
+  firstResponseDueAt?: string;
   updatedAt: string;
 };
 ```
@@ -180,10 +161,7 @@ export type TicketUpdatedPayload = {
 ## 10. `reply.requested`
 
 Producer:
-
-- API.
-- Conversation module.
-- Outbound module.
+- API Outbound module (Transactional Outbox).
 
 Payload:
 
@@ -194,6 +172,12 @@ export type ReplyRequestedPayload = {
   provider: "FACEBOOK" | "EMAIL";
   channelType: "FACEBOOK_MESSAGE" | "FACEBOOK_COMMENT" | "EMAIL";
   content: string;
+  attachments?: Array<{
+    url: string;
+    fileName: string;
+    mimeType?: string;
+    sizeBytes?: number;
+  }>;
   recipientExternalId?: string;
   createdBy: string;
   requestedAt: string;
@@ -230,7 +214,19 @@ export type ReplyFailedPayload = {
 };
 ```
 
-## 13. `sla.overdue`
+## 13. `agent.typing`
+
+Payload:
+
+```ts
+export type AgentTypingPayload = {
+  conversationId: string;
+  agentName: string;
+  isTyping: boolean;
+};
+```
+
+## 14. `sla.overdue`
 
 Payload:
 
@@ -244,50 +240,39 @@ export type SlaOverduePayload = {
 };
 ```
 
-## 14. Event Versioning Rules
+## 15. Transactional Outbox & Current Implementation
 
-- Không sửa breaking change trong event version cũ.
-- Nếu thay đổi field bắt buộc, tăng `eventVersion`.
-- Consumer phải bỏ qua field không biết.
-- Producer nên giữ backward compatibility càng lâu càng tốt.
+Hệ thống OmniDesk kết hợp 2 tầng sự kiện:
 
-## 15. Idempotency Rules
+### 15.1. Transactional Outbox Event Types (Thực tế trong mã nguồn `OutboxEventType`)
 
-Mỗi consumer cần đảm bảo:
+Các sự kiện được ghi đồng thời vào bảng `outbox_events` trong cùng database transaction với dữ liệu nghiệp vụ:
 
-- Có `eventId`.
-- Có `dedupKey` nếu event đến từ provider.
-- Lưu trạng thái xử lý nếu cần.
-- Retry không tạo trùng conversation/message.
+| OutboxEventType | Trigger | Target Queue | Mô tả hành động |
+|---|---|---|---|
+| `INBOUND_EVENT_CREATED` | Khi nhận webhook Facebook hoặc fetch Email mới | `inbound-events` | Enqueue worker để chuẩn hóa và tạo conversation/message |
+| `CONVERSATION_STATUS_CHANGED` | Khi đổi trạng thái hội thoại (e.g. `CLOSED`) | `email-actions` / `analytics` | Đồng bộ 2 chiều: Chuyển email vào thư mục Archive |
+| `CONVERSATION_PRIORITY_CHANGED` | Khi đổi độ ưu tiên (e.g. `URGENT`) | `email-actions` / `analytics` | Đồng bộ 2 chiều: Gắn cờ/star cho email trên mail server |
+| `CONVERSATION_READ_STATUS_CHANGED` | Khi agent đọc/đánh dấu chưa đọc | `email-actions` | Đồng bộ 2 chiều: Đánh dấu `\Seen` trên IMAP |
 
-## 16. Error Handling
+### 15.2. Dead-Letter Protocol & Replay
 
-Nếu event xử lý lỗi:
+Khi dispatch event thất bại vượt quá số lần retry tối đa (`maxRetries`):
+1. `OutboxEvent` được đánh dấu chuyển trạng thái sang `DEAD`.
+2. Lưu `failedAt`, `attempts`, và `errorMessage`.
+3. Hệ thống hỗ trợ endpoint / CLI command `replayDeadEvents()` để re-enqueue và khôi phục xử lý các sự kiện bị lỗi mà không làm mất tính toàn vẹn dữ liệu.
 
-1. Retry theo cấu hình.
-2. Nếu vẫn lỗi, cập nhật status `FAILED`.
-3. Lưu error message.
-4. Optional: đưa vào dead-letter queue.
+## 16. Queue Names (BullMQ)
 
-## 17. Suggested Queue Names
-
-Nếu dùng BullMQ/Redis:
+Hệ thống sử dụng đầy đủ 7 queue tiêu chuẩn trên Redis 7 theo hằng số `QUEUE_NAMES` (`packages/shared/src/index.ts`):
 
 ```txt
-inbound-events
-outbound-messages
-email-sync
-sla-check
-analytics-aggregation
+inbound-events          # Xử lý các webhook event và email mới tải về
+outbound-messages       # Gửi tin nhắn phản hồi qua Graph API và SMTP
+email-sync              # Scheduler và job đồng bộ hòm thư IMAP
+email-actions           # Đồng bộ các thao tác IMAP 2 chiều (Mark Read, Star, Archive)
+sla-check               # Định kỳ kiểm tra và cảnh báo vi phạm SLA
+analytics-aggregation   # Tổng hợp số liệu thống kê dashboard
+auto-close              # Tự động đóng hội thoại không hoạt động sau 3 ngày
 ```
 
-Nếu dùng Kafka/Redpanda:
-
-```txt
-omni.channel.message.received
-omni.message.normalized
-omni.conversation.events
-omni.ticket.events
-omni.outbound.events
-omni.sla.events
-```

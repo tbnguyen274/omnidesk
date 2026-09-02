@@ -120,19 +120,21 @@ Customer không truy cập OmniDesk trực tiếp. Customer tương tác qua:
 | FR-CONV-01 | Hiển thị timeline message trong conversation. |
 | FR-CONV-02 | Phân biệt inbound, outbound và system message. |
 | FR-CONV-03 | Lưu raw payload của message để debug. |
-| FR-CONV-04 | Hỗ trợ gửi reply từ dashboard. |
+| FR-CONV-04 | Hỗ trợ gửi reply từ dashboard kèm tệp/ảnh đính kèm. |
 | FR-CONV-05 | Hỗ trợ internal note không gửi cho customer. |
-| FR-CONV-06 | Tải danh sách tin nhắn theo cơ chế phân trang (Pagination) để tối ưu API. |
+| FR-CONV-06 | Tải danh sách tin nhắn theo cơ chế phân trang Cursor Pagination để tối ưu API. |
+| FR-CONV-07 | Hỗ trợ tải lên và hiển thị ảnh, tài liệu đính kèm qua MinIO / S3 Object Storage. |
+| FR-CONV-08 | Hiển thị chỉ báo agent đang soạn tin nhắn realtime (`agent_typing`). |
 
 ### 3.4. Ticket Management
 
 | ID | Yêu cầu |
 |---|---|
-| FR-TICKET-01 | Mỗi conversation có thể gắn với một ticket. |
-| FR-TICKET-02 | Ticket có status: New, Assigned, In Progress, Waiting Customer, Resolved, Closed. |
-| FR-TICKET-03 | Ticket có priority: Low, Medium, High, Urgent. |
+| FR-TICKET-01 | Mỗi conversation gắn với một ticket theo dõi SLA (SLA countdown). |
+| FR-TICKET-02 | Trạng thái hội thoại và ticket đồng bộ: New, In Progress, Waiting Customer, Resolved, Closed. |
+| FR-TICKET-03 | Priority: Low, Medium, High, Urgent với SLA tương ứng (72h, 24h, 8h, 2h). |
 | FR-TICKET-04 | Agent có thể gán tag cho ticket/conversation. |
-| FR-TICKET-05 | Admin hoặc agent có thể assign ticket cho agent. |
+| FR-TICKET-05 | Admin hoặc agent có thể assign ticket cho agent; conversation là single source of truth. |
 
 ### 3.5. Facebook Integration
 

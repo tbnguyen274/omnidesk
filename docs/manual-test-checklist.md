@@ -56,9 +56,9 @@ Use this checklist to manually verify the live integration of external providers
 ---
 
 ### Diagnostic Command
-To quickly check which modes are active and if environment configurations are present, hit the health endpoint:
+To quickly check system health and database/redis connectivity, hit the health endpoint:
 ```
-GET /api/v1/dev/providers/health
+GET /api/v1/health
 ```
 
 ## Phase 11: Automated Ticket Workflows

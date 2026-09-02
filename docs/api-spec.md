@@ -287,11 +287,11 @@ Query params:
 |---|---|---|
 | channelType | string | `FACEBOOK_MESSAGE`, `FACEBOOK_COMMENT`, `EMAIL` |
 | status | string | `NEW`, `IN_PROGRESS`, `WAITING_CUSTOMER`, `RESOLVED`, `CLOSED` |
-| assignedAgentId | string | UUID |
+| assignedAgentId | string | UUID của agent |
 | priority | string | `LOW`, `MEDIUM`, `HIGH`, `URGENT` |
-| search | string | Search customer/content |
-| page | number | Default 1 |
-| limit | number | Default 20 |
+| search | string | Tìm kiếm theo tên khách hàng hoặc nội dung |
+| page | number | Trang cần lấy (Mặc định 1) |
+| limit | number | Số lượng mỗi trang (Mặc định 20) |
 
 Response:
 
@@ -351,22 +351,14 @@ Response:
       "name": "Agent A"
     },
     "tags": ["billing", "complaint"],
-    "messages": [
-      {
-        "id": "uuid",
-        "direction": "INBOUND",
-        "senderType": "CUSTOMER",
-        "content": "Tôi chưa nhận được hóa đơn",
-        "createdAt": "2026-06-03T10:00:00Z"
-      }
-    ]
+    "version": 1
   }
 }
 ```
 
 ### GET `/conversations/:id/messages`
 
-Lấy lịch sử tin nhắn của conversation (Phân trang với cursor).
+Lấy lịch sử tin nhắn của conversation (Phân trang theo cursor).
 
 Query params:
 
@@ -386,41 +378,17 @@ Response:
       "direction": "INBOUND",
       "senderType": "CUSTOMER",
       "content": "Tôi chưa nhận được hóa đơn",
+      "replyToMessageId": null,
+      "attachments": [],
       "createdAt": "2026-06-03T10:00:00Z"
     }
   ]
 }
 ```
 
-### POST `/conversations/:id/reply`
-
-Agent gửi reply.
-
-Request:
-
-```json
-{
-  "content": "Chào anh/chị, em sẽ kiểm tra thông tin hóa đơn và phản hồi sớm ạ.",
-  "internalNote": false
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "messageId": "uuid",
-    "outboundMessageId": "uuid",
-    "status": "PENDING"
-  }
-}
-```
-
 ### PATCH `/conversations/:id/status`
 
-Cập nhật status.
+Cập nhật status hội thoại (`NEW`, `IN_PROGRESS`, `WAITING_CUSTOMER`, `RESOLVED`, `CLOSED`).
 
 Request:
 
@@ -435,7 +403,7 @@ Request:
 
 ### PATCH `/conversations/:id/assignment`
 
-Gán agent.
+Gán agent phụ trách hội thoại.
 
 Request:
 
@@ -450,7 +418,7 @@ Request:
 
 ### PATCH `/conversations/:id/priority`
 
-Cập nhật priority.
+Cập nhật độ ưu tiên hội thoại (`LOW`, `MEDIUM`, `HIGH`, `URGENT`).
 
 Request:
 
@@ -480,36 +448,208 @@ Request:
 
 ### POST `/conversations/:id/tags`
 
-Gắn tag.
+Gắn tag cho conversation.
 
 Request:
 
 ```json
 {
-  "tags": ["billing", "complaint"]
+  "tagId": "uuid"
 }
 ```
 
-## 5. Ticket APIs
+### DELETE `/conversations/:id/tags/:tagId`
+
+Xóa tag khỏi conversation.
+
+Response:
+
+```json
+{
+  "success": true
+}
+```
+
+## 5. Outbound APIs
+
+### POST `/outbound/messages`
+
+Gửi tin nhắn phản hồi tới khách hàng qua kênh tương ứng (Facebook Messenger, Facebook Comment, Email) kèm file/ảnh đính kèm nếu có.
+
+Request:
+
+```json
+{
+  "conversationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "content": "Chào anh/chị, em sẽ kiểm tra thông tin hóa đơn và phản hồi sớm ạ.",
+  "replyToMessageId": "optional-message-id",
+  "attachments": [
+    {
+      "url": "http://localhost:9000/omnidesk/attachments/invoice.png",
+      "fileName": "invoice.png",
+      "mimeType": "image/png",
+      "sizeBytes": 102400
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "conversationId": "uuid",
+    "status": "PENDING",
+    "createdAt": "2026-07-04T10:00:00.000Z"
+  }
+}
+```
+
+## 6. Attachments APIs
+
+### POST `/attachments/upload`
+
+Tải tệp đính kèm (ảnh, PDF, tài liệu) lên Object Storage (MinIO / S3). Requires `ADMIN` hoặc `AGENT`.
+
+Content-Type: `multipart/form-data`
+Body form: `file` (File binary)
+
+Hạn mức cho phép:
+- Ảnh (JPEG, PNG, GIF, WEBP): tối đa 5 MB.
+- Tài liệu (PDF, DOCX, XLSX): tối đa 10 MB.
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "storageKey": "attachments/uuid-invoice.pdf",
+    "url": "http://localhost:9000/omnidesk/attachments/uuid-invoice.pdf",
+    "fileName": "invoice.pdf",
+    "mimeType": "application/pdf",
+    "sizeBytes": 204800
+  }
+}
+```
+
+### GET `/attachments/:id/content`
+
+Stream nội dung tệp đính kèm trực tiếp từ Object Storage về trình duyệt với cơ chế Cache-Control.
+
+Query params:
+- `download`: `true` để tải về (`Content-Disposition: attachment`), hoặc `false` (mặc định) để preview inline.
+
+Response: Binary Stream kèm headers `Content-Type`, `Content-Disposition`, `Content-Length`, `Cache-Control`.
+
+## 7. Ticket APIs
 
 ### GET `/tickets`
 
-Lấy danh sách ticket.
+Lấy danh sách ticket có phân trang và filter SLA.
 
 Query params:
 
-- `status`
-- `priority`
-- `assignedAgentId`
-- `overdue`
-- `page`
-- `limit`
+| Param | Type | Description |
+|---|---|---|
+| status | string | `NEW`, `IN_PROGRESS`, `WAITING_CUSTOMER`, `RESOLVED`, `CLOSED` |
+| priority | string | `LOW`, `MEDIUM`, `HIGH`, `URGENT` |
+| assignedAgentId | string | UUID của agent phụ trách |
+| overdue | boolean | `true` để chỉ lấy ticket đã quá hạn SLA |
+| page | number | Trang cần lấy (Mặc định 1) |
+| limit | number | Số lượng mỗi trang (Mặc định 20) |
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "status": "IN_PROGRESS",
+        "priority": "HIGH",
+        "slaDueAt": "2026-06-03T18:00:00.000Z",
+        "firstResponseDueAt": "2026-06-03T11:00:00.000Z",
+        "resolvedAt": null,
+        "assignedAgent": {
+          "id": "uuid",
+          "name": "Agent A",
+          "email": "agent@omnidesk.local"
+        },
+        "conversation": {
+          "id": "uuid",
+          "channelType": "FACEBOOK_MESSAGE",
+          "subject": "Hỗ trợ đơn hàng #1234",
+          "status": "IN_PROGRESS",
+          "version": 2,
+          "lastMessageAt": "2026-06-03T10:00:00.000Z",
+          "customer": {
+            "id": "uuid",
+            "name": "Customer A",
+            "email": "customer@example.com",
+            "avatarUrl": "https://example.com/avatar.png"
+          }
+        },
+        "createdAt": "2026-06-03T10:00:00.000Z",
+        "updatedAt": "2026-06-03T10:05:00.000Z"
+      }
+    ],
+    "page": 1,
+    "limit": 20,
+    "total": 45
+  }
+}
+```
 
 ### GET `/tickets/:id`
 
-Lấy chi tiết ticket.
+Lấy chi tiết ticket kèm thông tin SLA và hội thoại liên kết.
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "status": "IN_PROGRESS",
+    "priority": "HIGH",
+    "slaDueAt": "2026-06-03T18:00:00.000Z",
+    "firstResponseDueAt": "2026-06-03T11:00:00.000Z",
+    "resolvedAt": null,
+    "assignedAgent": {
+      "id": "uuid",
+      "name": "Agent A",
+      "email": "agent@omnidesk.local"
+    },
+    "conversation": {
+      "id": "uuid",
+      "channelType": "FACEBOOK_MESSAGE",
+      "subject": "Hỗ trợ đơn hàng #1234",
+      "status": "IN_PROGRESS",
+      "version": 2,
+      "lastMessageAt": "2026-06-03T10:00:00.000Z",
+      "customer": {
+        "id": "uuid",
+        "name": "Customer A",
+        "email": "customer@example.com",
+        "avatarUrl": "https://example.com/avatar.png"
+      }
+    },
+    "createdAt": "2026-06-03T10:00:00.000Z",
+    "updatedAt": "2026-06-03T10:05:00.000Z"
+  }
+}
+```
 
 ### PATCH `/tickets/:id/status`
+
+Cập nhật trạng thái ticket.
 
 Request:
 
@@ -520,9 +660,11 @@ Request:
 }
 ```
 
-`ASSIGNED` không được cập nhật qua endpoint status; dùng endpoint assignment. `version` là version hiện tại của conversation và xung đột trả về HTTP 409.
+*Lưu ý:* Trạng thái và phân công của Ticket được xử lý đồng bộ qua **Conversation Aggregate**. `Conversation` là Single Source of Truth; mutation cập nhật cả 2 bản ghi trong cùng một database transaction. `version` là số phiên bản OCC hiện tại của Conversation (trả về HTTP 409 Conflict nếu bị xung đột dữ liệu).
 
 ### PATCH `/tickets/:id/assignment`
+
+Gán agent phụ trách ticket.
 
 Request:
 
@@ -533,31 +675,24 @@ Request:
 }
 ```
 
-Mutation ticket được thực thi qua conversation aggregate để cập nhật hai bản ghi trong cùng transaction.
+*Lưu ý:* Gán agent được thực thi qua Conversation aggregate trong cùng database transaction kèm kiểm tra OCC version.
 
-## 6. Message APIs
+## 8. Webhook APIs
 
 ### GET `/webhooks/facebook`
 
-Webhook verification endpoint.
+Webhook verification endpoint của Meta Graph API.
 
-Query params thường gặp:
+Query params:
+- `hub.mode`: Phải bằng `subscribe`
+- `hub.verify_token`: Token cấu hình trong Meta Developer Dashboard
+- `hub.challenge`: Chuỗi challenge ngẫu nhiên cần trả về
 
-```txt
-hub.mode
-hub.verify_token
-hub.challenge
-```
-
-Response:
-
-```txt
-<hub.challenge>
-```
+Response: `<hub.challenge>` (plain text)
 
 ### POST `/webhooks/facebook`
 
-Nhận Facebook webhook event live từ Meta. Production phải bật xác thực verify token/chữ ký webhook và lưu event theo dedup key trước khi enqueue worker.
+Nhận Facebook webhook event live từ Meta (Messenger message, Feed comment). Production bắt buộc bật xác thực chữ ký `X-Hub-Signature-256` và lưu event kèm Transactional Outbox.
 
 Request:
 
@@ -595,40 +730,7 @@ Response:
 }
 ```
 
-### POST `/dev/facebook/mock-message`
-
-Development-only endpoint để giả lập Facebook message. Endpoint này chỉ dùng cho local demo/fallback khi Meta hoặc Ngrok không khả dụng; production phải disable.
-
-Request:
-
-```json
-{
-  "pageId": "test_page",
-  "senderId": "customer_fb_1",
-  "senderName": "Customer FB",
-  "messageId": "fb_msg_001",
-  "text": "Tôi muốn hỏi về hóa đơn"
-}
-```
-
-### POST `/dev/facebook/mock-comment`
-
-Development-only endpoint để giả lập Facebook comment. Endpoint này chỉ dùng cho local demo/fallback khi Meta hoặc Ngrok không khả dụng; production phải disable.
-
-Request:
-
-```json
-{
-  "pageId": "test_page",
-  "postId": "post_001",
-  "commentId": "comment_001",
-  "senderId": "customer_fb_2",
-  "senderName": "Customer Comment",
-  "text": "Shop phản hồi giúp mình"
-}
-```
-
-## 7. Channel APIs
+## 9. Email Synchronization APIs
 
 ### POST `/email/sync`
 
@@ -648,7 +750,7 @@ Response:
 
 ### GET `/email/sync-logs`
 
-Lấy log sync email.
+Lấy log lịch sử đồng bộ email từ IMAP mailbox.
 
 Response:
 
@@ -670,31 +772,33 @@ Response:
 }
 ```
 
-### POST `/dev/email/mock-inbound`
-
-Development-only endpoint để giả lập inbound email. Endpoint này chỉ dùng cho local demo/fallback khi mailbox IMAP/SMTP không khả dụng; production phải disable.
-
-Request:
-
-```json
-{
-  "from": "customer@example.com",
-  "fromName": "Nguyen Van A",
-  "subject": "Khiếu nại hóa đơn",
-  "body": "Tôi đã thanh toán nhưng chưa nhận được hóa đơn.",
-  "messageId": "email_msg_001"
-}
-```
-
-## 8. Customer APIs
+## 10. Channel Account APIs
 
 ### GET `/channel-accounts`
 
-Lấy danh sách kênh đã cấu hình.
+Lấy danh sách các tài khoản kênh tích hợp đã cấu hình (Facebook Pages, Email Mailboxes). Requires `ADMIN`.
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "type": "EMAIL",
+      "displayName": "Support Mailbox",
+      "externalId": "support@omnidesk.local",
+      "status": "ACTIVE",
+      "createdAt": "2026-06-01T00:00:00.000Z"
+    }
+  ]
+}
+```
 
 ### POST `/channel-accounts`
 
-Tạo channel account.
+Tạo mới hoặc kết nối channel account. Requires `ADMIN`.
 
 Request:
 
@@ -711,19 +815,21 @@ Request:
 }
 ```
 
-## 9. Integration APIs
+## 11. Integration Event Log APIs
 
 ### GET `/events/inbound`
 
-Lấy inbound event log.
+Lấy danh sách inbound event log nhận từ webhook/email.
 
 Query params:
 
-- `provider`
-- `eventType`
-- `status`
-- `page`
-- `limit`
+| Param | Type | Description |
+|---|---|---|
+| provider | string | `FACEBOOK`, `EMAIL` |
+| eventType | string | `MESSAGE`, `COMMENT`, `EMAIL` |
+| status | string | `RECEIVED`, `PROCESSING`, `PROCESSED`, `FAILED`, `DUPLICATE` |
+| page | number | Default 1 |
+| limit | number | Default 20 |
 
 Response:
 
@@ -736,22 +842,120 @@ Response:
         "id": "uuid",
         "provider": "FACEBOOK",
         "eventType": "MESSAGE",
-        "dedupKey": "FACEBOOK_MESSAGE:page:mid",
+        "dedupKey": "FACEBOOK_MESSAGE:page_1:mid_1",
         "normalizedStatus": "PROCESSED",
         "receivedAt": "2026-06-03T10:00:00Z"
       }
-    ]
+    ],
+    "page": 1,
+    "limit": 20,
+    "total": 100
   }
 }
 ```
 
 ### GET `/events/outbound`
 
-Lấy outbound message log.
+Lấy danh sách outbound message log gửi ra kênh bên ngoài.
 
-## 10. Dashboard APIs
+Query params:
+
+| Param | Type | Description |
+|---|---|---|
+| provider | string | `FACEBOOK`, `EMAIL` |
+| status | string | `PENDING`, `SENDING`, `SENT`, `FAILED`, `RETRYING` |
+| page | number | Default 1 |
+| limit | number | Default 20 |
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "conversationId": "uuid",
+        "provider": "FACEBOOK",
+        "channelType": "FACEBOOK_MESSAGE",
+        "recipientExternalId": "fb_user_123",
+        "content": "Chào anh/chị, em sẽ hỗ trợ ngay ạ.",
+        "status": "SENT",
+        "externalMessageId": "mid.1234567890",
+        "errorMessage": null,
+        "retryCount": 0,
+        "createdAt": "2026-06-03T10:05:00.000Z"
+      }
+    ],
+    "page": 1,
+    "limit": 20,
+    "total": 85
+  }
+}
+```
+
+## 12. Admin & Dead-Letter APIs
+
+### GET `/admin/dead-letter-jobs`
+
+Lấy danh sách các jobs bị lỗi (failed) trong hàng đợi BullMQ để admin kiểm tra và xử lý. Requires `ADMIN`.
+
+Query params:
+- `queue`: Tên queue (`inbound-events`, `outbound-messages`, `email-sync`, `email-actions`, `sla-check`, `analytics-aggregation`, `auto-close`)
+- `limit`: Số lượng job cần lấy (Mặc định 50)
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "queue": "outbound-messages",
+    "jobs": [
+      {
+        "id": "job_123",
+        "name": "send-outbound-message",
+        "data": { "outboundMessageId": "uuid" },
+        "failedReason": "Graph API Rate limit reached (OAuthException)",
+        "attemptsMade": 3,
+        "timestamp": 1710000000000
+      }
+    ],
+    "total": 1
+  }
+}
+```
+
+### POST `/admin/dead-letter-jobs/:jobId/replay`
+
+Đưa một failed job trở lại trạng thái `waiting` để worker retry thực thi lại. Hành động này được ghi audit log. Requires `ADMIN`.
+
+Request:
+
+```json
+{
+  "queue": "outbound-messages"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "replayed": true,
+    "jobId": "job_123"
+  }
+}
+```
+
+## 13. Dashboard APIs
 
 ### GET `/dashboard/summary`
+
+Lấy tổng hợp chỉ số vận hành trung tâm hỗ trợ.
 
 Response:
 
@@ -775,6 +979,8 @@ Response:
 
 ### GET `/dashboard/agent-performance`
 
+Lấy thống kê hiệu suất xử lý ticket theo từng agent.
+
 Response:
 
 ```json
@@ -793,7 +999,10 @@ Response:
 }
 ```
 
-## 11. AI Assist APIs - Optional
+## 14. AI Assist APIs (Not Implemented - Draft Spec)
+
+> [!NOTE]
+> ⚠️ Tính năng AI Assist chưa được triển khai trong MVP hiện tại. Đặc tả dưới đây là bản thảo thiết kế (Design Draft) cho các giai đoạn phát triển tiếp theo.
 
 ### POST `/ai/suggest-reply`
 
@@ -818,40 +1027,106 @@ Response:
 }
 ```
 
-## 12. WebSocket/SSE Events
+## 15. Realtime WebSocket Gateway
 
-Frontend cần nhận các event realtime:
+OmniDesk sử dụng **Socket.io** với namespace cấu hình tại:
 
 ```txt
-conversation.created
-conversation.updated
-message.created
-ticket.updated
-outbound_message.updated
-sla.overdue
+/notifications
 ```
 
-Payload ví dụ:
+### 15.1. Authentication
+Client kết nối tới WebSocket Gateway cần gửi kèm HttpOnly Cookie `Authentication=<jwt_token>`. Gateway sẽ tự động trích xuất token, xác thực và đưa agent vào 2 room mặc định:
+- `agent:{userId}`: Nhận các thông báo gán ticket/hội thoại cá nhân.
+- `team:inbox`: Nhận các sự kiện tạo mới và cập nhật danh sách hội thoại toàn team.
 
+### 15.2. Client-to-Server Events
+
+| Event | Payload | Mô tả |
+|---|---|---|
+| `conversation.join` | `{ "conversationId": "uuid" }` | Tham gia vào room của một hội thoại cụ thể để nhận tin nhắn mới và trạng thái gõ phím. |
+| `conversation.leave` | `{ "conversationId": "uuid" }` | Rời khỏi room hội thoại. |
+| `agent_typing` | `{ "conversationId": "uuid", "isTyping": true }` | Phát tín hiệu agent đang soạn tin nhắn để hiển thị cho các agent khác trong cùng hội thoại. |
+
+### 15.3. Server-to-Client Events (Fetch-on-Event Architecture)
+
+Tất cả sự kiện realtime từ server được broadcast qua kênh: `realtime.event`.
+
+> [!NOTE]
+> **Cơ chế Fetch-on-Event**: Nhằm tối ưu hóa hiệu năng và băng thông mạng cho Redis Pub/Sub và WebSocket, các sự kiện realtime chỉ mang các định danh cần thiết (như `conversationId`, `messageId`, `ticketId`). Khi nhận được tín hiệu event, client (Frontend) thực hiện invalidation query cache hoặc gọi API tương ứng (ví dụ: `GET /conversations/:id/messages?cursor=...`) để lấy dữ liệu mới nhất.
+
+Cấu trúc payload chuẩn khớp 100% với kiểu `RealtimeEvent` trong `@omnidesk/shared`:
+
+#### 1. `conversation.updated` / `conversation.created`
 ```json
 {
-  "event": "conversation.updated",
-  "data": {
-    "conversationId": "uuid",
-    "lastMessageAt": "2026-06-03T10:00:00Z",
-    "status": "IN_PROGRESS"
-  }
+  "type": "conversation.updated",
+  "conversationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "occurredAt": "2026-07-04T10:00:00.000Z"
 }
 ```
 
-## 13. Development-only APIs
+#### 2. `message.created`
+```json
+{
+  "type": "message.created",
+  "conversationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "messageId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "occurredAt": "2026-07-04T10:00:00.000Z"
+}
+```
+
+#### 3. `ticket.updated`
+```json
+{
+  "type": "ticket.updated",
+  "ticketId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "conversationId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "occurredAt": "2026-07-04T10:00:00.000Z"
+}
+```
+
+#### 4. `outbound_message.updated`
+```json
+{
+  "type": "outbound_message.updated",
+  "outboundMessageId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "conversationId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "status": "SENT",
+  "occurredAt": "2026-07-04T10:01:00.000Z"
+}
+```
+
+#### 5. `agent.typing`
+```json
+{
+  "type": "agent.typing",
+  "conversationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "agentName": "Agent A",
+  "isTyping": true
+}
+```
+
+#### 6. `sla.overdue`
+```json
+{
+  "type": "sla.overdue",
+  "ticketId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "conversationId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "occurredAt": "2026-07-04T18:00:01.000Z"
+}
+```
+
+## 16. Development-only APIs
 
 Các API bắt đầu bằng `/dev` chỉ bật trong môi trường development/demo:
 
-- `/dev/facebook/mock-message`
-- `/dev/facebook/mock-comment`
-- `/dev/email/mock-inbound`
-- `/dev/reset-demo-data`
-- `/dev/seed-demo-data`
+- `/dev/facebook/mock-message`: Giả lập inbound message từ Facebook.
+- `/dev/facebook/mock-comment`: Giả lập inbound comment từ Facebook Page.
+- `/dev/email/mock-inbound`: Giả lập inbound email từ khách hàng.
+- `/dev/reset-demo-data`: Xóa toàn bộ dữ liệu demo.
+- `/dev/seed-demo-data`: Tạo dữ liệu mẫu phong phú để kiểm thử và demo.
 
-Trong production, các route này phải bị disable.
+Trong production (`NODE_ENV=production`), các route này tự động bị disable hoàn toàn.
+
+
