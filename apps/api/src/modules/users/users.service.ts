@@ -78,10 +78,15 @@ export class UsersService {
     });
   }
 
+  private hashResetToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
   async findByPasswordResetToken(token: string) {
+    const hashedToken = this.hashResetToken(token);
     return this.prisma.user.findFirst({
       where: {
-        passwordResetToken: token,
+        passwordResetToken: hashedToken,
         passwordResetExpires: {
           gt: new Date(),
         },
@@ -90,10 +95,11 @@ export class UsersService {
   }
 
   async setPasswordResetToken(email: string, token: string, expires: Date) {
+    const hashedToken = this.hashResetToken(token);
     await this.prisma.user.update({
       where: { email },
       data: {
-        passwordResetToken: token,
+        passwordResetToken: hashedToken,
         passwordResetExpires: expires,
       },
     });
@@ -138,6 +144,7 @@ export class UsersService {
 
     // Generate reset token for the welcome email
     const token = crypto.randomUUID();
+    const hashedToken = this.hashResetToken(token);
     const expires = new Date();
     expires.setDate(expires.getDate() + 7); // 7 days to set initial password
 
@@ -147,7 +154,7 @@ export class UsersService {
         email: dto.email,
         role: dto.role,
         passwordHash,
-        passwordResetToken: token,
+        passwordResetToken: hashedToken,
         passwordResetExpires: expires,
       },
       select: {

@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserRole, UserStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
@@ -10,7 +10,12 @@ describe('AuthService', () => {
   let usersService: jest.Mocked<
     Pick<
       UsersService,
-      'findByEmail' | 'setCurrentRefreshToken' | 'setPasswordResetToken'
+      | 'findByEmail'
+      | 'setCurrentRefreshToken'
+      | 'setPasswordResetToken'
+      | 'findByPasswordResetToken'
+      | 'updatePasswordAndClearToken'
+      | 'removeRefreshToken'
     >
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
@@ -26,6 +31,9 @@ describe('AuthService', () => {
       findByEmail: jest.fn(),
       setCurrentRefreshToken: jest.fn(),
       setPasswordResetToken: jest.fn(),
+      findByPasswordResetToken: jest.fn(),
+      updatePasswordAndClearToken: jest.fn(),
+      removeRefreshToken: jest.fn(),
     };
     jwtService = {
       signAsync: jest.fn().mockResolvedValue('jwt-token'),
@@ -92,6 +100,55 @@ describe('AuthService', () => {
       'agent@omnidesk.local',
       expect.stringContaining('/auth/reset-password?token='),
     );
+  });
+
+  describe('resetPassword', () => {
+    it('resets password successfully when token is valid and user is active', async () => {
+      const user = createUser();
+      usersService.findByPasswordResetToken.mockResolvedValue(user);
+
+      const result = await authService.resetPassword({
+        token: 'valid-raw-token',
+        newPassword: 'NewSecurePassword123!',
+      });
+
+      expect(result).toEqual({ success: true });
+      expect(usersService.findByPasswordResetToken).toHaveBeenCalledWith(
+        'valid-raw-token',
+      );
+      expect(usersService.updatePasswordAndClearToken).toHaveBeenCalledWith(
+        user.id,
+        expect.any(String),
+      );
+      expect(usersService.removeRefreshToken).toHaveBeenCalledWith(user.id);
+    });
+
+    it('rejects reset password if token is invalid or expired', async () => {
+      usersService.findByPasswordResetToken.mockResolvedValue(null);
+
+      await expect(
+        authService.resetPassword({
+          token: 'invalid-or-expired-token',
+          newPassword: 'NewPassword123!',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(usersService.updatePasswordAndClearToken).not.toHaveBeenCalled();
+    });
+
+    it('rejects reset password if user is not active', async () => {
+      const inactiveUser = createUser({ status: UserStatus.INACTIVE });
+      usersService.findByPasswordResetToken.mockResolvedValue(inactiveUser);
+
+      await expect(
+        authService.resetPassword({
+          token: 'some-token',
+          newPassword: 'NewPassword123!',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(usersService.updatePasswordAndClearToken).not.toHaveBeenCalled();
+    });
   });
 });
 
