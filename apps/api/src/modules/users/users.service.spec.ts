@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { UsersService } from './users.service';
 
 describe('UsersService', () => {
@@ -19,6 +20,9 @@ describe('UsersService', () => {
     sendWelcomeEmail: jest.Mock;
     sendPasswordResetEmail: jest.Mock;
   };
+  let auditLog: {
+    log: jest.Mock;
+  };
 
   beforeEach(() => {
     prisma = {
@@ -34,10 +38,14 @@ describe('UsersService', () => {
       sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
       sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
     };
+    auditLog = {
+      log: jest.fn().mockResolvedValue({ id: 'audit-log-id' }),
+    };
 
     service = new UsersService(
       prisma as unknown as PrismaService,
       mailService as unknown as MailService,
+      auditLog as unknown as AuditLogService,
     );
   });
 
@@ -97,7 +105,7 @@ describe('UsersService', () => {
   });
 
   describe('create', () => {
-    it('stores hashed token in DB and sends raw token in welcome email link', async () => {
+    it('stores hashed token in DB, sends welcome email, and logs audit event', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.user.create.mockImplementation(({ data }) => ({
         id: 'user-123',
@@ -108,11 +116,14 @@ describe('UsersService', () => {
         createdAt: new Date(),
       }));
 
-      await service.create({
-        name: 'New Agent',
-        email: 'agent@example.com',
-        role: UserRole.AGENT,
-      });
+      await service.create(
+        {
+          name: 'New Agent',
+          email: 'agent@example.com',
+          role: UserRole.AGENT,
+        },
+        'admin-creator-id',
+      );
 
       expect(prisma.user.create).toHaveBeenCalled();
       const createData = prisma.user.create.mock.calls[0][0].data;
@@ -136,6 +147,62 @@ describe('UsersService', () => {
         .update(rawTokenFromUrl)
         .digest('hex');
       expect(hashOfUrlToken).toBe(createData.passwordResetToken);
+
+      // Audit log must be called
+      expect(auditLog.log).toHaveBeenCalledWith({
+        actorId: 'admin-creator-id',
+        action: 'user.created',
+        targetType: 'User',
+        targetId: 'user-123',
+        metadata: {
+          email: 'agent@example.com',
+          role: UserRole.AGENT,
+          createdBy: 'admin-creator-id',
+        },
+      });
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('updates user status and logs audit event', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-456',
+        name: 'User 456',
+        email: 'u456@example.com',
+        role: UserRole.AGENT,
+        status: UserStatus.ACTIVE,
+      });
+      prisma.user.update.mockResolvedValue({
+        id: 'user-456',
+        name: 'User 456',
+        email: 'u456@example.com',
+        role: UserRole.AGENT,
+        status: UserStatus.INACTIVE,
+      });
+
+      const result = await service.updateStatus(
+        'user-456',
+        { status: UserStatus.INACTIVE },
+        'admin-actor-id',
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-456' },
+        data: { status: UserStatus.INACTIVE },
+        select: expect.any(Object),
+      });
+      expect(auditLog.log).toHaveBeenCalledWith({
+        actorId: 'admin-actor-id',
+        action: 'user.status_updated',
+        targetType: 'User',
+        targetId: 'user-456',
+        metadata: {
+          email: 'u456@example.com',
+          previousStatus: UserStatus.ACTIVE,
+          newStatus: UserStatus.INACTIVE,
+        },
+      });
+      expect(result).toBeDefined();
     });
   });
 });

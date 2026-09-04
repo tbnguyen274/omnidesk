@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { MailModule } from '../../common/mail/mail.module';
 import { UsersModule } from '../users/users.module';
 import { AuthTokenModule } from '../../common/auth/auth-token.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -16,6 +17,7 @@ import { JwtRefreshStrategy } from './jwt-refresh.strategy';
     UsersModule,
     MailModule,
     PassportModule,
+    AuditLogModule,
     // Shared token validation layer for JwtStrategy (avoids circular dependency with NotificationsModule)
     AuthTokenModule,
     // Scoped JwtModule with default signOptions (15m expiration) for token issuance in AuthService.

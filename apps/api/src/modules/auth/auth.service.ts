@@ -10,10 +10,16 @@ import * as crypto from 'crypto';
 import { appConfig } from '../../config/app.config';
 import { JwtPayload } from '../../common/auth/current-user.type';
 import { MailService } from '../../common/mail/mail.service';
+import { AuditLogService, SYSTEM_DUMMY_UUID } from '../audit-log/audit-log.service';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+
+export type AuthRequestContext = {
+  ip?: string;
+  userAgent?: string;
+};
 
 @Injectable()
 export class AuthService {
@@ -21,18 +27,59 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, context?: AuthRequestContext) {
     const user = await this.usersService.findByEmail(dto.email);
 
-    if (!user || user.status !== UserStatus.ACTIVE) {
+    if (!user) {
+      await this.auditLog.log({
+        actorId: null,
+        action: 'auth.login.failure',
+        targetType: 'User',
+        targetId: SYSTEM_DUMMY_UUID,
+        metadata: {
+          ip: context?.ip,
+          userAgent: context?.userAgent,
+          attemptedEmail: dto.email,
+          reason: 'user_not_found',
+        },
+      });
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      await this.auditLog.log({
+        actorId: null,
+        action: 'auth.login.failure',
+        targetType: 'User',
+        targetId: user.id,
+        metadata: {
+          ip: context?.ip,
+          userAgent: context?.userAgent,
+          attemptedEmail: dto.email,
+          reason: 'user_inactive',
+        },
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const isPasswordValid = await compare(dto.password, user.passwordHash);
 
     if (!isPasswordValid) {
+      await this.auditLog.log({
+        actorId: null,
+        action: 'auth.login.failure',
+        targetType: 'User',
+        targetId: user.id,
+        metadata: {
+          ip: context?.ip,
+          userAgent: context?.userAgent,
+          attemptedEmail: dto.email,
+          reason: 'invalid_credentials',
+        },
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -50,6 +97,18 @@ export class AuthService {
 
     await this.usersService.setCurrentRefreshToken(refreshToken, user.id);
 
+    await this.auditLog.log({
+      actorId: user.id,
+      action: 'auth.login.success',
+      targetType: 'User',
+      targetId: user.id,
+      metadata: {
+        ip: context?.ip,
+        userAgent: context?.userAgent,
+        method: 'password',
+      },
+    });
+
     return {
       accessToken,
       refreshToken,
@@ -62,8 +121,19 @@ export class AuthService {
     };
   }
 
-  async logout(userId: string) {
+  async logout(userId: string, context?: AuthRequestContext) {
     await this.usersService.removeRefreshToken(userId);
+
+    await this.auditLog.log({
+      actorId: userId,
+      action: 'auth.logout',
+      targetType: 'User',
+      targetId: userId,
+      metadata: {
+        ip: context?.ip,
+        userAgent: context?.userAgent,
+      },
+    });
   }
 
   async refreshTokens(userId: string, refreshToken: string) {
@@ -108,8 +178,21 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto) {
+  async forgotPassword(dto: ForgotPasswordDto, context?: AuthRequestContext) {
     const user = await this.usersService.findByEmail(dto.email);
+
+    await this.auditLog.log({
+      actorId: user?.id ?? null,
+      action: 'auth.password_reset.requested',
+      targetType: 'User',
+      targetId: user?.id ?? SYSTEM_DUMMY_UUID,
+      metadata: {
+        ip: context?.ip,
+        userAgent: context?.userAgent,
+        email: dto.email,
+      },
+    });
+
     if (!user || user.status !== UserStatus.ACTIVE) {
       // Always return success to prevent email enumeration
       return { success: true };
@@ -128,7 +211,7 @@ export class AuthService {
     return { success: true };
   }
 
-  async resetPassword(dto: ResetPasswordDto) {
+  async resetPassword(dto: ResetPasswordDto, context?: AuthRequestContext) {
     const user = await this.usersService.findByPasswordResetToken(dto.token);
 
     if (!user || user.status !== UserStatus.ACTIVE) {
@@ -138,8 +221,19 @@ export class AuthService {
     const passwordHash = await hash(dto.newPassword, 10);
     await this.usersService.updatePasswordAndClearToken(user.id, passwordHash);
 
-    // Optionally revoke refresh tokens here
+    // Revoke refresh tokens on password reset
     await this.usersService.removeRefreshToken(user.id);
+
+    await this.auditLog.log({
+      actorId: user.id,
+      action: 'auth.password_reset.completed',
+      targetType: 'User',
+      targetId: user.id,
+      metadata: {
+        ip: context?.ip,
+        userAgent: context?.userAgent,
+      },
+    });
 
     return { success: true };
   }
