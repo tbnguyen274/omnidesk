@@ -1,6 +1,5 @@
 import {
   INestApplication,
-  NotFoundException,
   UnauthorizedException,
   ValidationPipe,
   VersioningType,
@@ -22,9 +21,9 @@ describe('Audit Logging System (e2e)', () => {
   const recordedLogs: any[] = [];
 
   const mockAuditLogService = {
-    log: jest.fn().mockImplementation(async (input) => {
+    log: jest.fn().mockImplementation((input) => {
       recordedLogs.push({ ...input, loggedAt: new Date() });
-      return { id: 'mock-audit-id', ...input };
+      return Promise.resolve({ id: 'mock-audit-id', ...input });
     }),
   };
 

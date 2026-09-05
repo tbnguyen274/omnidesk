@@ -191,11 +191,7 @@ export class UsersService {
     return newUser;
   }
 
-  async updateStatus(
-    id: string,
-    dto: UpdateUserStatusDto,
-    actorId?: string,
-  ) {
+  async updateStatus(id: string, dto: UpdateUserStatusDto, actorId?: string) {
     const user = await this.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');

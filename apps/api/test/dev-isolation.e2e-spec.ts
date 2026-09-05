@@ -18,10 +18,8 @@ import { DevFacebookController } from '../src/modules/dev/dev-facebook.controlle
 import { EmailController } from '../src/modules/email/email.controller';
 import { EmailService } from '../src/modules/email/email.service';
 import { FacebookController } from '../src/modules/facebook/facebook.controller';
-import { FacebookRepository } from '../src/modules/facebook/facebook.repository';
 import { FacebookService } from '../src/modules/facebook/facebook.service';
 import { FacebookSignatureService } from '../src/modules/facebook/services/facebook-signature.service';
-import { FacebookWebhookParserService } from '../src/modules/facebook/services/facebook-webhook-parser.service';
 import { JwtStrategy } from '../src/modules/auth/jwt.strategy';
 import { JwtService } from '@nestjs/jwt';
 import { appConfig } from '../src/config/app.config';
@@ -163,13 +161,13 @@ describe('Stage 2 Security Hardening: Dev Isolation & Query Param Removal (e2e)'
     let validToken: string;
 
     const mockAuthTokenService = {
-      validatePayload: jest.fn().mockImplementation(async (payload) => {
-        return {
+      validatePayload: jest.fn().mockImplementation((payload) => {
+        return Promise.resolve({
           id: payload.sub,
           email: payload.email,
           name: 'Security Tester',
           role: payload.role,
-        };
+        });
       }),
     };
 

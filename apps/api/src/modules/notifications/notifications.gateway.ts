@@ -56,9 +56,7 @@ export class NotificationsGateway
   @WebSocketServer()
   private readonly server!: Server;
 
-  constructor(
-    private readonly authTokenService: AuthTokenService,
-  ) {}
+  constructor(private readonly authTokenService: AuthTokenService) {}
 
   async handleConnection(client: AuthenticatedSocket) {
     try {

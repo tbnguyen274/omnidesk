@@ -7,10 +7,7 @@ import { NotificationsRedisBridgeService } from './notifications-redis-bridge.se
 import { NOTIFICATIONS_PUBLISHER } from './ports/notifications-publisher.port';
 
 @Module({
-  imports: [
-    RedisModule,
-    AuthTokenModule,
-  ],
+  imports: [RedisModule, AuthTokenModule],
   providers: [
     NotificationsService,
     NotificationsGateway,

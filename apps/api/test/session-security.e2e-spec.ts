@@ -62,19 +62,19 @@ describe('Session Security, RolesGuard Deny-All & Account Lockout (e2e)', () => 
   // In-memory Redis simulation for realistic integration behavior
   const redisStore = new Map<string, { value: string; expiry?: number }>();
   const mockRedisClient = {
-    get: jest.fn().mockImplementation(async (key: string) => {
+    get: jest.fn().mockImplementation((key: string) => {
       const entry = redisStore.get(key);
-      if (!entry) return null;
+      if (!entry) return Promise.resolve(null);
       if (entry.expiry && Date.now() > entry.expiry) {
         redisStore.delete(key);
-        return null;
+        return Promise.resolve(null);
       }
-      return entry.value;
+      return Promise.resolve(entry.value);
     }),
     set: jest
       .fn()
       .mockImplementation(
-        async (
+        (
           key: string,
           val: string,
           _mode?: string,
@@ -84,32 +84,32 @@ describe('Session Security, RolesGuard Deny-All & Account Lockout (e2e)', () => 
           const existing = redisStore.get(key);
           const isExpired = existing?.expiry && Date.now() > existing.expiry;
           if (flag === 'NX' && existing && !isExpired) {
-            return null;
+            return Promise.resolve(null);
           }
           redisStore.set(key, {
             value: val,
             expiry: ttl ? Date.now() + ttl * 1000 : undefined,
           });
-          return 'OK';
+          return Promise.resolve('OK');
         },
       ),
-    del: jest.fn().mockImplementation(async (key: string) => {
+    del: jest.fn().mockImplementation((key: string) => {
       const existed = redisStore.has(key);
       redisStore.delete(key);
-      return existed ? 1 : 0;
+      return Promise.resolve(existed ? 1 : 0);
     }),
-    incr: jest.fn().mockImplementation(async (key: string) => {
+    incr: jest.fn().mockImplementation((key: string) => {
       const entry = redisStore.get(key);
       const count = entry ? parseInt(entry.value, 10) + 1 : 1;
       redisStore.set(key, { value: count.toString(), expiry: entry?.expiry });
-      return count;
+      return Promise.resolve(count);
     }),
-    expire: jest.fn().mockImplementation(async (key: string, ttl: number) => {
+    expire: jest.fn().mockImplementation((key: string, ttl: number) => {
       const entry = redisStore.get(key);
       if (entry) {
         entry.expiry = Date.now() + ttl * 1000;
       }
-      return 1;
+      return Promise.resolve(1);
     }),
   };
 
@@ -147,19 +147,25 @@ describe('Session Security, RolesGuard Deny-All & Account Lockout (e2e)', () => 
   };
 
   const mockUsersService = {
-    findByEmail: jest.fn().mockImplementation(async (email: string) => {
+    findByEmail: jest.fn().mockImplementation((email: string) => {
       if (email.toLowerCase() === sampleAgent.email) {
-        return { ...sampleAgent, passwordHash: sampleHashedPassword };
+        return Promise.resolve({
+          ...sampleAgent,
+          passwordHash: sampleHashedPassword,
+        });
       }
       if (email.toLowerCase() === sampleAdmin.email) {
-        return { ...sampleAdmin, passwordHash: sampleHashedPassword };
+        return Promise.resolve({
+          ...sampleAdmin,
+          passwordHash: sampleHashedPassword,
+        });
       }
-      return null;
+      return Promise.resolve(null);
     }),
-    findById: jest.fn().mockImplementation(async (id: string) => {
-      if (id === sampleAgent.id) return sampleAgent;
-      if (id === sampleAdmin.id) return sampleAdmin;
-      return null;
+    findById: jest.fn().mockImplementation((id: string) => {
+      if (id === sampleAgent.id) return Promise.resolve(sampleAgent);
+      if (id === sampleAdmin.id) return Promise.resolve(sampleAdmin);
+      return Promise.resolve(null);
     }),
     setCurrentRefreshToken: jest.fn().mockResolvedValue(undefined),
     removeRefreshToken: jest.fn().mockResolvedValue(undefined),

@@ -1,9 +1,4 @@
-import {
-  Body,
-  Controller,
-  ForbiddenException,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/auth/public.decorator';
 import { MockInboundEmailDto } from '../email/dto/mock-inbound-email.dto';
