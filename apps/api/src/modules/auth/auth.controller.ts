@@ -10,6 +10,8 @@ import {
 import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import { appConfig } from '../../config/app.config';
+import { AllowAnyAuthenticated } from '../../common/auth/allow-any-authenticated.decorator';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../../common/auth/current-user.type';
 import { Public } from '../../common/auth/public.decorator';
@@ -25,7 +27,9 @@ const REFRESH_COOKIE_PATH = '/api/v1/auth/refresh';
 function extractClientContext(req: Request) {
   const forwarded = req.headers['x-forwarded-for'];
   const ip =
-    (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : undefined) ||
+    (typeof forwarded === 'string'
+      ? forwarded.split(',')[0].trim()
+      : undefined) ||
     req.ip ||
     req.socket?.remoteAddress;
   return {
@@ -61,7 +65,7 @@ export class AuthController {
     res.cookie('Authentication', data.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: appConfig.cookieSameSite,
       maxAge: 15 * 60 * 1000,
     });
 
@@ -69,7 +73,7 @@ export class AuthController {
     res.cookie('Refresh', data.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: appConfig.cookieSameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: REFRESH_COOKIE_PATH,
     });
@@ -82,6 +86,7 @@ export class AuthController {
     };
   }
 
+  @AllowAnyAuthenticated()
   @ApiOperation({
     summary: 'Get current user profile',
     description:
@@ -120,14 +125,14 @@ export class AuthController {
     res.cookie('Authentication', data.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: appConfig.cookieSameSite,
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('Refresh', data.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: appConfig.cookieSameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: REFRESH_COOKIE_PATH,
     });
@@ -137,6 +142,7 @@ export class AuthController {
     };
   }
 
+  @AllowAnyAuthenticated()
   @ApiOperation({
     summary: 'User logout',
     description:
@@ -149,7 +155,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
     @Req() req: Request,
   ) {
-    await this.authService.logout(user.id, extractClientContext(req));
+    await this.authService.logout(user.id, user.jti, extractClientContext(req));
 
     res.clearCookie('Authentication');
     res.clearCookie('Refresh', { path: REFRESH_COOKIE_PATH });
@@ -167,11 +173,11 @@ export class AuthController {
     description: 'Sends a password reset email if the user exists.',
   })
   @Post('forgot-password')
-  async forgotPassword(
-    @Body() dto: ForgotPasswordDto,
-    @Req() req: Request,
-  ) {
-    const result = await this.authService.forgotPassword(dto, extractClientContext(req));
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    const result = await this.authService.forgotPassword(
+      dto,
+      extractClientContext(req),
+    );
     return {
       success: true,
       data: result,
@@ -185,11 +191,11 @@ export class AuthController {
     description: 'Resets the password using a valid reset token.',
   })
   @Post('reset-password')
-  async resetPassword(
-    @Body() dto: ResetPasswordDto,
-    @Req() req: Request,
-  ) {
-    const result = await this.authService.resetPassword(dto, extractClientContext(req));
+  async resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
+    const result = await this.authService.resetPassword(
+      dto,
+      extractClientContext(req),
+    );
     return {
       success: true,
       data: result,

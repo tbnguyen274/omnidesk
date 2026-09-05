@@ -25,7 +25,11 @@ describe('AuditLogService', () => {
       action: 'auth.login.success',
       targetType: 'User',
       targetId: 'user-uuid',
-      metadata: { ip: '127.0.0.1', userAgent: 'test-agent', method: 'password' },
+      metadata: {
+        ip: '127.0.0.1',
+        userAgent: 'test-agent',
+        method: 'password',
+      },
       createdAt: new Date(),
     };
 
@@ -36,7 +40,11 @@ describe('AuditLogService', () => {
       action: 'auth.login.success',
       targetType: 'User',
       targetId: 'user-uuid',
-      metadata: { ip: '127.0.0.1', userAgent: 'test-agent', method: 'password' },
+      metadata: {
+        ip: '127.0.0.1',
+        userAgent: 'test-agent',
+        method: 'password',
+      },
     });
 
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
@@ -45,7 +53,11 @@ describe('AuditLogService', () => {
         action: 'auth.login.success',
         targetType: 'User',
         targetId: 'user-uuid',
-        metadata: { ip: '127.0.0.1', userAgent: 'test-agent', method: 'password' },
+        metadata: {
+          ip: '127.0.0.1',
+          userAgent: 'test-agent',
+          method: 'password',
+        },
       },
     });
     expect(result).toEqual(mockCreated);
@@ -58,7 +70,10 @@ describe('AuditLogService', () => {
       action: 'auth.login.failure',
       targetType: 'User',
       targetId: SYSTEM_DUMMY_UUID,
-      metadata: { attemptedEmail: 'unknown@example.com', reason: 'user_not_found' },
+      metadata: {
+        attemptedEmail: 'unknown@example.com',
+        reason: 'user_not_found',
+      },
     });
 
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
@@ -67,13 +82,18 @@ describe('AuditLogService', () => {
         action: 'auth.login.failure',
         targetType: 'User',
         targetId: SYSTEM_DUMMY_UUID,
-        metadata: { attemptedEmail: 'unknown@example.com', reason: 'user_not_found' },
+        metadata: {
+          attemptedEmail: 'unknown@example.com',
+          reason: 'user_not_found',
+        },
       },
     });
   });
 
   it('defaults metadata to empty object if omitted in input', async () => {
-    prisma.auditLog.create.mockResolvedValueOnce({ id: 'dummy-log-no-metadata' });
+    prisma.auditLog.create.mockResolvedValueOnce({
+      id: 'dummy-log-no-metadata',
+    });
 
     await service.log({
       actorId: 'user-uuid',

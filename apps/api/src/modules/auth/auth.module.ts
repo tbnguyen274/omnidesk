@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { appConfig } from '../../config/app.config';
 import { PassportModule } from '@nestjs/passport';
 import { MailModule } from '../../common/mail/mail.module';
+import { RedisModule } from '../../common/redis/redis.module';
 import { UsersModule } from '../users/users.module';
 import { AuthTokenModule } from '../../common/auth/auth-token.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
@@ -16,6 +17,7 @@ import { JwtRefreshStrategy } from './jwt-refresh.strategy';
     // Direct dependency for AuthService (user lookups, password hashes, refresh tokens)
     UsersModule,
     MailModule,
+    RedisModule,
     PassportModule,
     AuditLogModule,
     // Shared token validation layer for JwtStrategy (avoids circular dependency with NotificationsModule)

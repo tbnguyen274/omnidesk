@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { appConfig } from '../../config/app.config';
+import { RedisService } from '../redis/redis.service';
 import { UsersService } from '../../modules/users/users.service';
 import type { AuthenticatedUser, JwtPayload } from './current-user.type';
 
@@ -9,6 +10,7 @@ export class AuthTokenService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
+    private readonly redisService: RedisService,
   ) {}
 
   /**
@@ -34,12 +36,22 @@ export class AuthTokenService {
   }
 
   /**
-   * Validates an already-extracted JWT payload by checking the database for an ACTIVE user.
+   * Validates an already-extracted JWT payload by checking Redis token blacklist
+   * and the database for an ACTIVE user.
    * Used by JwtStrategy after passport-jwt has decoded and verified the signature.
    */
   async validatePayload(payload: JwtPayload): Promise<AuthenticatedUser> {
     if (!payload?.sub) {
       throw new UnauthorizedException('Invalid token');
+    }
+
+    if (payload.jti) {
+      const isRevoked = await this.redisService
+        .getClient()
+        .get(`blacklist:jwt:${payload.jti}`);
+      if (isRevoked) {
+        throw new UnauthorizedException('Token has been revoked');
+      }
     }
 
     const user = await this.usersService.findById(payload.sub);
@@ -53,6 +65,7 @@ export class AuthTokenService {
       email: user.email,
       name: user.name,
       role: user.role,
+      jti: payload.jti,
     };
   }
 }

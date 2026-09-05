@@ -10,7 +10,10 @@ import { UserRole, UserStatus } from '@prisma/client';
 import request from 'supertest';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
-import { AuditLogService, SYSTEM_DUMMY_UUID } from '../src/modules/audit-log/audit-log.service';
+import {
+  AuditLogService,
+  SYSTEM_DUMMY_UUID,
+} from '../src/modules/audit-log/audit-log.service';
 import { UsersController } from '../src/modules/users/users.controller';
 import { UsersService } from '../src/modules/users/users.service';
 
@@ -107,7 +110,7 @@ describe('Audit Logging System (e2e)', () => {
         user: sampleUser,
       };
     }),
-    logout: jest.fn().mockImplementation(async (userId, context) => {
+    logout: jest.fn().mockImplementation(async (userId, jti, context) => {
       await mockAuditLogService.log({
         actorId: userId,
         action: 'auth.logout',
@@ -116,6 +119,7 @@ describe('Audit Logging System (e2e)', () => {
         metadata: {
           ip: context?.ip,
           userAgent: context?.userAgent,
+          revokedJti: jti ?? null,
         },
       });
     }),
@@ -343,9 +347,7 @@ describe('Audit Logging System (e2e)', () => {
         })
         .expect(201);
 
-      const userCreated = recordedLogs.find(
-        (l) => l.action === 'user.created',
-      );
+      const userCreated = recordedLogs.find((l) => l.action === 'user.created');
       expect(userCreated).toBeDefined();
       expect(userCreated.actorId).toBe(adminUser.id);
       expect(userCreated.metadata.email).toBe('new.agent@omnidesk.local');

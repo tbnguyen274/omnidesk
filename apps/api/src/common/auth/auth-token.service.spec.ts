@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
+import { RedisService } from '../redis/redis.service';
 import { UsersService } from '../../modules/users/users.service';
 import { AuthTokenService } from './auth-token.service';
 
@@ -12,6 +13,12 @@ describe('AuthTokenService', () => {
   let usersService: {
     findById: jest.Mock;
   };
+  let redisClient: {
+    get: jest.Mock;
+  };
+  let redisService: {
+    getClient: jest.Mock;
+  };
 
   beforeEach(() => {
     jwtService = {
@@ -20,24 +27,55 @@ describe('AuthTokenService', () => {
     usersService = {
       findById: jest.fn(),
     };
+    redisClient = {
+      get: jest.fn().mockResolvedValue(null),
+    };
+    redisService = {
+      getClient: jest.fn().mockReturnValue(redisClient),
+    };
     service = new AuthTokenService(
       jwtService as unknown as JwtService,
       usersService as unknown as UsersService,
+      redisService as unknown as RedisService,
     );
   });
 
   describe('validatePayload', () => {
     it('throws UnauthorizedException if payload sub is missing', async () => {
       await expect(
-        service.validatePayload({ sub: '', email: 'test@example.com', role: UserRole.AGENT }),
+        service.validatePayload({
+          sub: '',
+          email: 'test@example.com',
+          role: UserRole.AGENT,
+        }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException if token jti has been blacklisted in Redis', async () => {
+      redisClient.get.mockResolvedValueOnce('1');
+
+      await expect(
+        service.validatePayload({
+          sub: 'user-1',
+          email: 'test@example.com',
+          role: UserRole.AGENT,
+          jti: 'revoked-uuid',
+        }),
+      ).rejects.toThrow('Token has been revoked');
+      expect(redisClient.get).toHaveBeenCalledWith(
+        'blacklist:jwt:revoked-uuid',
+      );
     });
 
     it('throws UnauthorizedException if user not found', async () => {
       usersService.findById.mockResolvedValueOnce(null);
 
       await expect(
-        service.validatePayload({ sub: 'user-1', email: 'test@example.com', role: UserRole.AGENT }),
+        service.validatePayload({
+          sub: 'user-1',
+          email: 'test@example.com',
+          role: UserRole.AGENT,
+        }),
       ).rejects.toThrow(UnauthorizedException);
       expect(usersService.findById).toHaveBeenCalledWith('user-1');
     });
@@ -54,7 +92,11 @@ describe('AuthTokenService', () => {
       });
 
       await expect(
-        service.validatePayload({ sub: 'user-1', email: 'inactive@example.com', role: UserRole.AGENT }),
+        service.validatePayload({
+          sub: 'user-1',
+          email: 'inactive@example.com',
+          role: UserRole.AGENT,
+        }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -73,6 +115,7 @@ describe('AuthTokenService', () => {
         sub: 'user-1',
         email: 'agent@example.com',
         role: UserRole.AGENT,
+        jti: 'valid-jti-uuid',
       });
 
       expect(result).toEqual({
@@ -80,20 +123,27 @@ describe('AuthTokenService', () => {
         name: 'Active Agent',
         email: 'agent@example.com',
         role: UserRole.AGENT,
+        jti: 'valid-jti-uuid',
       });
     });
   });
 
   describe('validateToken', () => {
     it('throws UnauthorizedException if token is empty or invalid type', async () => {
-      await expect(service.validateToken('')).rejects.toThrow(UnauthorizedException);
-      await expect(service.validateToken(null as unknown as string)).rejects.toThrow(UnauthorizedException);
+      await expect(service.validateToken('')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(
+        service.validateToken(null as unknown as string),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException if jwtService.verifyAsync fails', async () => {
       jwtService.verifyAsync.mockRejectedValueOnce(new Error('jwt expired'));
 
-      await expect(service.validateToken('expired.jwt.token')).rejects.toThrow(UnauthorizedException);
+      await expect(service.validateToken('expired.jwt.token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('validates and returns AuthenticatedUser for a valid token', async () => {
