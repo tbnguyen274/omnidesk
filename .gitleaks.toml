@@ -1,0 +1,11 @@
+# Gitleaks configuration for OmniDesk
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for test specifications, fixtures, and mock test tokens"
+paths = [
+  '''(?i).*\.spec\.ts$''',
+  '''(?i).*\.test\.ts$''',
+  '''(?i).*/test/.*''',
+]

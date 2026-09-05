@@ -52,7 +52,7 @@ describe('UsersService', () => {
   describe('setPasswordResetToken', () => {
     it('hashes the token with SHA-256 before updating database', async () => {
       const email = 'user@example.com';
-      const rawToken = 'd8e3b4a2-1111-4444-9999-abcdef123456';
+      const rawToken = 'mock-sample-reset-token-for-test';
       const expires = new Date();
 
       const expectedHash = crypto
