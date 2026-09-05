@@ -231,7 +231,7 @@ erDiagram
     }
     TICKET {
       string id PK
-      string conversationId FK_UK
+      string conversationId FK, UK
       datetime slaDueAt
       datetime slaPausedAt
       boolean isOverdue
@@ -263,8 +263,8 @@ erDiagram
       string jobId
     }
     CONVERSATION_TAG {
-      string conversationId PK_FK
-      string tagId PK_FK
+      string conversationId PK, FK
+      string tagId PK, FK
     }
     TAG {
       string id PK
