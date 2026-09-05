@@ -1,5 +1,4 @@
 import { Logger } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
   MessageBody,
@@ -9,9 +8,8 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import type { JwtPayload } from '../../common/auth/current-user.type';
+import { AuthTokenService } from '../../common/auth/auth-token.service';
 import { appConfig } from '../../config/app.config';
-import { UsersService } from '../users/users.service';
 import type {
   NotificationPublishTarget,
   NotificationsPublisher,
@@ -58,10 +56,7 @@ export class NotificationsGateway
   @WebSocketServer()
   private readonly server!: Server;
 
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly usersService: UsersService,
-  ) {}
+  constructor(private readonly authTokenService: AuthTokenService) {}
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
@@ -153,30 +148,35 @@ export class NotificationsGateway
       throw new Error('Missing token');
     }
 
-    const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
-      secret: appConfig.jwtSecret,
-    });
-    const user = await this.usersService.findById(payload.sub);
-
-    if (!user || user.status !== 'ACTIVE') {
-      throw new Error('Invalid token');
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    };
+    return this.authTokenService.validateToken(token);
   }
 
-  private extractToken(client: AuthenticatedSocket) {
-    const rawCookie = client.handshake.headers.cookie;
-    if (!rawCookie) {
+  private extractToken(client: AuthenticatedSocket): string | null {
+    // 1. Handshake auth object (Socket.IO client auth option)
+    const authToken = client.handshake?.auth?.token;
+    if (typeof authToken === 'string' && authToken.trim().length > 0) {
+      return authToken.trim();
+    }
+
+    // 2. Authorization header (Strict RFC 6750 Bearer token)
+    const authHeader = client.handshake?.headers?.authorization;
+    if (typeof authHeader === 'string' && authHeader.trim().length > 0) {
+      if (authHeader.startsWith('Bearer ')) {
+        return authHeader.slice(7).trim();
+      }
       return null;
     }
-    const match = rawCookie.match(/(?:^|;\s*)Authentication=([^;]*)/);
-    return match ? decodeURIComponent(match[1]) : null;
+
+    // 3. Cookie (Authentication cookie)
+    const rawCookie = client.handshake?.headers?.cookie;
+    if (rawCookie) {
+      const match = rawCookie.match(/(?:^|;\s*)Authentication=([^;]*)/);
+      if (match) {
+        return decodeURIComponent(match[1]);
+      }
+    }
+
+    return null;
   }
 
   private async ensureAuthenticated(client: AuthenticatedSocket) {

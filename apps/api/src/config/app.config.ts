@@ -64,10 +64,19 @@ function isInsecureSecret(secret: string, defaultValue: string) {
   );
 }
 
+function getCookieSameSite(): 'lax' | 'strict' | 'none' {
+  const value = getEnv('AUTH_COOKIE_SAME_SITE')?.toLowerCase();
+  if (value === 'strict' || value === 'none') {
+    return value;
+  }
+  return 'lax';
+}
+
 export const appConfig = {
   apiPort: getNumberEnv('API_PORT') ?? getNumberEnv('PORT') ?? DEFAULT_API_PORT,
   jwtSecret: getJwtSecret(),
   jwtRefreshSecret: getJwtRefreshSecret(),
   realtimeNamespace: 'notifications',
   webOrigin: getEnv('WEB_ORIGIN') ?? DEFAULT_WEB_ORIGIN,
+  cookieSameSite: getCookieSameSite(),
 } as const;

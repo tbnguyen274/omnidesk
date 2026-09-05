@@ -2,8 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 
-type AuditLogInput = {
-  actorId?: string;
+/**
+ * Fallback UUID used for anonymous/unauthenticated security events (e.g. login failure with unknown email)
+ * to satisfy the UUID database constraint on target_id.
+ */
+export const SYSTEM_DUMMY_UUID = '00000000-0000-0000-0000-000000000000';
+
+export type AuditLogInput = {
+  actorId?: string | null;
   action: string;
   targetType: string;
   targetId: string;

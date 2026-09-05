@@ -16,9 +16,9 @@ import { ConversationsController } from '../src/modules/conversations/conversati
 import { ConversationsService } from '../src/modules/conversations/conversations.service';
 import { DashboardController } from '../src/modules/dashboard/dashboard.controller';
 import { DashboardService } from '../src/modules/dashboard/dashboard.service';
-import { DevEmailController } from '../src/modules/email/email.controller';
+import { DevEmailController } from '../src/modules/dev/dev-email.controller';
 import { EmailService } from '../src/modules/email/email.service';
-import { DevFacebookController } from '../src/modules/facebook/facebook.controller';
+import { DevFacebookController } from '../src/modules/dev/dev-facebook.controller';
 import { FacebookService } from '../src/modules/facebook/facebook.service';
 import { TicketsController } from '../src/modules/tickets/tickets.controller';
 import { TicketsService } from '../src/modules/tickets/tickets.service';

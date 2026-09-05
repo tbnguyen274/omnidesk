@@ -10,12 +10,14 @@ import { MailService } from '../../common/mail/mail.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { appConfig } from '../../config/app.config';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   findByEmail(email: string) {
@@ -78,10 +80,15 @@ export class UsersService {
     });
   }
 
+  private hashResetToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
   async findByPasswordResetToken(token: string) {
+    const hashedToken = this.hashResetToken(token);
     return this.prisma.user.findFirst({
       where: {
-        passwordResetToken: token,
+        passwordResetToken: hashedToken,
         passwordResetExpires: {
           gt: new Date(),
         },
@@ -90,10 +97,11 @@ export class UsersService {
   }
 
   async setPasswordResetToken(email: string, token: string, expires: Date) {
+    const hashedToken = this.hashResetToken(token);
     await this.prisma.user.update({
       where: { email },
       data: {
-        passwordResetToken: token,
+        passwordResetToken: hashedToken,
         passwordResetExpires: expires,
       },
     });
@@ -124,7 +132,7 @@ export class UsersService {
     });
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, creatorId?: string) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -138,6 +146,7 @@ export class UsersService {
 
     // Generate reset token for the welcome email
     const token = crypto.randomUUID();
+    const hashedToken = this.hashResetToken(token);
     const expires = new Date();
     expires.setDate(expires.getDate() + 7); // 7 days to set initial password
 
@@ -147,7 +156,7 @@ export class UsersService {
         email: dto.email,
         role: dto.role,
         passwordHash,
-        passwordResetToken: token,
+        passwordResetToken: hashedToken,
         passwordResetExpires: expires,
       },
       select: {
@@ -167,16 +176,28 @@ export class UsersService {
       resetUrl,
     );
 
+    await this.auditLog.log({
+      actorId: creatorId ?? null,
+      action: 'user.created',
+      targetType: 'User',
+      targetId: newUser.id,
+      metadata: {
+        email: newUser.email,
+        role: newUser.role,
+        createdBy: creatorId ?? 'system',
+      },
+    });
+
     return newUser;
   }
 
-  async updateStatus(id: string, dto: UpdateUserStatusDto) {
+  async updateStatus(id: string, dto: UpdateUserStatusDto, actorId?: string) {
     const user = await this.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id },
       data: { status: dto.status },
       select: {
@@ -187,5 +208,19 @@ export class UsersService {
         status: true,
       },
     });
+
+    await this.auditLog.log({
+      actorId: actorId ?? null,
+      action: 'user.status_updated',
+      targetType: 'User',
+      targetId: id,
+      metadata: {
+        email: user.email,
+        previousStatus: user.status,
+        newStatus: dto.status,
+      },
+    });
+
+    return updatedUser;
   }
 }

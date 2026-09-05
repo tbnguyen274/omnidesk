@@ -136,6 +136,7 @@ model User {
   outboundMessages      OutboundMessage[]
   auditLogs             AuditLog[]
 
+  @@index([passwordResetToken])
   @@map("users")
 }
 

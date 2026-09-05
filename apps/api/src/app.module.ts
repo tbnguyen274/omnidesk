@@ -32,8 +32,9 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
   imports: [
     ThrottlerModule.forRoot([
       {
+        name: 'default',
         ttl: 60000,
-        limit: 100, // 100 requests per minute
+        limit: 100, // 100 requests per minute default
       },
     ]),
     DatabaseModule,

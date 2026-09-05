@@ -38,11 +38,66 @@ describe('RolesGuard coverage for admin surfaces', () => {
 
   it('allows only users whose role is included in route metadata', () => {
     const guard = new RolesGuard({
-      getAllAndOverride: jest.fn().mockReturnValue([UserRole.ADMIN]),
+      getAllAndOverride: jest.fn().mockImplementation((key) => {
+        if (key === ROLES_KEY) return [UserRole.ADMIN];
+        return undefined;
+      }),
     } as unknown as Reflector);
 
     expect(guard.canActivate(createContext(UserRole.ADMIN))).toBe(true);
     expect(guard.canActivate(createContext(UserRole.AGENT))).toBe(false);
+  });
+
+  it('allows public routes marked with @Public() without user check', () => {
+    const guard = new RolesGuard({
+      getAllAndOverride: jest.fn().mockImplementation((key) => {
+        if (key === 'isPublic') return true;
+        return undefined;
+      }),
+    } as unknown as Reflector);
+
+    const publicContext = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: () => ({ getRequest: () => ({}) }),
+    } as unknown as ExecutionContext;
+
+    expect(guard.canActivate(publicContext)).toBe(true);
+  });
+
+  it('allows any authenticated user when marked with @AllowAnyAuthenticated()', () => {
+    const guard = new RolesGuard({
+      getAllAndOverride: jest.fn().mockImplementation((key) => {
+        if (key === 'allowAnyAuthenticated') return true;
+        return undefined;
+      }),
+    } as unknown as Reflector);
+
+    expect(guard.canActivate(createContext(UserRole.ADMIN))).toBe(true);
+    expect(guard.canActivate(createContext(UserRole.AGENT))).toBe(true);
+  });
+
+  it('denies access by default (Deny-All) when no metadata is provided', () => {
+    const guard = new RolesGuard({
+      getAllAndOverride: jest.fn().mockReturnValue(undefined),
+    } as unknown as Reflector);
+
+    expect(guard.canActivate(createContext(UserRole.ADMIN))).toBe(false);
+    expect(guard.canActivate(createContext(UserRole.AGENT))).toBe(false);
+  });
+
+  it('denies access when request has no user and route is not public', () => {
+    const guard = new RolesGuard({
+      getAllAndOverride: jest.fn().mockReturnValue(undefined),
+    } as unknown as Reflector);
+
+    const noUserContext = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: () => ({ getRequest: () => ({}) }),
+    } as unknown as ExecutionContext;
+
+    expect(guard.canActivate(noUserContext)).toBe(false);
   });
 });
 

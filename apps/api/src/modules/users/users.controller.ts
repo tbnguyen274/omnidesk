@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags, ApiCookieAuth, ApiOperation } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
+import type { CurrentUser as CurrentUserType } from '../../common/auth/current-user.type';
 import { Roles } from '../../common/auth/roles.decorator';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -48,8 +50,11 @@ export class UsersController {
   })
   @Post()
   @Roles(UserRole.ADMIN)
-  async create(@Body() dto: CreateUserDto) {
-    const data = await this.usersService.create(dto);
+  async create(
+    @Body() dto: CreateUserDto,
+    @CurrentUser() currentUser: CurrentUserType,
+  ) {
+    const data = await this.usersService.create(dto, currentUser.id);
     return {
       success: true,
       data,
@@ -66,8 +71,9 @@ export class UsersController {
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateUserStatusDto,
+    @CurrentUser() currentUser: CurrentUserType,
   ) {
-    const data = await this.usersService.updateStatus(id, dto);
+    const data = await this.usersService.updateStatus(id, dto, currentUser.id);
     return {
       success: true,
       data,
