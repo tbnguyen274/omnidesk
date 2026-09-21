@@ -17,7 +17,8 @@ export type OutboundMessageStatus =
   | "SENDING"
   | "SENT"
   | "FAILED"
-  | "RETRYING";
+  | "RETRYING"
+  | "DELIVERY_UNKNOWN";
 
 export type Attachment = {
   id: string;
@@ -186,6 +187,7 @@ export type CreateOutboundMessageResponse = {
   outboundMessage: OutboundMessage;
   jobId: string | number | null;
   queued: boolean;
+  duplicated: boolean;
 };
 
 export type DashboardSummary = {

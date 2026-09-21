@@ -251,6 +251,7 @@ Các sự kiện được ghi đồng thời vào bảng `outbox_events` trong c
 | OutboxEventType | Trigger | Target Queue | Mô tả hành động |
 |---|---|---|---|
 | `INBOUND_EVENT_CREATED` | Khi nhận webhook Facebook hoặc fetch Email mới | `inbound-events` | Enqueue worker để chuẩn hóa và tạo conversation/message |
+| `OUTBOUND_MESSAGE_SEND_REQUESTED` | Khi agent tạo outbound message; được ghi cùng `OutboundMessage` và attachment metadata trong một transaction | `outbound-messages` | Enqueue worker gửi qua provider bằng deterministic job ID |
 | `CONVERSATION_STATUS_CHANGED` | Khi đổi trạng thái hội thoại (e.g. `CLOSED`) | `email-actions` / `analytics` | Đồng bộ 2 chiều: Chuyển email vào thư mục Archive |
 | `CONVERSATION_PRIORITY_CHANGED` | Khi đổi độ ưu tiên (e.g. `URGENT`) | `email-actions` / `analytics` | Đồng bộ 2 chiều: Gắn cờ/star cho email trên mail server |
 | `CONVERSATION_READ_STATUS_CHANGED` | Khi agent đọc/đánh dấu chưa đọc | `email-actions` | Đồng bộ 2 chiều: Đánh dấu `\Seen` trên IMAP |
@@ -261,6 +262,8 @@ Khi dispatch event thất bại vượt quá số lần retry tối đa (`maxRet
 1. `OutboxEvent` được đánh dấu chuyển trạng thái sang `DEAD`.
 2. Lưu `failedAt`, `attempts`, và `errorMessage`.
 3. Hệ thống hỗ trợ endpoint / CLI command `replayDeadEvents()` để re-enqueue và khôi phục xử lý các sự kiện bị lỗi mà không làm mất tính toàn vẹn dữ liệu.
+
+Outbound message có thêm `Idempotency-Key` để chống HTTP retry/double-click. Worker atomically claim `PENDING/RETRYING -> SENDING`; provider acknowledgement được checkpoint trước khi transaction cuối cùng cập nhật `SENT`, tạo timeline message và liên kết attachments. Kết quả provider không xác định được chuyển sang `DELIVERY_UNKNOWN` và không tự động retry để tránh gửi trùng.
 
 ## 16. Queue Names (BullMQ)
 
@@ -275,4 +278,3 @@ sla-check               # Định kỳ kiểm tra và cảnh báo vi phạm SLA
 analytics-aggregation   # Tổng hợp số liệu thống kê dashboard
 auto-close              # Tự động đóng hội thoại không hoạt động sau 3 ngày
 ```
-

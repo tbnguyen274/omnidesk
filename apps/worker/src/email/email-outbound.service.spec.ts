@@ -102,6 +102,7 @@ describe('EmailOutboundService', () => {
     expect(sendMail).toHaveBeenCalledWith({
       from: 'support@example.com',
       to: 'customer@example.com',
+      messageId: '<omnidesk-outbound-1@example.com>',
       subject: 'Re: Need help',
       text: 'Thanks for contacting us.',
       attachments: [],

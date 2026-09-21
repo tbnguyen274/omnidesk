@@ -141,17 +141,17 @@ sequenceDiagram
     Agent->>Web: Write reply (with attachments) and click Send
     Web->>API: POST /api/v1/outbound/messages
     API->>DB: Create OutboundMessage (PENDING) + OutboxEvent (PENDING)
-    API->>Q: Enqueue outbound-messages job
-    API-->>Web: Return 201 Created (queued response)
+    API-->>Web: Return 201 Created (accepted response)
+    API->>Q: OutboxDispatcher enqueues deterministic job after commit
     Q->>Worker: Consume send-outbound-message job
-    Worker->>DB: Mark OutboundMessage SENDING
+    Worker->>DB: Atomically claim PENDING/RETRYING -> SENDING
     Worker->>Adapter: send(outboundMessageId)
     Adapter->>Provider: Send through Graph API or SMTP
     Provider-->>Adapter: Provider message id / error
     Adapter-->>Worker: Send result
-    Worker->>DB: Mark OutboundMessage SENT / FAILED / RETRYING
-    Worker->>DB: Mark OutboxEvent PUBLISHED
-    Worker->>Adapter: Create timeline message & emit realtime event
+    Worker->>DB: Checkpoint provider acknowledgement
+    Worker->>DB: Transactionally mark SENT + create timeline + link attachments
+    Worker->>Web: Emit realtime event; ambiguous delivery becomes DELIVERY_UNKNOWN
 ```
 
 ### Automated Ticket Lifecycle

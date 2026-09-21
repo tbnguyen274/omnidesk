@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Headers,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -11,6 +12,7 @@ import {
   ApiCookieAuth,
   ApiOperation,
   ApiConsumes,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
@@ -35,12 +37,19 @@ export class OutboundController {
     description:
       'Sends a reply or new outbound message to a customer through the appropriate channel (Email, Facebook).',
   })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description:
+      'Client-generated key used to safely retry the same send request',
+  })
   @Post('messages')
   async create(
     @Body() dto: CreateOutboundMessageDto,
     @CurrentUser() user: CurrentUserType,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    const data = await this.outboundService.create(dto, user);
+    const data = await this.outboundService.create(dto, user, idempotencyKey);
     return {
       success: true,
       data,

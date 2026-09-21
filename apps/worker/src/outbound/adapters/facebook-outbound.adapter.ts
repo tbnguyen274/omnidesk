@@ -17,10 +17,4 @@ export class FacebookOutboundAdapter implements OutboundProviderAdapter {
   send(outboundMessageId: string): Promise<SendOutboundResult> {
     return this.facebookOutboundService.sendOutboundMessage(outboundMessageId);
   }
-
-  createTimelineMessage(outboundMessageId: string) {
-    return this.facebookOutboundService.createTimelineMessage(
-      outboundMessageId,
-    );
-  }
 }

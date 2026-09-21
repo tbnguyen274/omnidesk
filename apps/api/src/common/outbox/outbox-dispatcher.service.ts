@@ -8,6 +8,7 @@ import {
   ConversationOutboxPayload,
   EmailActionsJobPayload,
   InboundEventJobPayload,
+  OutboundMessageJobPayload,
   QUEUE_NAMES,
 } from '@omnidesk/shared';
 import { ConversationStatus, Priority } from '@prisma/client';
@@ -117,6 +118,17 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
                 QUEUE_NAMES.INBOUND_EVENTS,
                 'process-inbound-event',
                 payload as InboundEventJobPayload,
+                jobId,
+              );
+              await this.outbox.markPublished(event.id, job?.id ?? jobId);
+              this.logger.log(
+                `Dispatched outbox event ${event.id} (type=${event.type}) => job ${job?.id ?? jobId}`,
+              );
+            } else if (event.type === 'OUTBOUND_MESSAGE_SEND_REQUESTED') {
+              const job = await this.queues.addWithJobId(
+                QUEUE_NAMES.OUTBOUND_MESSAGES,
+                'send-outbound-message',
+                payload as OutboundMessageJobPayload,
                 jobId,
               );
               await this.outbox.markPublished(event.id, job?.id ?? jobId);

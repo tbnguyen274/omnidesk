@@ -476,6 +476,14 @@ Response:
 
 Gửi tin nhắn phản hồi tới khách hàng qua kênh tương ứng (Facebook Messenger, Facebook Comment, Email) kèm file/ảnh đính kèm nếu có.
 
+Header khuyến nghị:
+
+```http
+Idempotency-Key: <client-generated-uuid>
+```
+
+Gửi lại cùng key và cùng payload trả về outbound message đã tạo; tái sử dụng key với payload khác trả `409 Conflict`.
+
 Request:
 
 ```json
@@ -500,10 +508,15 @@ Response:
 {
   "success": true,
   "data": {
-    "id": "uuid",
-    "conversationId": "uuid",
-    "status": "PENDING",
-    "createdAt": "2026-07-04T10:00:00.000Z"
+    "outboundMessage": {
+      "id": "uuid",
+      "conversationId": "uuid",
+      "status": "PENDING",
+      "createdAt": "2026-07-04T10:00:00.000Z"
+    },
+    "jobId": null,
+    "queued": true,
+    "duplicated": false
   }
 }
 ```
@@ -1128,5 +1141,4 @@ Các API bắt đầu bằng `/dev` chỉ bật trong môi trường development
 - `/dev/seed-demo-data`: Tạo dữ liệu mẫu phong phú để kiểm thử và demo.
 
 Trong production (`NODE_ENV=production`), các route này tự động bị disable hoàn toàn.
-
 

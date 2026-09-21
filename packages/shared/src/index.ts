@@ -64,6 +64,7 @@ export const OUTBOUND_MESSAGE_STATUSES = [
   'SENT',
   'FAILED',
   'RETRYING',
+  'DELIVERY_UNKNOWN',
 ] as const;
 export type OutboundMessageStatus =
   (typeof OUTBOUND_MESSAGE_STATUSES)[number];

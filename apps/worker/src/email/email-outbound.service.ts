@@ -1,17 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  ConversationStatus,
-  MessageContentType,
-  MessageDeliveryStatus,
-  MessageDirection,
-  MessageSenderType,
-  OutboundProvider,
-  Prisma,
-} from '@prisma/client';
+import { MessageDirection, OutboundProvider, Prisma } from '@prisma/client';
 import nodemailer from 'nodemailer';
 import { providerConfig } from '../config/provider.config';
 import { PrismaService } from '../database/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { DeliveryOutcomeUnknownError } from '../errors/delivery-outcome-unknown.error';
 
 type SendOutboundResult = {
   externalMessageId: string;
@@ -85,99 +78,38 @@ export class EmailOutboundService {
 
     const mailAttachments = await this.downloadAttachments(pendingAttachments);
 
-    const sent = await transporter.sendMail({
-      from: providerConfig.email.smtp.fromAddress,
-      to: outboundMessage.recipientExternalId,
-      subject: this.buildReplySubject(outboundMessage.conversation.subject),
-      text: outboundMessage.content,
-      attachments: mailAttachments,
-      ...threadHeaders,
-    });
+    let sent;
+    try {
+      sent = await transporter.sendMail({
+        from: providerConfig.email.smtp.fromAddress,
+        to: outboundMessage.recipientExternalId,
+        // Stable across retries for tracing and downstream deduplication. SMTP
+        // itself does not guarantee exactly-once delivery.
+        messageId: this.buildStableMessageId(outboundMessage.id),
+        subject: this.buildReplySubject(outboundMessage.conversation.subject),
+        text: outboundMessage.content,
+        attachments: mailAttachments,
+        ...threadHeaders,
+      });
+    } catch (error) {
+      const responseCode =
+        typeof error === 'object' && error !== null && 'responseCode' in error
+          ? Number((error as { responseCode?: unknown }).responseCode)
+          : undefined;
+      if (responseCode && Number.isFinite(responseCode)) {
+        throw error;
+      }
+      throw new DeliveryOutcomeUnknownError(
+        'SMTP request failed without an authoritative server response',
+        { cause: error },
+      );
+    }
 
     return {
       externalMessageId:
         sent.messageId?.toString() ?? `smtp_${outboundMessage.id}`,
       sentAt: new Date(),
     };
-  }
-
-  async createTimelineMessage(outboundMessageId: string) {
-    const outboundMessage = await this.prisma.outboundMessage.findUnique({
-      where: { id: outboundMessageId },
-      include: {
-        conversation: true,
-      },
-    });
-
-    if (
-      !outboundMessage ||
-      outboundMessage.provider !== OutboundProvider.EMAIL
-    ) {
-      return;
-    }
-
-    const externalMessageId =
-      outboundMessage.externalMessageId ?? `mock_${outboundMessage.id}`;
-    const existingMessage = await this.prisma.message.findUnique({
-      where: {
-        conversationId_externalMessageId: {
-          conversationId: outboundMessage.conversationId,
-          externalMessageId,
-        },
-      },
-    });
-
-    if (existingMessage) {
-      return;
-    }
-
-    const sentAt = new Date();
-    const pendingAttachments =
-      await this.fetchPendingAttachments(outboundMessageId);
-    const contentType =
-      pendingAttachments.length > 0
-        ? MessageContentType.ATTACHMENT
-        : MessageContentType.TEXT;
-
-    const createdMsg = await this.prisma.message.create({
-      data: {
-        conversationId: outboundMessage.conversationId,
-        direction: MessageDirection.OUTBOUND,
-        senderType: MessageSenderType.AGENT,
-        senderId: outboundMessage.createdBy,
-        content: outboundMessage.content,
-        contentType,
-        externalMessageId,
-        deliveryStatus: MessageDeliveryStatus.SENT,
-        sentAt,
-        createdAt: sentAt,
-      },
-    });
-
-    await this.prisma.conversation.update({
-      where: { id: outboundMessage.conversationId },
-      data: {
-        lastMessageAt: sentAt,
-        status:
-          outboundMessage.conversation.status === ConversationStatus.NEW
-            ? ConversationStatus.IN_PROGRESS
-            : undefined,
-        firstResponseAt: outboundMessage.conversation.firstResponseAt ?? sentAt,
-      },
-    });
-
-    // Link pre-uploaded attachments to the newly created timeline message
-    if (pendingAttachments.length > 0) {
-      await this.prisma.$transaction(
-        pendingAttachments.map((att) => {
-          const realKey = att.storageKey.split(':').slice(2).join(':');
-          return this.prisma.attachment.update({
-            where: { id: att.id },
-            data: { messageId: createdMsg.id, storageKey: realKey },
-          });
-        }),
-      );
-    }
   }
 
   private async resolveThreadHeaders(
@@ -278,6 +210,12 @@ export class EmailOutboundService {
     return /^re:/i.test(value) ? value : `Re: ${value}`;
   }
 
+  private buildStableMessageId(outboundMessageId: string) {
+    const fromAddress = providerConfig.email.smtp.fromAddress ?? '';
+    const domain = fromAddress.split('@')[1]?.trim() || 'omnidesk.local';
+    return `<omnidesk-${outboundMessageId}@${domain}>`;
+  }
+
   private formatMessageId(messageId: string) {
     const trimmed = messageId.trim();
     if (!trimmed) {
@@ -338,35 +276,5 @@ export class EmailOutboundService {
       }
     }
     return results;
-  }
-
-  private async linkAttachmentsToMessage(
-    outboundMessageId: string,
-    externalMessageId: string,
-    conversationId: string,
-  ) {
-    const pendingAttachments =
-      await this.fetchPendingAttachments(outboundMessageId);
-    if (pendingAttachments.length === 0) return;
-
-    const message = await this.prisma.message.findUnique({
-      where: {
-        conversationId_externalMessageId: { conversationId, externalMessageId },
-      },
-      select: { id: true },
-    });
-
-    if (!message) return;
-
-    // Update each pending attachment: set real messageId and strip the pending: prefix from storageKey
-    await this.prisma.$transaction(
-      pendingAttachments.map((att) => {
-        const realKey = att.storageKey.split(':').slice(2).join(':');
-        return this.prisma.attachment.update({
-          where: { id: att.id },
-          data: { messageId: message.id, storageKey: realKey },
-        });
-      }),
-    );
   }
 }
