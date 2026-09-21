@@ -314,7 +314,7 @@ Hệ thống được thiết kế đặc biệt để chịu tải cao và xử
 Các hành động nhạy cảm như Gán Agent (Assign), Đổi Trạng Thái (Status), Đổi Độ ưu tiên (Priority) được bảo vệ bằng cơ chế OCC. Mỗi bản ghi `Conversation` lưu trữ một trường `version`. Mọi thao tác cập nhật sẽ kiểm tra `version` khớp với lúc đọc. Nếu có xung đột (Race Condition), hệ thống sẽ trả về lỗi **HTTP 409 Conflict** để frontend xử lý (tự động reload lại dữ liệu mới nhất).
 
 ### 6.2. Transactional Outbox Pattern
-Để đảm bảo tin nhắn không bao giờ bị thất lạc (At-Least-Once Delivery), toàn bộ tin nhắn gửi đi được lưu vào bảng `outbound_messages` và `outbox_events` trong cùng một Database Transaction. `OutboxDispatcherService` chịu trách nhiệm dispatch job sang Redis Queue (BullMQ) với cơ chế Retry lũy thừa, Dead-Letter Queue (`DEAD` status) và replay protocol đảm bảo phục hồi khi có sự cố.
+Để đảm bảo send request đã commit không bị thất lạc (At-Least-Once Queue Delivery), `outbound_messages`, attachment metadata và `outbox_events` được lưu trong cùng một Database Transaction. `OutboxDispatcherService` dispatch job sang Redis Queue (BullMQ) bằng deterministic job ID, retry lũy thừa và trạng thái `DEAD`. At-least-once không đồng nghĩa exactly-once tại provider; kết quả gửi không xác định được cách ly ở `DELIVERY_UNKNOWN` để tránh tự động gửi trùng.
 
 ### 6.3. Queue Idempotency
 Worker Queue (BullMQ) kết hợp với Prisma Unique Constraints (lỗi `P2002`) để tạo cơ chế **Idempotency**. Việc tiếp nhận Webhook từ Facebook/Email có thể bị lặp lại hoặc xử lý đồng thời, nhưng nhờ chặn ở Database và bắt lỗi chủ động trong quá trình chèn dữ liệu (`events.service.ts`), hệ thống không bao giờ bị Crash hay sinh ra dữ liệu rác (Data Corruption).
@@ -377,6 +377,7 @@ sequenceDiagram
     participant FE as Web UI
     participant API as API Service
     participant DB as PostgreSQL
+    participant Dispatcher as Outbox Dispatcher
     participant Queue as Redis BullMQ
     participant Worker as Background Worker
     participant Provider as Facebook / Email
@@ -384,12 +385,16 @@ sequenceDiagram
     Agent->>FE: Click Send Reply (with attachments)
     FE->>API: POST /api/v1/outbound/messages
     API->>DB: Create OutboundMessage (PENDING) + OutboxEvent (PENDING)
-    API->>Queue: Enqueue outbound job
+    API->>Dispatcher: Trigger fast-path after commit
     API-->>FE: Reply accepted (201 Created)
+    Dispatcher->>Queue: Enqueue deterministic outbound job
+    Dispatcher->>DB: Mark OutboxEvent PUBLISHED
     Queue->>Worker: Process outbound job
+    Worker->>DB: Atomically claim PENDING/RETRYING -> SENDING
     Worker->>Provider: Send message / email via Graph API or SMTP
     Provider-->>Worker: Success / Failure result
-    Worker->>DB: Update OutboundMessage (SENT) & OutboxEvent (PUBLISHED)
+    Worker->>DB: Checkpoint provider message id
+    Worker->>DB: Transaction: SENT + timeline message + attachments
     Worker->>WS: Emit realtime event to connected agents
 ```
 
