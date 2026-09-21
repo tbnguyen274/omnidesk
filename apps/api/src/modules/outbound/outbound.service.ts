@@ -5,15 +5,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import {
   ChannelType,
   ConversationStatus,
   OutboundProvider,
+  Prisma,
   UserRole,
 } from '@prisma/client';
-import { QUEUE_NAMES, REALTIME_EVENT_TYPES } from '@omnidesk/shared';
-import { QueuesService } from '../../common/queues/queues.service';
+import { REALTIME_EVENT_TYPES } from '@omnidesk/shared';
 import type { CurrentUser } from '../../common/auth/current-user.type';
+import { OutboxDispatcherService } from '../../common/outbox/outbox-dispatcher.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOutboundMessageDto } from './dto/create-outbound-message.dto';
 import { OutboundRepository } from './outbound.repository';
@@ -22,11 +24,28 @@ import { OutboundRepository } from './outbound.repository';
 export class OutboundService {
   constructor(
     private readonly outboundRepository: OutboundRepository,
-    private readonly queues: QueuesService,
+    private readonly outboxDispatcher: OutboxDispatcherService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async create(dto: CreateOutboundMessageDto, currentUser: CurrentUser) {
+  async create(
+    dto: CreateOutboundMessageDto,
+    currentUser: CurrentUser,
+    rawIdempotencyKey?: string,
+  ) {
+    const idempotencyKey = this.normalizeIdempotencyKey(rawIdempotencyKey);
+    const requestHash = this.createRequestHash(dto);
+
+    if (idempotencyKey) {
+      const existing = await this.outboundRepository.findByIdempotencyKey(
+        currentUser.id,
+        idempotencyKey,
+      );
+      if (existing) {
+        return this.resolveIdempotentResult(existing, requestHash);
+      }
+    }
+
     const conversation = await this.outboundRepository.findConversationById(
       dto.conversationId,
     );
@@ -70,18 +89,6 @@ export class OutboundService {
       ? this.resolveReplyTarget(conversation.channelType, replyTarget)
       : undefined;
 
-    const outboundMessage = await this.outboundRepository.createOutboundMessage(
-      {
-        conversationId: conversation.id,
-        channelType: conversation.channelType,
-        provider: delivery.provider,
-        recipientExternalId: delivery.recipientExternalId,
-        replyToMessageId,
-        content,
-      },
-      currentUser.id,
-    );
-
     // Persist attachment records using a "pending" storageKey convention so the
     // worker can look them up before the timeline Message row is created.
     const rawAttachments =
@@ -97,28 +104,40 @@ export class OutboundService {
           ? this.resolveAttachmentMetas(dto.attachmentUrls)
           : [];
 
-    if (rawAttachments.length > 0) {
-      await this.outboundRepository.createAttachments(
-        rawAttachments.map((a) => ({
-          messageId: undefined as unknown as string, // will be linked by worker
-          storageKey: `pending:${outboundMessage.id}:${a.key}`,
-          url: a.url,
-          fileName: a.fileName,
-          mimeType: a.mimeType,
-          sizeBytes: a.sizeBytes,
-        })),
+    let outboundMessage;
+    try {
+      outboundMessage = await this.outboundRepository.createSendRequest(
+        {
+          conversationId: conversation.id,
+          channelType: conversation.channelType,
+          provider: delivery.provider,
+          recipientExternalId: delivery.recipientExternalId,
+          replyToMessageId,
+          content,
+        },
+        rawAttachments,
+        currentUser.id,
+        idempotencyKey,
+        requestHash,
       );
+    } catch (error) {
+      if (
+        idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const existing = await this.outboundRepository.findByIdempotencyKey(
+          currentUser.id,
+          idempotencyKey,
+        );
+        if (existing) {
+          return this.resolveIdempotentResult(existing, requestHash);
+        }
+      }
+      throw error;
     }
 
-    const job = await this.queues.add(
-      QUEUE_NAMES.OUTBOUND_MESSAGES,
-      'send-outbound-message',
-      {
-        outboundMessageId: outboundMessage.id,
-        conversationId: outboundMessage.conversationId,
-        provider: outboundMessage.provider,
-      },
-    );
+    this.outboxDispatcher.trigger();
 
     this.notificationsService.publishToConversation(
       outboundMessage.conversationId,
@@ -133,9 +152,56 @@ export class OutboundService {
 
     return {
       outboundMessage,
-      jobId: job.id,
+      jobId: null,
       queued: true,
+      duplicated: false,
     };
+  }
+
+  private resolveIdempotentResult(
+    outboundMessage: { requestHash: string | null },
+    requestHash: string,
+  ) {
+    if (outboundMessage.requestHash !== requestHash) {
+      throw new ConflictException(
+        'Idempotency key was already used with a different request',
+      );
+    }
+
+    return {
+      outboundMessage,
+      jobId: null,
+      queued: true,
+      duplicated: true,
+    };
+  }
+
+  private normalizeIdempotencyKey(value?: string) {
+    const normalized = value?.trim();
+    if (!normalized) return undefined;
+    if (normalized.length > 200) {
+      throw new BadRequestException(
+        'Idempotency-Key must not exceed 200 characters',
+      );
+    }
+    return normalized;
+  }
+
+  private createRequestHash(dto: CreateOutboundMessageDto) {
+    const canonical = {
+      conversationId: dto.conversationId,
+      content: dto.content.trim(),
+      replyToMessageId: dto.replyToMessageId ?? null,
+      attachments: (dto.attachments ?? []).map((attachment) => ({
+        url: attachment.url,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType ?? 'application/octet-stream',
+        sizeBytes: attachment.sizeBytes ?? 0,
+      })),
+      attachmentUrls: dto.attachmentUrls ?? [],
+    };
+
+    return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
   }
 
   private resolveDelivery(conversation: {

@@ -4,6 +4,7 @@ import { PrismaService } from '../database/prisma.service';
 
 export type OutboxEventType =
   | 'INBOUND_EVENT_CREATED'
+  | 'OUTBOUND_MESSAGE_SEND_REQUESTED'
   | 'CONVERSATION_STATUS_CHANGED'
   | 'CONVERSATION_PRIORITY_CHANGED'
   | 'CONVERSATION_READ_STATUS_CHANGED';

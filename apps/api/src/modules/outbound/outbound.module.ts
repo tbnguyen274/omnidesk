@@ -4,6 +4,7 @@ import { memoryStorage } from 'multer';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../../common/storage/storage.module';
 import { AttachmentsModule } from '../attachments/attachments.module';
+import { OutboxModule } from '../../common/outbox/outbox.module';
 import { OutboundController } from './outbound.controller';
 import { OutboundRepository } from './outbound.repository';
 import { OutboundService } from './outbound.service';
@@ -13,6 +14,7 @@ import { OutboundService } from './outbound.service';
     NotificationsModule,
     StorageModule,
     AttachmentsModule,
+    OutboxModule,
     MulterModule.register({ storage: memoryStorage() }),
   ],
   controllers: [OutboundController],

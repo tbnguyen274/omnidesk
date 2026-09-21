@@ -51,6 +51,38 @@ describe('OutboxDispatcherService', () => {
     );
   });
 
+  it('dispatches OUTBOUND_MESSAGE_SEND_REQUESTED to OUTBOUND_MESSAGES queue', async () => {
+    outboxService.findPending.mockResolvedValueOnce([
+      {
+        id: 'evt-outbound',
+        type: 'OUTBOUND_MESSAGE_SEND_REQUESTED',
+        payload: {
+          outboundMessageId: 'outbound-123',
+          conversationId: 'conversation-123',
+          provider: 'EMAIL',
+        },
+        attempts: 0,
+      },
+    ]);
+
+    await dispatcher.dispatch();
+
+    expect(queuesService.addWithJobId).toHaveBeenCalledWith(
+      QUEUE_NAMES.OUTBOUND_MESSAGES,
+      'send-outbound-message',
+      {
+        outboundMessageId: 'outbound-123',
+        conversationId: 'conversation-123',
+        provider: 'EMAIL',
+      },
+      'outbox_evt-outbound',
+    );
+    expect(outboxService.markPublished).toHaveBeenCalledWith(
+      'evt-outbound',
+      'job-123',
+    );
+  });
+
   it('maps CONVERSATION_STATUS_CHANGED (CLOSED) to MOVE_TO_ARCHIVE with deterministic jobId', async () => {
     outboxService.findPending.mockResolvedValueOnce([
       {

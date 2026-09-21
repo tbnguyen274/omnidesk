@@ -22,6 +22,7 @@ import { API_BASE_URL } from "./app-config";
 type RequestOptions = {
   token?: string;
   body?: unknown;
+  headers?: Record<string, string>;
   query?: Record<string, string | number | undefined>;
   skipAuthRefresh?: boolean;
 };
@@ -90,6 +91,7 @@ async function request<T>(
     method,
     headers: {
       "Content-Type": "application/json",
+      ...options.headers,
     },
     credentials: "include",
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -232,10 +234,12 @@ export const apiClient = {
   createOutboundMessage(
     token: string,
     payload: CreateOutboundMessagePayload,
+    idempotencyKey = crypto.randomUUID(),
   ) {
     return request<CreateOutboundMessageResponse>("/outbound/messages", "POST", {
       token,
       body: payload,
+      headers: { "Idempotency-Key": idempotencyKey },
     });
   },
 
