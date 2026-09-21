@@ -15,8 +15,4 @@ export class EmailOutboundAdapter implements OutboundProviderAdapter {
   send(outboundMessageId: string): Promise<SendOutboundResult> {
     return this.emailOutboundService.sendOutboundMessage(outboundMessageId);
   }
-
-  createTimelineMessage(outboundMessageId: string) {
-    return this.emailOutboundService.createTimelineMessage(outboundMessageId);
-  }
 }

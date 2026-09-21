@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ChannelType, OutboundProvider } from '@prisma/client';
 import { providerConfig } from '../../config/provider.config';
 import { PrismaService } from '../../database/prisma.service';
-import { FacebookOutboundRepository } from '../repositories/facebook-outbound.repository';
+import { DeliveryOutcomeUnknownError } from '../../errors/delivery-outcome-unknown.error';
+import { PermanentJobError } from '../../errors/permanent-job.error';
 
 type SendOutboundResult = {
   externalMessageId: string;
@@ -13,10 +14,7 @@ type SendOutboundResult = {
 export class FacebookOutboundService {
   private readonly logger = new Logger(FacebookOutboundService.name);
 
-  constructor(
-    private readonly facebookOutboundRepository: FacebookOutboundRepository,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async sendOutboundMessage(
     outboundMessageId: string,
@@ -63,7 +61,7 @@ export class FacebookOutboundService {
 
       const targetCommentId = outboundMessage.replyToMessageId || threadId;
 
-      const response = await fetch(
+      const response = await this.fetchProvider(
         `https://graph.facebook.com/${graphApiVersion}/${targetCommentId}/comments`,
         {
           method: 'POST',
@@ -71,9 +69,7 @@ export class FacebookOutboundService {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${pageAccessToken}`,
           },
-          body: JSON.stringify({
-            message: outboundMessage.content,
-          }),
+          body: JSON.stringify({ message: outboundMessage.content }),
         },
       );
 
@@ -83,11 +79,17 @@ export class FacebookOutboundService {
       };
 
       if (!response.ok || responseData.error) {
-        throw new Error(
-          `Facebook Graph API Error: ${
-            responseData.error?.message || response.statusText
-          }`,
-        );
+        const message = `Facebook Graph API Error: ${
+          responseData.error?.message || response.statusText
+        }`;
+        if (
+          response.status >= 400 &&
+          response.status < 500 &&
+          response.status !== 429
+        ) {
+          throw new PermanentJobError(message);
+        }
+        throw new Error(message);
       }
 
       return {
@@ -102,7 +104,7 @@ export class FacebookOutboundService {
         throw new Error('Facebook Message recipient ID is missing');
       }
 
-      const response = await fetch(
+      const response = await this.fetchProvider(
         `https://graph.facebook.com/${graphApiVersion}/me/messages`,
         {
           method: 'POST',
@@ -125,11 +127,17 @@ export class FacebookOutboundService {
       };
 
       if (!response.ok || responseData.error) {
-        throw new Error(
-          `Facebook Graph API Error: ${
-            responseData.error?.message || response.statusText
-          }`,
-        );
+        const message = `Facebook Graph API Error: ${
+          responseData.error?.message || response.statusText
+        }`;
+        if (
+          response.status >= 400 &&
+          response.status < 500 &&
+          response.status !== 429
+        ) {
+          throw new PermanentJobError(message);
+        }
+        throw new Error(message);
       }
 
       return {
@@ -144,9 +152,14 @@ export class FacebookOutboundService {
     );
   }
 
-  async createTimelineMessage(outboundMessageId: string) {
-    await this.facebookOutboundRepository.createTimelineMessage(
-      outboundMessageId,
-    );
+  private async fetchProvider(url: string, init: RequestInit) {
+    try {
+      return await fetch(url, init);
+    } catch (error) {
+      throw new DeliveryOutcomeUnknownError(
+        'Facebook request failed without an authoritative provider response',
+        { cause: error },
+      );
+    }
   }
 }

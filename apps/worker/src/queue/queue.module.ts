@@ -5,7 +5,6 @@ import { EmailLiveInboundService } from '../email/email-live-inbound.service';
 import { EmailOutboundService } from '../email/email-outbound.service';
 import { EmailSyncScheduler } from '../email/email-sync.scheduler';
 import { FacebookInboundRepository } from '../facebook/repositories/facebook-inbound.repository';
-import { FacebookOutboundRepository } from '../facebook/repositories/facebook-outbound.repository';
 import { FacebookInboundService } from '../facebook/services/facebook-inbound.service';
 import { FacebookOutboundService } from '../facebook/services/facebook-outbound.service';
 import { EmailSyncProcessor } from '../processors/email-sync.processor';
@@ -43,7 +42,6 @@ import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
     InboundAdapterRegistry,
     // --- Outbound ---
     EmailOutboundService,
-    FacebookOutboundRepository,
     FacebookOutboundService,
     EmailOutboundAdapter,
     FacebookOutboundAdapter,

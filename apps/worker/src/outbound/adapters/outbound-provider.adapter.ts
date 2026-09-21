@@ -8,5 +8,4 @@ export type SendOutboundResult = {
 export interface OutboundProviderAdapter {
   readonly provider: OutboundProvider;
   send(outboundMessageId: string): Promise<SendOutboundResult>;
-  createTimelineMessage(outboundMessageId: string): Promise<void>;
 }
