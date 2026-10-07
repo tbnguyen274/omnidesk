@@ -151,7 +151,8 @@ sequenceDiagram
     Adapter-->>Worker: Send result
     Worker->>DB: Checkpoint provider acknowledgement
     Worker->>DB: Transactionally mark SENT + create timeline + link attachments
-    Worker->>Web: Emit realtime event; ambiguous delivery becomes DELIVERY_UNKNOWN
+    Worker->>Web: Emit realtime event
+    Note over Worker,DB: Ambiguous delivery becomes DELIVERY_UNKNOWN
 ```
 
 ### Automated Ticket Lifecycle
