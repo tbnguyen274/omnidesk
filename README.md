@@ -109,6 +109,7 @@ sequenceDiagram
     participant Worker as Worker Email Sync
     participant Parser as Mail Parser
     participant DB as PostgreSQL
+    participant Outbox as Outbox Dispatcher
     participant Q as Redis Queue
     participant WS as Realtime Gateway
     participant Web as Agent Web UI
@@ -117,8 +118,9 @@ sequenceDiagram
     Mailbox-->>Worker: Raw MIME messages
     Worker->>Parser: Parse sender, subject, body, attachments, Message-ID
     Parser-->>Worker: Normalized email payload
-    Worker->>DB: Store InboundEvent with dedupKey
-    Worker->>Q: Enqueue inbound processing job
+    Worker->>DB: Atomically store InboundEvent + OutboxEvent
+    Outbox->>DB: Poll pending INBOUND_EVENT_CREATED
+    Outbox->>Q: Enqueue retryable job with deterministic ID
     Q->>Worker: Process normalized email
     Worker->>DB: Upsert Customer, Conversation, Message, Ticket, Attachments
     Worker->>WS: Publish realtime.event (conversation.updated)

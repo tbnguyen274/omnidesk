@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { InboundEventType, InboundProvider } from '@prisma/client';
+import {
+  InboundEventStatus,
+  InboundEventType,
+  InboundProvider,
+  Prisma,
+} from '@prisma/client';
 import { ImapFlow } from 'imapflow';
 import { simpleParser, type AddressObject } from 'mailparser';
 import { InboundEmailAttachment, InboundEmailPayload } from '@omnidesk/shared';
 import { providerConfig } from '../config/provider.config';
 import { PrismaService } from '../database/prisma.service';
-import { EmailInboundService } from './email-inbound.service';
 
 type SyncLiveInboundParams = {
   channelAccountId: string;
@@ -13,15 +17,13 @@ type SyncLiveInboundParams = {
 
 type SyncLiveInboundResult = {
   fetchedCount: number;
+  // Number of messages durably accepted for asynchronous inbound processing.
   processedCount: number;
 };
 
 @Injectable()
 export class EmailLiveInboundService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly emailInboundService: EmailInboundService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async sync(params: SyncLiveInboundParams): Promise<SyncLiveInboundResult> {
     if (providerConfig.email.inboundMode !== 'live') {
@@ -157,26 +159,8 @@ export class EmailLiveInboundService {
         };
         const dedupKey = buildDedupKey(rawPayload.mailbox, messageId);
 
-        const existing = await this.prisma.inboundEvent.findUnique({
-          where: { dedupKey },
-        });
-
-        if (existing) {
-          continue;
-        }
-
-        const inboundEvent = await this.prisma.inboundEvent.create({
-          data: {
-            provider: InboundProvider.EMAIL,
-            eventType: InboundEventType.EMAIL_RECEIVED,
-            externalEventId: messageId,
-            dedupKey,
-            rawPayload,
-          },
-        });
-
-        await this.emailInboundService.process(inboundEvent);
-        processedCount += 1;
+        const scheduled = await this.persistInboundEvent(rawPayload, dedupKey);
+        if (scheduled) processedCount += 1;
       }
     } finally {
       lock.release();
@@ -184,6 +168,146 @@ export class EmailLiveInboundService {
     }
 
     return { fetchedCount, processedCount };
+  }
+
+  /**
+   * Persists the provider event and its queue handoff atomically. The API
+   * outbox dispatcher will enqueue INBOUND_EVENT_CREATED with a deterministic
+   * BullMQ job ID, so IMAP polling never has to invoke the domain processor
+   * directly or perform a database/Redis dual write.
+   */
+  private async persistInboundEvent(
+    rawPayload: InboundEmailPayload,
+    dedupKey: string,
+  ): Promise<boolean> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.inboundEvent.findUnique({
+          where: { dedupKey },
+          select: {
+            id: true,
+            provider: true,
+            eventType: true,
+            dedupKey: true,
+            normalizedStatus: true,
+          },
+        });
+
+        if (existing) {
+          return this.ensurePendingEventHasOutbox(tx, existing);
+        }
+
+        const inboundEvent = await tx.inboundEvent.create({
+          data: {
+            provider: InboundProvider.EMAIL,
+            eventType: InboundEventType.EMAIL_RECEIVED,
+            externalEventId: rawPayload.messageId,
+            dedupKey,
+            rawPayload,
+          },
+          select: {
+            id: true,
+            provider: true,
+            eventType: true,
+            dedupKey: true,
+          },
+        });
+
+        await this.createInboundOutboxEvent(tx, inboundEvent);
+        return true;
+      });
+    } catch (error) {
+      if (!this.isUniqueConstraintViolation(error)) throw error;
+
+      // A concurrent poll may have inserted the same dedupKey after our read.
+      // Re-enter through the existing-event path so a legacy PENDING event is
+      // repaired if it was created before IMAP adopted the outbox protocol.
+      return this.prisma.$transaction(async (tx) => {
+        const existing = await tx.inboundEvent.findUnique({
+          where: { dedupKey },
+          select: {
+            id: true,
+            provider: true,
+            eventType: true,
+            dedupKey: true,
+            normalizedStatus: true,
+          },
+        });
+
+        return existing
+          ? this.ensurePendingEventHasOutbox(tx, existing)
+          : false;
+      });
+    }
+  }
+
+  private async ensurePendingEventHasOutbox(
+    tx: Prisma.TransactionClient,
+    event: {
+      id: string;
+      provider: InboundProvider;
+      eventType: InboundEventType;
+      dedupKey: string;
+      normalizedStatus: InboundEventStatus;
+    },
+  ) {
+    if (event.normalizedStatus !== InboundEventStatus.PENDING) return false;
+
+    // Serialize recovery for the same legacy event so concurrent IMAP syncs do
+    // not create more than one replacement outbox record.
+    await tx.$executeRaw`SELECT 1 FROM "inbound_events" WHERE "id" = ${event.id}::uuid FOR UPDATE`;
+
+    // READ COMMITTED can observe a newer row version after waiting for the
+    // lock. Avoid recreating a handoff for an event processed in the meantime.
+    const currentEvent = await tx.inboundEvent.findUnique({
+      where: { id: event.id },
+      select: { normalizedStatus: true },
+    });
+    if (currentEvent?.normalizedStatus !== InboundEventStatus.PENDING) {
+      return false;
+    }
+
+    const existingOutbox = await tx.outboxEvent.findFirst({
+      where: {
+        type: 'INBOUND_EVENT_CREATED',
+        aggregateId: event.id,
+      },
+      select: { id: true },
+    });
+    if (existingOutbox) return false;
+
+    await this.createInboundOutboxEvent(tx, event);
+    return true;
+  }
+
+  private createInboundOutboxEvent(
+    tx: Prisma.TransactionClient,
+    event: {
+      id: string;
+      provider: InboundProvider;
+      eventType: InboundEventType;
+      dedupKey: string;
+    },
+  ) {
+    return tx.outboxEvent.create({
+      data: {
+        type: 'INBOUND_EVENT_CREATED',
+        aggregateId: event.id,
+        payload: {
+          inboundEventId: event.id,
+          dedupKey: event.dedupKey,
+          provider: event.provider,
+          eventType: event.eventType,
+        },
+      },
+    });
+  }
+
+  private isUniqueConstraintViolation(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 }
 
