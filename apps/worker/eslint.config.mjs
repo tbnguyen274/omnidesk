@@ -33,7 +33,37 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
+    },
+  },
+  {
+    files: ['src/inbound/adapters/**/*.ts', 'src/inbound/**/*normalizer*.ts'],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@prisma/client',
+              message:
+                'Provider adapters use the internal normalization contract, not Prisma.',
+            },
+            {
+              name: '@omnidesk/shared',
+              importNames: ['calculateSlaDueAt', 'getSlaHours'],
+              message: 'SLA belongs to ingestion policy.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['**/database/**', '**/ingestion/**', '**/realtime/**'],
+              message:
+                'Provider normalization must not depend on domain persistence, policy or realtime.',
+            },
+          ],
+        },
+      ],
     },
   },
 );

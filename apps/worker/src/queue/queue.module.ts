@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
+import { INBOUND_ADAPTERS } from '../inbound/adapters/inbound-provider.adapter';
+import { InboundEventRepository } from '../inbound/ingestion/inbound-event.repository';
+import { InboundIngestionRepository } from '../inbound/ingestion/inbound-ingestion.repository';
+import { InboundIngestionService } from '../inbound/ingestion/inbound-ingestion.service';
+import { InboundNotificationsService } from '../inbound/ingestion/inbound-notifications.service';
+import { FacebookProfileService } from '../facebook/services/facebook-profile.service';
+import { ChannelAccountCredentialsReader } from '../facebook/services/channel-account-credentials.reader';
 import { PrismaService } from '../database/prisma.service';
-import { EmailInboundService } from '../email/email-inbound.service';
 import { EmailLiveInboundService } from '../email/email-live-inbound.service';
 import { EmailOutboundService } from '../email/email-outbound.service';
 import { EmailSyncScheduler } from '../email/email-sync.scheduler';
-import { FacebookInboundRepository } from '../facebook/repositories/facebook-inbound.repository';
-import { FacebookInboundService } from '../facebook/services/facebook-inbound.service';
 import { FacebookOutboundService } from '../facebook/services/facebook-outbound.service';
 import { EmailSyncProcessor } from '../processors/email-sync.processor';
 import { EmailActionsProcessor } from '../processors/email-actions.processor';
@@ -32,14 +36,25 @@ import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
     PrismaService,
     RealtimeEventsPublisher,
     // --- Inbound ---
-    EmailInboundService,
     EmailLiveInboundService,
     EmailSyncScheduler,
-    FacebookInboundRepository,
-    FacebookInboundService,
     EmailInboundAdapter,
     FacebookInboundAdapter,
     InboundAdapterRegistry,
+    InboundEventRepository,
+    InboundIngestionRepository,
+    InboundIngestionService,
+    InboundNotificationsService,
+    FacebookProfileService,
+    ChannelAccountCredentialsReader,
+    {
+      provide: INBOUND_ADAPTERS,
+      useFactory: (
+        email: EmailInboundAdapter,
+        facebook: FacebookInboundAdapter,
+      ) => [email, facebook],
+      inject: [EmailInboundAdapter, FacebookInboundAdapter],
+    },
     // --- Outbound ---
     EmailOutboundService,
     FacebookOutboundService,

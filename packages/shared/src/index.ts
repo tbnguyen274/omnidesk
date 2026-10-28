@@ -389,13 +389,13 @@ export function getSlaHours(priority: PriorityLevel | string): number {
     case 'URGENT':
       return 2;
     case 'HIGH':
-      return 4;
-    case 'MEDIUM':
       return 8;
-    case 'LOW':
+    case 'MEDIUM':
       return 24;
+    case 'LOW':
+      return 72;
     default:
-      return 8; // fallback
+      return 24; // Default to the MEDIUM SLA.
   }
 }
 

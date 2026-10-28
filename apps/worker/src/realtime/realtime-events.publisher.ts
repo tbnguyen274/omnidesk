@@ -1,4 +1,8 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  OnApplicationShutdown,
+  OnModuleInit,
+} from '@nestjs/common';
 import type { RealtimeEvent, RealtimeRoom } from '@omnidesk/shared';
 import Redis from 'ioredis';
 
@@ -10,7 +14,9 @@ type RealtimeEventEnvelope = {
 };
 
 @Injectable()
-export class RealtimeEventsPublisher implements OnModuleInit, OnModuleDestroy {
+export class RealtimeEventsPublisher
+  implements OnModuleInit, OnApplicationShutdown
+{
   private client: Redis | null = null;
 
   async onModuleInit() {
@@ -24,7 +30,8 @@ export class RealtimeEventsPublisher implements OnModuleInit, OnModuleDestroy {
     await this.client.ping();
   }
 
-  async onModuleDestroy() {
+  // Keep publishing available while QueueService drains active jobs.
+  async onApplicationShutdown() {
     await this.client?.quit();
   }
 

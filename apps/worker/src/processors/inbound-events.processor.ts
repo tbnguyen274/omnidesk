@@ -1,132 +1,79 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
-import { InboundEventJobPayload } from '@omnidesk/shared';
-import { InboundEventStatus } from '@prisma/client';
-import { PrismaService } from '../database/prisma.service';
+import type { Job } from 'bullmq';
+import type { InboundEventJobPayload } from '@omnidesk/shared';
 import { InboundAdapterRegistry } from '../inbound/adapters/inbound-adapter.registry';
-import { PermanentJobError } from '../errors/permanent-job.error';
-
-/** Lease duration: if processing has been in-flight for longer than this, it is
- *  considered stale and the reconcile scheduler will reset it back to PENDING. */
-const PROCESSING_LEASE_MS = 10 * 60 * 1000; // 10 minutes
+import { InboundEventRepository } from '../inbound/ingestion/inbound-event.repository';
+import { InboundIngestionService } from '../inbound/ingestion/inbound-ingestion.service';
+import { InboundNotificationsService } from '../inbound/ingestion/inbound-notifications.service';
+import { InboundLeaseLostError } from '../inbound/inbound.types';
+import type { IngestionResult } from '../inbound/inbound.types';
 
 @Injectable()
 export class InboundEventsProcessor {
   private readonly logger = new Logger(InboundEventsProcessor.name);
-
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly inboundAdapters: InboundAdapterRegistry,
+    private readonly events: InboundEventRepository,
+    private readonly adapters: InboundAdapterRegistry,
+    private readonly ingestion: InboundIngestionService,
+    private readonly notifications: InboundNotificationsService,
   ) {}
 
   async process(job: Job<InboundEventJobPayload>) {
-    // --- Idempotency: atomic PENDING → PROCESSING transition ---
-    const now = new Date();
-
-    const acquired = await this.prisma.inboundEvent.updateMany({
-      where: {
-        id: job.data.inboundEventId,
-        normalizedStatus: InboundEventStatus.PENDING,
-      },
-      data: {
-        normalizedStatus: InboundEventStatus.PROCESSING,
-        processingStartedAt: now,
-      },
-    });
-
-    if (acquired.count === 0) {
-      // Either already PROCESSING (another worker), PROCESSED, or FAILED (terminal) — skip.
-      const event = await this.prisma.inboundEvent.findUnique({
-        where: { id: job.data.inboundEventId },
-        select: { normalizedStatus: true },
-      });
-
-      if (!event) {
-        this.logger.warn(`Inbound event ${job.data.inboundEventId} not found`);
-        return;
-      }
-
-      if (event.normalizedStatus === InboundEventStatus.PROCESSED) {
-        this.logger.log(
-          `Inbound event ${job.data.inboundEventId} already PROCESSED — skipping`,
-        );
-        return;
-      }
-
-      if (event.normalizedStatus === InboundEventStatus.PROCESSING) {
-        // Check if lease is still valid
-        const staleEvent = await this.prisma.inboundEvent.findFirst({
-          where: {
-            id: job.data.inboundEventId,
-            processingStartedAt: {
-              lt: new Date(Date.now() - PROCESSING_LEASE_MS),
-            },
-          },
-          select: { id: true },
-        });
-
-        if (!staleEvent) {
-          this.logger.warn(
-            `Inbound event ${job.data.inboundEventId} is already PROCESSING (lease valid) — skipping`,
-          );
-          return;
-        }
-
-        // Stale lease: take over by resetting to PROCESSING with new lease
-        await this.prisma.inboundEvent.update({
-          where: { id: job.data.inboundEventId },
-          data: { processingStartedAt: now },
-        });
-
-        this.logger.warn(
-          `Inbound event ${job.data.inboundEventId} had a stale lease — reclaiming`,
-        );
-      }
-    }
-
-    // --- Load the event and process ---
-    const inboundEvent = await this.prisma.inboundEvent.findUnique({
-      where: { id: job.data.inboundEventId },
-    });
-
-    if (!inboundEvent) {
-      throw new PermanentJobError(
-        `Inbound event ${job.data.inboundEventId} not found — record may have been deleted`,
+    const claim = await this.events.claim(job.data.inboundEventId);
+    if (!claim) {
+      this.logger.log(
+        JSON.stringify({
+          action: 'inbound_claim_skipped',
+          inboundEventId: job.data.inboundEventId,
+          jobId: job.id,
+        }),
       );
+      return;
     }
-
+    let result: IngestionResult;
     try {
-      const adapter = this.inboundAdapters.find(inboundEvent);
-
-      if (adapter) {
-        await adapter.process(inboundEvent);
+      const adapter = this.adapters.find(claim.event);
+      if (!adapter) {
+        this.logger.warn(
+          `Unsupported inbound provider/event: ${claim.event.provider}/${claim.event.eventType}; completing no-op ${claim.event.id}`,
+        );
+        await this.events.completeNoop(claim);
         return;
       }
-
-      // No adapter found for this provider + eventType combination — treat as no-op.
-      this.logger.warn(
-        `No inbound adapter found for provider=${inboundEvent.provider} eventType=${inboundEvent.eventType} — marking as processed (no-op)`,
-      );
-      await this.prisma.inboundEvent.update({
-        where: { id: inboundEvent.id },
-        data: {
-          normalizedStatus: InboundEventStatus.PROCESSED,
-          processedAt: new Date(),
-          errorMessage: null,
-        },
-      });
+      const normalized = await adapter.normalize(claim.event);
+      result = await this.ingestion.ingest(claim, normalized);
     } catch (error) {
-      await this.prisma.inboundEvent.update({
-        where: { id: inboundEvent.id },
-        data: {
-          normalizedStatus: InboundEventStatus.FAILED,
-          errorMessage:
-            error instanceof Error
-              ? error.message
-              : 'Inbound processing failed',
-        },
-      });
+      if (error instanceof InboundLeaseLostError) {
+        this.logger.warn(
+          JSON.stringify({
+            action: 'inbound_lease_lost',
+            inboundEventId: claim.event.id,
+          }),
+        );
+        // A reconciler may have reset this event to PENDING without creating a
+        // new job. Let BullMQ retry; do not acknowledge that unfinished work.
+        throw error;
+      }
+      try {
+        await this.events.fail(claim, error);
+      } catch {
+        this.logger.error(
+          `Could not record inbound failure: ${claim.event.id}`,
+        );
+      }
       throw error;
     }
+    this.logger.log(
+      JSON.stringify({
+        action: result.duplicated
+          ? 'inbound_duplicate_skipped'
+          : 'inbound_ingested',
+        inboundEventId: claim.event.id,
+        conversationId: result.conversationId,
+        jobId: job.id,
+      }),
+    );
+    // Intentionally outside the domain failure handler: a committed event stays PROCESSED.
+    await this.notifications.publish(result);
   }
 }

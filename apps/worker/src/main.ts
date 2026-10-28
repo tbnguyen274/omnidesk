@@ -6,6 +6,7 @@ async function bootstrap() {
   validateProviderConfig();
 
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
   await app.listen(process.env.WORKER_PORT ?? process.env.PORT ?? 3001);
 }
 void bootstrap();
