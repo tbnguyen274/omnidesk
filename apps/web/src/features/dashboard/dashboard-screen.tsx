@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/features/auth/auth-provider";
 import { apiClient } from "@/lib/api-client";
 import { Inbox, Clock, CheckCircle, AlertCircle, BarChart2, Users } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -21,7 +21,7 @@ interface AgentPerformance {
   resolvedTickets: number;
 }
 
-export default function Dashboard() {
+export function DashboardScreen() {
   const { token, currentUser } = useAuth();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [performance, setPerformance] = useState<AgentPerformance[]>([]);

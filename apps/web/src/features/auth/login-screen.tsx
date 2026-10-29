@@ -1,8 +1,9 @@
 "use client";
 
-import { Eye, EyeOff, Inbox } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { ForgotPasswordModal } from "@/features/auth/forgot-password-modal";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 export function LoginScreen({
   error,
@@ -48,13 +49,10 @@ export function LoginScreen({
           onSubmit={handleSubmit}
         >
           <div className="mb-8 flex flex-col items-center gap-3 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EE0033] text-white shadow-lg shadow-[#EE0033]/30">
-              <Inbox size={32} strokeWidth={2.5} aria-hidden="true" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">OmniDesk</h1>
-              <p className="text-sm text-slate-500 font-medium mt-1">Enterprise Agent Login</p>
-            </div>
+            <h1 className="w-full">
+              <BrandLogo className="mx-auto h-16 w-64 max-w-full" sizes="256px" />
+            </h1>
+            <p className="text-sm text-slate-500 font-medium">Enterprise Agent Login</p>
           </div>
 
           <div className="space-y-4">

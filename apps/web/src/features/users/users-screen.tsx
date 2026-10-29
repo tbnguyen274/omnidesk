@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, FormEvent } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/features/auth/auth-provider";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { CurrentUser, UserRole } from "@/lib/api-types";
 import { AlertCircle, Plus, Search, ShieldAlert } from "lucide-react";
 
-export default function UsersManagementPage() {
+export function UsersScreen() {
   const { token, currentUser } = useAuth();
   const [users, setUsers] = useState<CurrentUser[]>([]);
   const [loading, setLoading] = useState(true);

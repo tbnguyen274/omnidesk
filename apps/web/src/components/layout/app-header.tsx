@@ -1,9 +1,10 @@
 "use client";
 
-import { Inbox, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { CurrentUser } from "@/lib/api-types";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 export function AppHeader({
   currentUser,
@@ -17,14 +18,12 @@ export function AppHeader({
   return (
     <header className="flex min-h-16 items-center justify-between gap-4 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 shadow-sm z-10 relative">
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EE0033] text-white shadow-md shadow-[#EE0033]/20">
-            <Inbox size={20} aria-hidden="true" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-slate-900">OmniDesk</h1>
-          </div>
-        </div>
+        <h1>
+          <BrandLogo
+            className="h-10 w-40 sm:h-12 sm:w-48"
+            sizes="(max-width: 640px) 160px, 192px"
+          />
+        </h1>
         <nav className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-6 h-10">
           <Link 
             href="/" 

@@ -10,7 +10,7 @@ import {
   SidePanel,
 } from "@/features/inbox/inbox-components";
 
-export default function Home() {
+export function InboxScreen() {
   const inbox = useInboxController();
   const [showSidePanel, setShowSidePanel] = useState(true);
 

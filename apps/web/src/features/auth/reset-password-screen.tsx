@@ -1,10 +1,12 @@
 "use client";
 
-import { AlertCircle, Check, Eye, EyeOff, Inbox } from "lucide-react";
+import { AlertCircle, Check, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 import { apiClient } from "@/lib/api-client";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -59,7 +61,7 @@ function ResetPasswordForm() {
         <p className="mb-6 text-sm text-slate-500">
           This password reset link is invalid or missing the token. Please request a new link.
         </p>
-        <Link href="/" className="text-sm font-semibold text-[#EE0033] hover:underline">
+        <Link href="/login" className="text-sm font-semibold text-[#EE0033] hover:underline">
           Return to Login
         </Link>
       </div>
@@ -77,7 +79,7 @@ function ResetPasswordForm() {
           Your password has been successfully reset. You can now log in with your new password.
         </p>
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/login")}
           className="flex h-12 w-full items-center justify-center rounded-xl bg-[#EE0033] text-sm font-bold text-white shadow-md shadow-[#EE0033]/20 transition-all hover:bg-[#c4002a] hover:shadow-lg hover:shadow-[#EE0033]/30"
         >
           Return to Login
@@ -89,13 +91,10 @@ function ResetPasswordForm() {
   return (
     <form className="p-10" onSubmit={handleSubmit}>
       <div className="mb-8 flex flex-col items-center gap-3 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EE0033] text-white shadow-lg shadow-[#EE0033]/30">
-          <Inbox size={32} strokeWidth={2.5} aria-hidden="true" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">OmniDesk</h1>
-          <p className="mt-1 text-sm font-medium text-slate-500">Set New Password</p>
-        </div>
+        <h1 className="w-full">
+          <BrandLogo className="mx-auto h-16 w-64 max-w-full" sizes="256px" />
+        </h1>
+        <p className="text-sm font-medium text-slate-500">Set New Password</p>
       </div>
 
       <div className="space-y-4">
@@ -155,7 +154,7 @@ function ResetPasswordForm() {
       </button>
 
       <div className="mt-5 text-center">
-        <Link href="/" className="text-sm font-semibold text-slate-500 hover:text-slate-800 hover:underline">
+        <Link href="/login" className="text-sm font-semibold text-slate-500 hover:text-slate-800 hover:underline">
           Cancel and return to Login
         </Link>
       </div>
@@ -163,7 +162,7 @@ function ResetPasswordForm() {
   );
 }
 
-export default function ResetPasswordPage() {
+export function ResetPasswordScreen() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F8F9FB] p-4 font-sans">
       {/* Dynamic Background Elements - Wavy lines and blurry blob */}
@@ -192,7 +191,7 @@ export default function ResetPasswordPage() {
           <Suspense
             fallback={
               <div className="flex h-64 items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#EE0033]/30 border-t-[#EE0033]"></div>
+                <LoadingIndicator className="h-8 w-8 animate-spin rounded-full border-4 border-[#EE0033]/30 border-t-[#EE0033]" />
               </div>
             }
           >

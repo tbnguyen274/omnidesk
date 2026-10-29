@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/features/auth/auth-provider";
 import { apiClient } from "@/lib/api-client";
 import type { DeadLetterJob, QueueName } from "@/lib/api-types";
 import {
@@ -39,7 +39,7 @@ function formatDate(ts: number | undefined) {
   }).format(new Date(ts));
 }
 
-export default function DeadLetterPage() {
+export function DeadLetterScreen() {
   const { token, currentUser } = useAuth();
   const [queue, setQueue] = useState<QueueName>("inbound-events");
   const [jobs, setJobs] = useState<DeadLetterJob[]>([]);

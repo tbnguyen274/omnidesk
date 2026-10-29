@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
+import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "OmniDesk",
   description: "Omnichannel customer support workspace",
 };
-
-import { AuthProvider } from "@/lib/auth-context";
-import { ClientLayout } from "./client-layout";
 
 export default function RootLayout({
   children,
@@ -21,9 +19,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider>
-          <ClientLayout>{children}</ClientLayout>
-        </AuthProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
