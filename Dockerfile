@@ -12,6 +12,7 @@ WORKDIR /app
 
 # Cache layer: install dependencies first (only re-runs if lockfile changes)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches/
 COPY apps/api/package.json ./apps/api/
 COPY apps/worker/package.json ./apps/worker/
 COPY apps/web/package.json ./apps/web/
