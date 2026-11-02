@@ -5,7 +5,7 @@
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api start:dev",
     "dev:worker": "pnpm --filter worker start:dev",
-    "dev:ngrok": "node scripts/dev-ngrok.js",
+    "dev:ngrok": "node --experimental-strip-types scripts/dev-ngrok.mts",
     "docker:up": "docker compose --env-file .env.docker up --build -d",
     "docker:down": "docker compose --env-file .env.docker down",
     "docker:logs": "docker compose --env-file .env.docker logs -f",
@@ -23,8 +23,17 @@
     "db:seed": "pnpm --filter api prisma:seed",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
+    "typecheck:backend": "pnpm --filter @omnidesk/shared build && pnpm --filter @omnidesk/domain build && pnpm -r --filter api --filter worker --filter @omnidesk/shared --filter @omnidesk/domain typecheck",
     "lint": "pnpm -r lint",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "db:inspect": "pnpm --filter @omnidesk/shared build && node --experimental-strip-types scripts/database-operations.mts inspect",
+    "db:budget": "pnpm --filter @omnidesk/shared build && node --experimental-strip-types scripts/database-operations.mts budget",
+    "db:check-migrations": "node --experimental-strip-types scripts/check-migrations.mts",
+    "db:test-compatibility": "node --experimental-strip-types scripts/schema-compatibility.mts",
+    "test:governance": "node --experimental-strip-types --test scripts/test/*.test.mts",
+    "db:test-load": "node --experimental-strip-types scripts/database-load.mts",
+    "typecheck:tooling": "pnpm --filter @omnidesk/shared build && pnpm --filter @omnidesk/domain build && pnpm --filter worker exec tsc -p ../../scripts/tsconfig.json",
+    "generate:secret": "node --experimental-strip-types scripts/generate-secret.mts"
   },
   "devDependencies": {
     "socket.io-client": "^4.8.3"

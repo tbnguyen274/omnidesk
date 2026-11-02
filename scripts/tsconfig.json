@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "..",
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "typeRoots": ["../apps/worker/node_modules/@types"],
+    "paths": {
+      "@prisma/client": [
+        "../apps/api/node_modules/@prisma/client/default.d.ts"
+      ],
+      "bullmq": ["../apps/worker/node_modules/bullmq/dist/esm/index.d.ts"],
+      "@nestjs/common": ["../apps/api/node_modules/@nestjs/common/index.d.ts"]
+    }
+  },
+  "include": [
+    "**/*.mts",
+    "../packages/domain/test/**/*.mts",
+    "../packages/shared/test/**/*.mts"
+  ]
+}

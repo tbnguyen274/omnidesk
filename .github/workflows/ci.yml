@@ -53,6 +53,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -69,8 +71,40 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Resolve migration compatibility base
+        id: migration-base
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        shell: bash
+        run: |
+          base="${PR_BASE:-$PUSH_BASE}"
+          if [[ ! "$base" =~ ^[a-fA-F0-9]{40}$ || "$base" =~ ^0+$ ]]; then
+            echo "An explicit existing base commit is required for migration compatibility."
+            exit 1
+          fi
+          git cat-file -e "$base^{commit}"
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce immutable and expand-only migrations
+        run: pnpm db:check-migrations "${{ steps.migration-base.outputs.sha }}"
+
+      - name: Test migration and connection-budget guards
+        run: pnpm test:governance
+
       - name: Generate Prisma Client
         run: pnpm db:generate
+
+      - name: Typecheck backend source and tests
+        run: pnpm typecheck:backend
+
+      - name: Typecheck TypeScript ESM tooling and Node tests
+        run: pnpm typecheck:tooling
+
+      - name: Validate database budget and read-only diagnostics
+        run: |
+          pnpm db:budget
+          pnpm db:inspect
 
       - name: Validate Clean Database Migrations
         run: |
@@ -106,6 +140,25 @@ jobs:
 
       - name: Build Applications
         run: pnpm build
+
+      - name: Checkout base API and Worker
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.migration-base.outputs.sha }}
+          path: .compat-base
+
+      - name: Build base API and Worker in isolation
+        working-directory: .compat-base
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm db:generate
+          pnpm -r --filter api... --filter worker... build
+
+      - name: Validate clean and rolling schema compatibility
+        env:
+          SCHEMA_TEST_DATABASE_URL: postgresql://omnidesk:omnidesk@localhost:5432/omnidesk
+        run: pnpm db:test-compatibility "${{ steps.migration-base.outputs.sha }}" .compat-base
 
       - name: Run API and Worker Health Smoke
         shell: bash
