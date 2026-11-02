@@ -57,18 +57,25 @@ export class InboundIngestionRepository {
       : result;
   }
 
-  conversation(
+  async conversation(
     tx: Prisma.TransactionClient,
     accountId: string,
     message: NormalizedInboundMessage,
   ) {
-    return tx.conversation.findFirst({
+    const candidate = await tx.conversation.findFirst({
       where: {
         channelAccountId: accountId,
         channelType: message.channelType,
         externalConversationId: message.externalConversationId,
       },
       orderBy: { createdAt: 'desc' },
+      include: { ticket: true },
+    });
+    if (!candidate) return null;
+    await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${candidate.id}::uuid FOR UPDATE`;
+    // READ COMMITTED: refresh the snapshot after acquiring the aggregate lock.
+    return tx.conversation.findUniqueOrThrow({
+      where: { id: candidate.id },
       include: { ticket: true },
     });
   }
@@ -143,12 +150,12 @@ export class InboundIngestionRepository {
       }),
     });
   }
-
   createTicket(
     tx: Prisma.TransactionClient,
     conversationId: string,
     slaDueAt: Date,
+    isOverdue: boolean,
   ) {
-    return tx.ticket.create({ data: { conversationId, slaDueAt } });
+    return tx.ticket.create({ data: { conversationId, slaDueAt, isOverdue } });
   }
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   ChannelAccountType,
+  ChannelAccountStatus,
   ChannelType,
   ConversationStatus,
   MessageContentType,
@@ -10,6 +11,7 @@ import {
   Prisma,
   Priority,
   UserRole,
+  UserStatus,
 } from '@prisma/client';
 import { calculateSlaDueAt, encrypt } from '@omnidesk/shared';
 import { hash } from 'bcryptjs';
@@ -79,14 +81,14 @@ export class DevService {
       update: {
         name: 'OmniDesk Admin',
         role: UserRole.ADMIN,
-        status: 'ACTIVE',
+        status: UserStatus.ACTIVE,
       },
       create: {
         email: 'admin@omnidesk.local',
         name: 'OmniDesk Admin',
         passwordHash,
         role: UserRole.ADMIN,
-        status: 'ACTIVE',
+        status: UserStatus.ACTIVE,
       },
     });
 
@@ -95,14 +97,14 @@ export class DevService {
       update: {
         name: 'OmniDesk Agent',
         role: UserRole.AGENT,
-        status: 'ACTIVE',
+        status: UserStatus.ACTIVE,
       },
       create: {
         email: 'agent@omnidesk.local',
         name: 'OmniDesk Agent',
         passwordHash,
         role: UserRole.AGENT,
-        status: 'ACTIVE',
+        status: UserStatus.ACTIVE,
       },
     });
 
@@ -304,7 +306,7 @@ export class DevService {
           configJson: params.configJson,
           accessTokenEncrypted:
             accessTokenEncrypted ?? existing.accessTokenEncrypted,
-          status: 'ACTIVE',
+          status: ChannelAccountStatus.ACTIVE,
         },
       });
     }
@@ -316,7 +318,7 @@ export class DevService {
         externalId: params.externalId,
         accessTokenEncrypted,
         configJson: params.configJson,
-        status: 'ACTIVE',
+        status: ChannelAccountStatus.ACTIVE,
       },
     });
   }

@@ -4,6 +4,7 @@ import { appConfig } from '../../config/app.config';
 import { RedisService } from '../redis/redis.service';
 import { UsersService } from '../../modules/users/users.service';
 import type { AuthenticatedUser, JwtPayload } from './current-user.type';
+import { UserStatus } from '@prisma/client';
 
 @Injectable()
 export class AuthTokenService {
@@ -56,7 +57,7 @@ export class AuthTokenService {
 
     const user = await this.usersService.findById(payload.sub);
 
-    if (!user || user.status !== 'ACTIVE') {
+    if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('Invalid token');
     }
 

@@ -11,6 +11,7 @@ import {
   InboundEventJobPayload,
   OutboundMessageJobPayload,
   QUEUE_NAMES,
+  positiveInteger,
   QueuePayloadByName,
   QueueName,
   SlaCheckJobPayload,
@@ -203,13 +204,28 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Redis connection options are not initialized');
     }
 
+    const concurrency = (name: string, fallback = 1) =>
+      positiveInteger(
+        process.env[`WORKER_${name}_CONCURRENCY`],
+        fallback,
+        `WORKER_${name}_CONCURRENCY`,
+      );
+    const limits = {
+      inbound: concurrency('INBOUND', 2),
+      outbound: concurrency('OUTBOUND', 2),
+      emailSync: concurrency('EMAIL_SYNC'),
+      emailActions: concurrency('EMAIL_ACTIONS'),
+      sla: concurrency('SLA_CHECK'),
+      analytics: concurrency('ANALYTICS'),
+      autoClose: concurrency('AUTO_CLOSE'),
+    };
     this.workers.set(
       QUEUE_NAMES.INBOUND_EVENTS,
       new BullWorker(
         QUEUE_NAMES.INBOUND_EVENTS,
         (job: Job<InboundEventJobPayload>) =>
           this.inboundEventsProcessor.process(job),
-        { connection: this.connectionOptions, concurrency: 5 },
+        { connection: this.connectionOptions, concurrency: limits.inbound },
       ),
     );
 
@@ -219,7 +235,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         QUEUE_NAMES.OUTBOUND_MESSAGES,
         (job: Job<OutboundMessageJobPayload>) =>
           this.outboundMessagesProcessor.process(job),
-        { connection: this.connectionOptions, concurrency: 5 },
+        { connection: this.connectionOptions, concurrency: limits.outbound },
       ),
     );
 
@@ -228,7 +244,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       new BullWorker(
         QUEUE_NAMES.EMAIL_SYNC,
         (job: Job<EmailSyncJobPayload>) => this.emailSyncProcessor.process(job),
-        { connection: this.connectionOptions, concurrency: 5 },
+        { connection: this.connectionOptions, concurrency: limits.emailSync },
       ),
     );
 
@@ -240,7 +256,10 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
           this.emailActionsProcessor.process(
             job as Parameters<typeof this.emailActionsProcessor.process>[0],
           ),
-        { connection: this.connectionOptions, concurrency: 5 },
+        {
+          connection: this.connectionOptions,
+          concurrency: limits.emailActions,
+        },
       ),
     );
 
@@ -249,7 +268,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       new BullWorker(
         QUEUE_NAMES.SLA_CHECK,
         (job: Job<SlaCheckJobPayload>) => this.slaCheckProcessor.process(job),
-        { connection: this.connectionOptions },
+        { connection: this.connectionOptions, concurrency: limits.sla },
       ),
     );
 
@@ -261,7 +280,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
           this.logger.log(`Analytics placeholder processed job ${job.id}`);
           return Promise.resolve();
         },
-        { connection: this.connectionOptions },
+        { connection: this.connectionOptions, concurrency: limits.analytics },
       ),
     );
 
@@ -273,7 +292,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
           this.autoCloseProcessor.process(
             job as Parameters<typeof this.autoCloseProcessor.process>[0],
           ),
-        { connection: this.connectionOptions },
+        { connection: this.connectionOptions, concurrency: limits.autoClose },
       ),
     );
 

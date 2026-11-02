@@ -11,6 +11,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { appConfig } from '../../config/app.config';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { UserRole, UserStatus } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -51,8 +52,8 @@ export class UsersService {
   findAgents() {
     return this.prisma.user.findMany({
       where: {
-        role: 'AGENT',
-        status: 'ACTIVE',
+        role: UserRole.AGENT,
+        status: UserStatus.ACTIVE,
       },
       select: {
         id: true,

@@ -6,9 +6,10 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit --incremental false",
     "dev": "tsc --watch",
     "lint": "echo \"No lint configured for shared package\"",
-    "test": "echo \"No tests configured for shared package\""
+    "test": "pnpm build && node --experimental-strip-types --test test/*.test.mts"
   },
   "keywords": [],
   "author": "",

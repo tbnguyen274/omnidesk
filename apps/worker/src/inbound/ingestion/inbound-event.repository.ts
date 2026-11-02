@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { type Prisma, InboundEventStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { InboundLeaseLostError } from '../inbound.types';
 import type { ClaimedInboundEvent } from '../inbound.types';
@@ -17,9 +17,13 @@ export class InboundEventRepository {
       where: {
         id,
         OR: [
-          { normalizedStatus: { in: ['PENDING', 'FAILED'] } },
           {
-            normalizedStatus: 'PROCESSING',
+            normalizedStatus: {
+              in: [InboundEventStatus.PENDING, InboundEventStatus.FAILED],
+            },
+          },
+          {
+            normalizedStatus: InboundEventStatus.PROCESSING,
             processingStartedAt: {
               lt: new Date(leaseStartedAt.getTime() - PROCESSING_LEASE_MS),
             },
@@ -27,7 +31,7 @@ export class InboundEventRepository {
         ],
       },
       data: {
-        normalizedStatus: 'PROCESSING',
+        normalizedStatus: InboundEventStatus.PROCESSING,
         processingStartedAt: leaseStartedAt,
       },
     });
@@ -46,7 +50,7 @@ export class InboundEventRepository {
     const result = await tx.inboundEvent.updateMany({
       where: this.owned(claim),
       data: {
-        normalizedStatus: 'PROCESSED',
+        normalizedStatus: InboundEventStatus.PROCESSED,
         processedAt: new Date(),
         processingStartedAt: null,
         errorMessage: null,
@@ -66,7 +70,7 @@ export class InboundEventRepository {
     return this.prisma.inboundEvent.updateMany({
       where: this.owned(claim),
       data: {
-        normalizedStatus: 'FAILED',
+        normalizedStatus: InboundEventStatus.FAILED,
         processingStartedAt: null,
         errorMessage:
           error instanceof Error ? error.message : 'Inbound processing failed',
@@ -77,7 +81,7 @@ export class InboundEventRepository {
   private owned(claim: ClaimedInboundEvent): Prisma.InboundEventWhereInput {
     return {
       id: claim.event.id,
-      normalizedStatus: 'PROCESSING',
+      normalizedStatus: InboundEventStatus.PROCESSING,
       processingStartedAt: claim.leaseStartedAt,
     };
   }

@@ -1,4 +1,8 @@
-import { OutboundMessageStatus, OutboundProvider } from '@prisma/client';
+import {
+  OutboundMessageStatus,
+  OutboundProvider,
+  ConversationStatus,
+} from '@prisma/client';
 import { OutboundMessagesProcessor } from './outbound-messages.processor';
 import { PermanentJobError } from '../errors/permanent-job.error';
 import { DeliveryOutcomeUnknownError } from '../errors/delivery-outcome-unknown.error';
@@ -17,6 +21,7 @@ describe('OutboundMessagesProcessor', () => {
   function createFixture() {
     const sentAt = new Date('2026-09-21T00:00:00.000Z');
     const tx = {
+      $executeRaw: jest.fn(),
       outboundMessage: {
         findUniqueOrThrow: jest.fn().mockResolvedValue({
           ...baseMessage,
@@ -25,7 +30,7 @@ describe('OutboundMessagesProcessor', () => {
           createdBy: 'agent-1',
           replyToMessageId: null,
           conversation: {
-            status: 'NEW',
+            status: ConversationStatus.NEW,
             firstResponseAt: null,
           },
         }),
@@ -75,7 +80,7 @@ describe('OutboundMessagesProcessor', () => {
       data: {
         outboundMessageId: 'outbound-1',
         conversationId: 'conversation-1',
-        provider: 'EMAIL',
+        provider: OutboundProvider.EMAIL,
       },
       opts: { attempts: 3 },
       attemptsMade: 0,

@@ -4,6 +4,7 @@ import {
   InboundEventType,
   InboundProvider,
   Prisma,
+  MessageContentType,
 } from '@prisma/client';
 import { ImapFlow } from 'imapflow';
 import { simpleParser, type AddressObject } from 'mailparser';
@@ -146,10 +147,10 @@ export class EmailLiveInboundService {
           html: typeof parsed.html === 'string' ? parsed.html : undefined,
           contentType:
             attachments.length > 0
-              ? 'ATTACHMENT'
+              ? MessageContentType.ATTACHMENT
               : parsed.html
-                ? 'HTML'
-                : 'TEXT',
+                ? MessageContentType.HTML
+                : MessageContentType.TEXT,
           receivedAt: (parsed.date ?? new Date()).toISOString(),
           threadId: getThreadId(parsed.references, parsed.inReplyTo, messageId),
           inReplyTo: parsed.inReplyTo,

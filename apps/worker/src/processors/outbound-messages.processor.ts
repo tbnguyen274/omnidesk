@@ -1,3 +1,5 @@
+import { evaluateConversationChange } from '@omnidesk/domain';
+import { observeDatabaseOperation } from '@omnidesk/shared';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import {
@@ -5,7 +7,6 @@ import {
   REALTIME_EVENT_TYPES,
 } from '@omnidesk/shared';
 import {
-  ConversationStatus,
   MessageContentType,
   MessageDeliveryStatus,
   MessageDirection,
@@ -218,85 +219,106 @@ export class OutboundMessagesProcessor {
   }
 
   private async finalizeSentMessage(outboundMessageId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const outboundMessage = await tx.outboundMessage.findUniqueOrThrow({
-        where: { id: outboundMessageId },
-        include: { conversation: true },
-      });
-
-      if (!outboundMessage.externalMessageId || !outboundMessage.sentAt) {
-        throw new Error(
-          `Provider acknowledgement is missing for outbound message ${outboundMessageId}`,
-        );
-      }
-
-      const pendingAttachments = await tx.attachment.findMany({
-        where: {
-          storageKey: { startsWith: `pending:${outboundMessageId}:` },
-        },
-      });
-      const contentType =
-        pendingAttachments.length > 0
-          ? MessageContentType.ATTACHMENT
-          : MessageContentType.TEXT;
-
-      const timelineMessage = await tx.message.upsert({
-        where: {
-          conversationId_externalMessageId: {
-            conversationId: outboundMessage.conversationId,
-            externalMessageId: outboundMessage.externalMessageId,
-          },
-        },
-        update: {
-          deliveryStatus: MessageDeliveryStatus.SENT,
-          sentAt: outboundMessage.sentAt,
-        },
-        create: {
-          conversationId: outboundMessage.conversationId,
-          direction: MessageDirection.OUTBOUND,
-          senderType: MessageSenderType.AGENT,
-          senderId: outboundMessage.createdBy,
-          content: outboundMessage.content,
-          contentType,
-          externalMessageId: outboundMessage.externalMessageId,
-          replyToMessageId: outboundMessage.replyToMessageId,
-          deliveryStatus: MessageDeliveryStatus.SENT,
-          sentAt: outboundMessage.sentAt,
-          createdAt: outboundMessage.sentAt,
-        },
-      });
-
-      await tx.conversation.update({
-        where: { id: outboundMessage.conversationId },
-        data: {
-          lastMessageAt: outboundMessage.sentAt,
-          status:
-            outboundMessage.conversation.status === ConversationStatus.NEW
-              ? ConversationStatus.IN_PROGRESS
-              : undefined,
-          firstResponseAt:
-            outboundMessage.conversation.firstResponseAt ??
-            outboundMessage.sentAt,
-        },
-      });
-
-      for (const attachment of pendingAttachments) {
-        const realKey = attachment.storageKey.split(':').slice(2).join(':');
-        await tx.attachment.update({
-          where: { id: attachment.id },
-          data: { messageId: timelineMessage.id, storageKey: realKey },
-        });
-      }
-
-      return tx.outboundMessage.update({
-        where: { id: outboundMessage.id },
-        data: {
-          status: OutboundMessageStatus.SENT,
-          processingStartedAt: null,
-          lastError: null,
-        },
-      });
+    const request = await this.prisma.outboundMessage.findUniqueOrThrow({
+      where: { id: outboundMessageId },
     });
+    return observeDatabaseOperation(
+      'outbound.finalize',
+      () =>
+        this.prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${request.conversationId}::uuid FOR UPDATE`;
+          await tx.$executeRaw`SELECT 1 FROM "outbound_messages" WHERE "id" = ${outboundMessageId}::uuid FOR UPDATE`;
+          const outboundMessage = await tx.outboundMessage.findUniqueOrThrow({
+            where: { id: outboundMessageId },
+            include: { conversation: { include: { ticket: true } } },
+          });
+
+          if (outboundMessage.status === OutboundMessageStatus.SENT)
+            return outboundMessage;
+
+          if (!outboundMessage.externalMessageId || !outboundMessage.sentAt) {
+            throw new Error(
+              `Provider acknowledgement is missing for outbound message ${outboundMessageId}`,
+            );
+          }
+
+          const pendingAttachments = await tx.attachment.findMany({
+            where: {
+              storageKey: { startsWith: `pending:${outboundMessageId}:` },
+            },
+          });
+          const contentType =
+            pendingAttachments.length > 0
+              ? MessageContentType.ATTACHMENT
+              : MessageContentType.TEXT;
+
+          const timelineMessage = await tx.message.upsert({
+            where: {
+              conversationId_externalMessageId: {
+                conversationId: outboundMessage.conversationId,
+                externalMessageId: outboundMessage.externalMessageId,
+              },
+            },
+            update: {
+              deliveryStatus: MessageDeliveryStatus.SENT,
+              sentAt: outboundMessage.sentAt,
+            },
+            create: {
+              conversationId: outboundMessage.conversationId,
+              direction: MessageDirection.OUTBOUND,
+              senderType: MessageSenderType.AGENT,
+              senderId: outboundMessage.createdBy,
+              content: outboundMessage.content,
+              contentType,
+              externalMessageId: outboundMessage.externalMessageId,
+              replyToMessageId: outboundMessage.replyToMessageId,
+              deliveryStatus: MessageDeliveryStatus.SENT,
+              sentAt: outboundMessage.sentAt,
+              createdAt: outboundMessage.sentAt,
+            },
+          });
+
+          const policy = evaluateConversationChange(
+            outboundMessage.conversation,
+            { type: 'OUTBOUND_SENT', sentAt: outboundMessage.sentAt },
+            { now: new Date() },
+          );
+          {
+            // The first successful finalization adds a timeline message: one aggregate version.
+            await tx.conversation.update({
+              where: { id: outboundMessage.conversationId },
+              data: { ...policy.conversationPatch, version: { increment: 1 } },
+            });
+            if (
+              outboundMessage.conversation.ticket &&
+              Object.keys(policy.ticketPatch).length
+            ) {
+              await tx.ticket.update({
+                where: { id: outboundMessage.conversation.ticket.id },
+                data: policy.ticketPatch,
+              });
+            }
+          }
+
+          for (const attachment of pendingAttachments) {
+            const realKey = attachment.storageKey.split(':').slice(2).join(':');
+            await tx.attachment.update({
+              where: { id: attachment.id },
+              data: { messageId: timelineMessage.id, storageKey: realKey },
+            });
+          }
+
+          return tx.outboundMessage.update({
+            where: { id: outboundMessage.id },
+            data: {
+              status: OutboundMessageStatus.SENT,
+              processingStartedAt: null,
+              lastError: null,
+            },
+          });
+        }),
+      (record) => this.logger.log(JSON.stringify(record)),
+    );
   }
 
   private async publishSentEvents(sentMessage: {

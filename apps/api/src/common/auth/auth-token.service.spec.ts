@@ -1,6 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import { RedisService } from '../redis/redis.service';
 import { UsersService } from '../../modules/users/users.service';
 import { AuthTokenService } from './auth-token.service';
@@ -86,7 +86,7 @@ describe('AuthTokenService', () => {
         name: 'Inactive User',
         email: 'inactive@example.com',
         role: UserRole.AGENT,
-        status: 'INACTIVE',
+        status: UserStatus.INACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -106,7 +106,7 @@ describe('AuthTokenService', () => {
         name: 'Active Agent',
         email: 'agent@example.com',
         role: UserRole.AGENT,
-        status: 'ACTIVE',
+        status: UserStatus.ACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -157,7 +157,7 @@ describe('AuthTokenService', () => {
         name: 'Admin User',
         email: 'admin@example.com',
         role: UserRole.ADMIN,
-        status: 'ACTIVE',
+        status: UserStatus.ACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -183,7 +183,7 @@ describe('AuthTokenService', () => {
         name: 'Inactive User',
         email: 'inactive@example.com',
         role: UserRole.AGENT,
-        status: 'INACTIVE',
+        status: UserStatus.INACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

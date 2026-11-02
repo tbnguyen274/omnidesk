@@ -10,8 +10,9 @@ import {
   InboundEventJobPayload,
   OutboundMessageJobPayload,
   QUEUE_NAMES,
+  classifyDatabaseError,
 } from '@omnidesk/shared';
-import { ConversationStatus, Priority } from '@prisma/client';
+import { ConversationStatus, Priority, ChannelType } from '@prisma/client';
 import { QueuesService } from '../queues/queues.service';
 import { OutboxService } from './outbox.service';
 
@@ -144,7 +145,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
               let action: EmailActionsJobPayload['action'] | null = null;
 
               if (
-                p.channelType === 'EMAIL' &&
+                p.channelType === ChannelType.EMAIL &&
                 p.externalMessageId &&
                 p.channelAccountId
               ) {
@@ -218,6 +219,16 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
           }
         }
       } while (this.hasPendingTrigger);
+    } catch (error) {
+      // Timer and fast-path callers do not await dispatch. Catch failures from
+      // fetching events and recording retries so they cannot terminate the API.
+      // The next safety-net pass retries events still pending in the database.
+      this.logger.error(
+        JSON.stringify({
+          action: 'outbox_dispatch_failed',
+          errorCategory: classifyDatabaseError(error),
+        }),
+      );
     } finally {
       this.dispatchInProgress = false;
     }

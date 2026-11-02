@@ -12,6 +12,9 @@ import {
   Priority,
   User,
   UserRole,
+  ConversationStatus,
+  ChannelAccountStatus,
+  UserStatus,
 } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
@@ -29,14 +32,14 @@ async function upsertUser(params: {
     update: {
       name: params.name,
       role: params.role,
-      status: 'ACTIVE',
+      status: UserStatus.ACTIVE,
     },
     create: {
       email: params.email,
       name: params.name,
       passwordHash,
       role: params.role,
-      status: 'ACTIVE',
+      status: UserStatus.ACTIVE,
     },
   });
 }
@@ -60,7 +63,7 @@ async function upsertChannelAccount(params: {
       data: {
         displayName: params.displayName,
         configJson: params.configJson,
-        status: 'ACTIVE',
+        status: ChannelAccountStatus.ACTIVE,
       },
     });
   }
@@ -71,7 +74,7 @@ async function upsertChannelAccount(params: {
       displayName: params.displayName,
       externalId: params.externalId,
       configJson: params.configJson,
-      status: 'ACTIVE',
+      status: ChannelAccountStatus.ACTIVE,
     },
   });
 }
@@ -135,7 +138,7 @@ async function upsertConversation(params: {
       customerId: params.customerId,
       externalConversationId: params.externalConversationId,
       subject: params.subject,
-      status: 'NEW',
+      status: ConversationStatus.NEW,
       priority: params.priority,
       assignedAgentId: params.assignedAgentId,
       lastMessageAt: new Date(),
@@ -162,7 +165,7 @@ async function upsertMessage(params: {
     },
     update: {
       content: params.content,
-      deliveryStatus: params.deliveryStatus ?? 'RECEIVED',
+      deliveryStatus: params.deliveryStatus ?? MessageDeliveryStatus.RECEIVED,
     },
     create: {
       conversationId: params.conversation.id,
@@ -171,8 +174,8 @@ async function upsertMessage(params: {
       senderType: params.senderType,
       senderId: params.senderId,
       content: params.content,
-      contentType: params.contentType ?? 'TEXT',
-      deliveryStatus: params.deliveryStatus ?? 'RECEIVED',
+      contentType: params.contentType ?? MessageContentType.TEXT,
+      deliveryStatus: params.deliveryStatus ?? MessageDeliveryStatus.RECEIVED,
       rawPayload: {
         seed: true,
       },
@@ -180,9 +183,7 @@ async function upsertMessage(params: {
   });
 }
 
-async function upsertTicket(params: {
-  conversation: Conversation;
-}) {
+async function upsertTicket(params: { conversation: Conversation }) {
   return prisma.ticket.upsert({
     where: { conversationId: params.conversation.id },
     update: {},

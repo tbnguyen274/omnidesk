@@ -1,5 +1,10 @@
 import { QUEUE_NAMES } from '@omnidesk/shared';
-import { ConversationStatus, Priority } from '@prisma/client';
+import {
+  ConversationStatus,
+  Priority,
+  ChannelType,
+  OutboundProvider,
+} from '@prisma/client';
 import { OutboxDispatcherService } from './outbox-dispatcher.service';
 
 describe('OutboxDispatcherService', () => {
@@ -59,7 +64,7 @@ describe('OutboxDispatcherService', () => {
         payload: {
           outboundMessageId: 'outbound-123',
           conversationId: 'conversation-123',
-          provider: 'EMAIL',
+          provider: OutboundProvider.EMAIL,
         },
         attempts: 0,
       },
@@ -73,7 +78,7 @@ describe('OutboxDispatcherService', () => {
       {
         outboundMessageId: 'outbound-123',
         conversationId: 'conversation-123',
-        provider: 'EMAIL',
+        provider: OutboundProvider.EMAIL,
       },
       'outbox_evt-outbound',
     );
@@ -91,7 +96,7 @@ describe('OutboxDispatcherService', () => {
         payload: {
           conversationId: 'c-1',
           newStatus: ConversationStatus.CLOSED,
-          channelType: 'EMAIL',
+          channelType: ChannelType.EMAIL,
           channelAccountId: 'ca-1',
           externalMessageId: 'msg-ext-1',
         },
@@ -125,7 +130,7 @@ describe('OutboxDispatcherService', () => {
         payload: {
           conversationId: 'c-1',
           newPriority: Priority.URGENT,
-          channelType: 'EMAIL',
+          channelType: ChannelType.EMAIL,
           channelAccountId: 'ca-1',
           externalMessageId: 'msg-ext-1',
         },
@@ -159,7 +164,7 @@ describe('OutboxDispatcherService', () => {
         payload: {
           conversationId: 'c-1',
           isRead: true,
-          channelType: 'EMAIL',
+          channelType: ChannelType.EMAIL,
           channelAccountId: 'ca-1',
           externalMessageId: 'msg-ext-1',
         },
@@ -193,7 +198,7 @@ describe('OutboxDispatcherService', () => {
         payload: {
           conversationId: 'c-1',
           newStatus: ConversationStatus.RESOLVED, // RESOLVED requires no IMAP action
-          channelType: 'EMAIL',
+          channelType: ChannelType.EMAIL,
           channelAccountId: 'ca-1',
           externalMessageId: 'msg-ext-1',
         },
@@ -205,7 +210,7 @@ describe('OutboxDispatcherService', () => {
         payload: {
           conversationId: 'c-2',
           newStatus: ConversationStatus.CLOSED,
-          channelType: 'FACEBOOK_MESSAGE', // Non-EMAIL channel
+          channelType: ChannelType.FACEBOOK_MESSAGE, // Non-EMAIL channel
           channelAccountId: 'ca-2',
         },
         attempts: 0,
@@ -276,5 +281,55 @@ describe('OutboxDispatcherService', () => {
     await dispatcher.runCleanup(7);
 
     expect(outboxService.cleanup).toHaveBeenCalledWith(7);
+  });
+
+  it('contains pool timeouts and allows the next dispatch pass to retry', async () => {
+    outboxService.findPending
+      .mockRejectedValueOnce(
+        Object.assign(new Error('pool exhausted'), { code: 'P2024' }),
+      )
+      .mockResolvedValueOnce([
+        {
+          id: 'evt-retry',
+          type: 'INBOUND_EVENT_CREATED',
+          payload: { inboundEventId: 'inbound-retry' },
+          attempts: 0,
+        },
+      ]);
+
+    await expect(dispatcher.dispatch()).resolves.toBeUndefined();
+    expect(outboxService.incrementAttempts).not.toHaveBeenCalled();
+    expect(outboxService.markFailed).not.toHaveBeenCalled();
+
+    await dispatcher.dispatch();
+
+    expect(outboxService.markPublished).toHaveBeenCalledWith(
+      'evt-retry',
+      'job-123',
+    );
+  });
+
+  it('contains failures when persisting retry attempts and releases the dispatch guard', async () => {
+    outboxService.findPending
+      .mockResolvedValueOnce([
+        {
+          id: 'evt-retry-write',
+          type: 'INBOUND_EVENT_CREATED',
+          payload: { inboundEventId: 'inbound-retry-write' },
+          attempts: 0,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    queuesService.addWithJobId.mockRejectedValueOnce(
+      new Error('queue unavailable'),
+    );
+    outboxService.incrementAttempts.mockRejectedValueOnce(
+      new Error('database unavailable'),
+    );
+
+    await expect(dispatcher.dispatch()).resolves.toBeUndefined();
+    await dispatcher.dispatch();
+
+    expect(outboxService.findPending).toHaveBeenCalledTimes(2);
   });
 });

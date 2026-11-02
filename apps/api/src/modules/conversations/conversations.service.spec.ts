@@ -1,15 +1,23 @@
 import { ConversationsService } from './conversations.service';
 import { BadRequestException } from '@nestjs/common';
-import { UserRole, UserStatus } from '@prisma/client';
+import {
+  UserRole,
+  UserStatus,
+  ChannelType,
+  ConversationStatus,
+  MessageContentType,
+  MessageDirection,
+  Priority,
+} from '@prisma/client';
 
 describe('ConversationsService', () => {
   it('returns paginated conversations', async () => {
     const conversation = {
       id: 'conversation-id',
-      channelType: 'EMAIL',
+      channelType: ChannelType.EMAIL,
       subject: 'Billing issue',
-      status: 'NEW',
-      priority: 'HIGH',
+      status: ConversationStatus.NEW,
+      priority: Priority.HIGH,
       assignedAgent: null,
       ticket: null,
       lastMessageAt: new Date(),
@@ -23,8 +31,8 @@ describe('ConversationsService', () => {
         {
           id: 'message-id',
           content: 'I need help',
-          contentType: 'TEXT',
-          direction: 'INBOUND',
+          contentType: MessageContentType.TEXT,
+          direction: MessageDirection.INBOUND,
           createdAt: new Date(),
         },
       ],

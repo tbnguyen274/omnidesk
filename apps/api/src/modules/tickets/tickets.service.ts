@@ -36,7 +36,7 @@ export class TicketsService {
 
     if (query.overdue) {
       conversationWhere.status = {
-        notIn: [ConversationStatus.RESOLVED, ConversationStatus.CLOSED],
+        in: [ConversationStatus.NEW, ConversationStatus.IN_PROGRESS],
       };
     }
 
@@ -46,6 +46,7 @@ export class TicketsService {
     }
 
     if (query.overdue) {
+      where.slaPausedAt = null;
       where.slaDueAt = {
         lt: new Date(),
       };

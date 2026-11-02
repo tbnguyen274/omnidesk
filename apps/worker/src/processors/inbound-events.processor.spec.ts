@@ -3,11 +3,16 @@ import type { InboundEventJobPayload } from '@omnidesk/shared';
 import { InboundEventsProcessor } from './inbound-events.processor';
 import { InboundLeaseLostError } from '../inbound/inbound.types';
 import { PermanentJobError } from '../errors/permanent-job.error';
+import { InboundEventType, InboundProvider } from '@prisma/client';
 
 describe('InboundEventsProcessor ownership and notification boundary', () => {
   function setup() {
     const claim = {
-      event: { id: 'event', provider: 'EMAIL', eventType: 'EMAIL_RECEIVED' },
+      event: {
+        id: 'event',
+        provider: InboundProvider.EMAIL,
+        eventType: InboundEventType.EMAIL_RECEIVED,
+      },
       leaseStartedAt: new Date(),
     };
     const events = {

@@ -154,7 +154,7 @@ describe('login -> inbox -> reply smoke flow (e2e)', () => {
       .post('/api/v1/outbound/messages')
       .send({
         conversationId: '11111111-1111-4111-8111-111111111111',
-        provider: 'EMAIL',
+        provider: OutboundProvider.EMAIL,
         recipientExternalId: 'attacker@example.com',
         content: 'This payload must be rejected.',
       })

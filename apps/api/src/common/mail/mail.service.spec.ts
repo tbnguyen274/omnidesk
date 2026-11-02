@@ -1,6 +1,7 @@
 import * as nodemailer from 'nodemailer';
 import { providerConfig } from '../../config/provider.config';
 import { MailService } from './mail.service';
+import { UserRole } from '@prisma/client';
 
 jest.mock('nodemailer');
 
@@ -65,7 +66,7 @@ describe('MailService', () => {
     const debugSpy = jest.spyOn((service as any).logger, 'debug');
 
     await service.sendWelcomeEmail(
-      { name: 'John Doe', email: 'john@example.com', role: 'AGENT' },
+      { name: 'John Doe', email: 'john@example.com', role: UserRole.AGENT },
       'http://localhost:3000/invite',
     );
 

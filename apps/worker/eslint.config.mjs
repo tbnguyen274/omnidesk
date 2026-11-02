@@ -45,6 +45,11 @@ export default tseslint.config(
         {
           paths: [
             {
+              name: '@omnidesk/domain',
+              message:
+                'Provider adapters normalize data; application ingestion owns domain decisions.',
+            },
+            {
               name: '@prisma/client',
               message:
                 'Provider adapters use the internal normalization contract, not Prisma.',

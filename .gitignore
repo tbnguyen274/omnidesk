@@ -13,9 +13,9 @@
 next-env.d.ts
 
 # ==========================================
-# NestJS Build Outputs
+# Build Outputs
 # ==========================================
-/dist/
+**/dist/
 *.tsbuildinfo
 
 # ==========================================
@@ -90,3 +90,6 @@ postman/
 report/
 slides/
 internal/
+review/
+# Isolated base-version checkout for schema compatibility checks.
+/.compat-base/

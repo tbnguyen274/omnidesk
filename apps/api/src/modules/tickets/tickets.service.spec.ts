@@ -1,4 +1,4 @@
-import { ConversationStatus } from '@prisma/client';
+import { ConversationStatus, Priority } from '@prisma/client';
 import { TicketsService } from './tickets.service';
 
 describe('TicketsService mutations', () => {
@@ -15,7 +15,7 @@ describe('TicketsService mutations', () => {
         conversation: {
           id: 'conversation-id',
           status: ConversationStatus.RESOLVED,
-          priority: 'HIGH',
+          priority: Priority.HIGH,
           assignedAgentId: null,
           assignedAgent: null,
           resolvedAt: new Date(),

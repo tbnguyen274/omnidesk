@@ -4,7 +4,12 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { InboundEventStatus, OutboundMessageStatus } from '@prisma/client';
+import { classifyDatabaseError } from '@omnidesk/shared';
+import {
+  InboundEventStatus,
+  OutboundMessageStatus,
+  OutboxEventStatus,
+} from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { OutboxDispatcherService } from '../outbox/outbox-dispatcher.service';
 import { OutboxService } from '../outbox/outbox.service';
@@ -59,6 +64,13 @@ export class ReconcileScheduler implements OnModuleInit, OnModuleDestroy {
     try {
       await this.reconcileStuckInboundEvents();
       await this.reconcileStuckOutboundMessages();
+    } catch (error) {
+      this.logger.error(
+        JSON.stringify({
+          action: 'reconcile_failed',
+          errorCategory: classifyDatabaseError(error),
+        }),
+      );
     } finally {
       this.reconcileInProgress = false;
     }
@@ -144,7 +156,7 @@ export class ReconcileScheduler implements OnModuleInit, OnModuleDestroy {
           where: {
             type: 'OUTBOUND_MESSAGE_SEND_REQUESTED',
             aggregateId: message.id,
-            status: 'PENDING',
+            status: OutboxEventStatus.PENDING,
           },
           select: { id: true },
         });

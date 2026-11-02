@@ -16,6 +16,7 @@ COPY apps/api/package.json ./apps/api/
 COPY apps/worker/package.json ./apps/worker/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/domain/package.json ./packages/domain/
 
 RUN pnpm install --frozen-lockfile
 
@@ -29,6 +30,7 @@ ENV NEXT_PUBLIC_REALTIME_URL=$NEXT_PUBLIC_REALTIME_URL
 
 # Generate Prisma client and build all apps (sequential for clear errors)
 RUN pnpm --filter @omnidesk/shared build
+RUN pnpm --filter @omnidesk/domain build
 RUN pnpm --filter api exec prisma generate --schema prisma/schema.prisma
 RUN pnpm --filter api build
 RUN pnpm --filter worker build
@@ -65,6 +67,10 @@ COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 # Shared package (now built to dist)
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=builder /app/packages/domain/dist ./packages/domain/dist
+COPY --from=builder /app/packages/domain/package.json ./packages/domain/package.json
+COPY --from=builder /app/packages/domain/node_modules ./packages/domain/node_modules
 EXPOSE 3000
 CMD ["node", "apps/api/dist/main.js"]
 
@@ -81,4 +87,8 @@ COPY --from=builder /app/apps/worker/node_modules ./apps/worker/node_modules
 # Shared package (now built to dist)
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=builder /app/packages/domain/dist ./packages/domain/dist
+COPY --from=builder /app/packages/domain/package.json ./packages/domain/package.json
+COPY --from=builder /app/packages/domain/node_modules ./packages/domain/node_modules
 CMD ["node", "apps/worker/dist/main.js"]

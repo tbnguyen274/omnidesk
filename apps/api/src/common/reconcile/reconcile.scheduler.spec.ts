@@ -2,6 +2,34 @@ import { OutboundMessageStatus, OutboundProvider } from '@prisma/client';
 import { ReconcileScheduler } from './reconcile.scheduler';
 
 describe('ReconcileScheduler outbound recovery', () => {
+  it('contains database failures and retries on the next scheduled pass', async () => {
+    const prisma = {
+      inboundEvent: {
+        updateMany: jest
+          .fn()
+          .mockRejectedValueOnce(
+            Object.assign(new Error('pool exhausted'), { code: 'P2024' }),
+          )
+          .mockResolvedValueOnce({ count: 0 }),
+      },
+      outboundMessage: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const scheduler = new ReconcileScheduler(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(scheduler.reconcile()).resolves.toBeUndefined();
+    await scheduler.reconcile();
+
+    expect(prisma.inboundEvent.updateMany).toHaveBeenCalledTimes(2);
+    expect(prisma.outboundMessage.findMany).toHaveBeenCalledTimes(1);
+  });
+
   it('quarantines ambiguous sends and re-enqueues recoverable messages through outbox', async () => {
     const tx = {
       outboxEvent: { findFirst: jest.fn().mockResolvedValue(null) },

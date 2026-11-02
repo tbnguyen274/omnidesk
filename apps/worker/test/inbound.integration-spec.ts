@@ -1,9 +1,29 @@
 import { randomUUID } from 'node:crypto';
+import { ConversationsRepository } from '../../api/src/modules/conversations/conversations.repository';
+import { OutboxService } from '../../api/src/common/outbox/outbox.service';
+import { SlaCheckProcessor } from '../src/processors/sla-check.processor';
+import { AutoCloseProcessor } from '../src/processors/auto-close.processor';
+import { OutboundMessagesProcessor } from '../src/processors/outbound-messages.processor';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { Prisma } from '@prisma/client';
-import { Queue, QueueEvents, Worker } from 'bullmq';
+import {
+  Prisma,
+  type Conversation,
+  ChannelType,
+  ConversationStatus,
+  InboundEventStatus,
+  InboundEventType,
+  MessageDirection,
+  MessageSenderType,
+  Priority,
+  UserRole,
+  InboundProvider,
+  OutboundMessageStatus,
+  OutboundProvider,
+} from '@prisma/client';
+import { Job, Queue, QueueEvents, Worker } from 'bullmq';
 import type { InboundEventJobPayload } from '@omnidesk/shared';
+import { classifyDatabaseError } from '@omnidesk/shared';
 import Redis from 'ioredis';
 import { PrismaService } from '../src/database/prisma.service';
 import { EmailInboundAdapter } from '../src/inbound/adapters/email-inbound.adapter';
@@ -47,7 +67,14 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
       throw new Error(
         'Set INBOUND_TEST_DATABASE_URL and INBOUND_TEST_REDIS_URL explicitly; integration tests never reset the development database.',
       );
-    admin = new PrismaService({ datasourceUrl: databaseUrl });
+    const previousInstance = process.env.INSTANCE_ID;
+    process.env.INSTANCE_ID = `integration-admin-${randomUUID().slice(0, 8)}`;
+    try {
+      admin = new PrismaService({ datasourceUrl: databaseUrl });
+    } finally {
+      if (previousInstance === undefined) delete process.env.INSTANCE_ID;
+      else process.env.INSTANCE_ID = previousInstance;
+    }
     await admin.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
     schemaCreated = true;
     const url = new URL(databaseUrl);
@@ -111,8 +138,8 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
   ) {
     return prisma.inboundEvent.create({
       data: {
-        provider: 'EMAIL',
-        eventType: 'EMAIL_RECEIVED',
+        provider: InboundProvider.EMAIL,
+        eventType: InboundEventType.EMAIL_RECEIVED,
         dedupKey: `test:${key}`,
         rawPayload: {
           mailbox: `${key}@support.test`,
@@ -157,7 +184,7 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     expect(
       await prisma.inboundEvent.findUniqueOrThrow({ where: { id: event.id } }),
     ).toMatchObject({
-      normalizedStatus: 'PROCESSED',
+      normalizedStatus: InboundEventStatus.PROCESSED,
       processingStartedAt: null,
     });
   });
@@ -218,7 +245,10 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     const old = await claim(event.id);
     await prisma.inboundEvent.update({
       where: { id: event.id },
-      data: { normalizedStatus: 'PENDING', processingStartedAt: null },
+      data: {
+        normalizedStatus: InboundEventStatus.PENDING,
+        processingStartedAt: null,
+      },
     });
     await expect(
       ingestion.ingest(old, await normalize(old)),
@@ -253,12 +283,12 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     });
     const before = await prisma.conversation.update({
       where: { id: message.conversationId },
-      data: { status: 'RESOLVED', resolvedAt: new Date() },
+      data: { status: ConversationStatus.RESOLVED, resolvedAt: new Date() },
       include: { ticket: true },
     });
     await prisma.inboundEvent.update({
       where: { id: event.id },
-      data: { normalizedStatus: 'FAILED' },
+      data: { normalizedStatus: InboundEventStatus.FAILED },
     });
     await processor.process(job(event.id));
     const duplicateEvent = await emailEvent(payload);
@@ -279,7 +309,7 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
       await prisma.inboundEvent.findUniqueOrThrow({
         where: { id: duplicateEvent.id },
       }),
-    ).toMatchObject({ normalizedStatus: 'PROCESSED' });
+    ).toMatchObject({ normalizedStatus: InboundEventStatus.PROCESSED });
   });
 
   it('rolls back partial domain writes and retries successfully', async () => {
@@ -303,7 +333,10 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     ).toBe(0);
     expect(
       await prisma.inboundEvent.findUniqueOrThrow({ where: { id: event.id } }),
-    ).toMatchObject({ normalizedStatus: 'FAILED', processingStartedAt: null });
+    ).toMatchObject({
+      normalizedStatus: InboundEventStatus.FAILED,
+      processingStartedAt: null,
+    });
     expect(publisher.publish).not.toHaveBeenCalled();
     broken.mockRestore();
     await processor.process(job(event.id));
@@ -319,7 +352,7 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     await processor.process(job(event.id));
     expect(
       await prisma.inboundEvent.findUniqueOrThrow({ where: { id: event.id } }),
-    ).toMatchObject({ normalizedStatus: 'PROCESSED' });
+    ).toMatchObject({ normalizedStatus: InboundEventStatus.PROCESSED });
     expect(
       await prisma.message.count({ where: { inboundEventId: event.id } }),
     ).toBe(1);
@@ -330,8 +363,8 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     const id = randomUUID();
     const event = await prisma.inboundEvent.create({
       data: {
-        provider: 'FACEBOOK',
-        eventType: 'COMMENT',
+        provider: InboundProvider.FACEBOOK,
+        eventType: InboundEventType.COMMENT,
         dedupKey: `FACEBOOK_COMMENT:page:${id}`,
         rawPayload: {
           pageId: id,
@@ -354,7 +387,7 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     });
     expect(timeline).toHaveLength(2);
     expect(timeline[0]).toMatchObject({
-      senderType: 'SYSTEM',
+      senderType: MessageSenderType.SYSTEM,
       content: 'Original Facebook Post: https://facebook.com/post',
     });
     expect(timeline[0].createdAt.getTime()).toBe(
@@ -370,7 +403,7 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     });
     await prisma.conversation.update({
       where: { id: message.conversationId },
-      data: { status: 'CLOSED' },
+      data: { status: ConversationStatus.CLOSED },
     });
     const next = await emailEvent({
       ...(event.rawPayload as Record<string, unknown>),
@@ -386,10 +419,10 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
       await prisma.conversation.findUniqueOrThrow({
         where: { id: message.conversationId },
       }),
-    ).toMatchObject({ status: 'CLOSED' });
+    ).toMatchObject({ status: ConversationStatus.CLOSED });
   });
 
-  it('detects a real OCC conflict without losing the concurrent API update', async () => {
+  it('refreshes a snapshot after locking and retains OCC as a defensive guard', async () => {
     const first = await emailEvent();
     await processor.process(job(first.id));
     const primary = await prisma.message.findFirstOrThrow({
@@ -399,33 +432,60 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
       ...(first.rawPayload as Record<string, unknown>),
       messageId: randomUUID(),
     });
-    const update = repository.updateConversation.bind(repository);
+    const read = repository.conversation.bind(repository);
     const race = jest
-      .spyOn(repository, 'updateConversation')
-      .mockImplementationOnce(async (tx, id, version, data) => {
-        // Simulate an API transaction after the Worker read its conversation snapshot.
-        await prisma.conversation.update({
-          where: { id },
-          data: { version: { increment: 1 }, priority: 'HIGH' },
-        });
-        return update(tx, id, version, data);
+      .spyOn(repository, 'conversation')
+      .mockImplementationOnce(async (tx, account, message) => {
+        // These tests exercise awaited queries, not Prisma's fluent relation API.
+        // Narrow the view of the actual delegate rather than casting an ordinary
+        // Promise to a Prisma query client with methods it does not implement.
+        const queries: {
+          findFirst(
+            args?: Prisma.ConversationFindFirstArgs,
+          ): Promise<Conversation | null>;
+        } = tx.conversation;
+        const find = queries.findFirst.bind(queries);
+        const snapshot = jest
+          .spyOn(queries, 'findFirst')
+          .mockImplementationOnce(async (args) => {
+            const stale = await find(args);
+            await prisma.conversation.update({
+              where: { id: primary.conversationId },
+              data: { version: { increment: 1 }, priority: Priority.HIGH },
+            });
+            return stale;
+          });
+        try {
+          return await read(tx, account, message);
+        } finally {
+          snapshot.mockRestore();
+        }
       });
-    await expect(processor.process(job(next.id))).rejects.toThrow(
-      'OCC Conflict',
-    );
-    expect(
-      await prisma.message.count({ where: { inboundEventId: next.id } }),
-    ).toBe(0);
+    await processor.process(job(next.id));
+    race.mockRestore();
     expect(
       await prisma.conversation.findUniqueOrThrow({
         where: { id: primary.conversationId },
       }),
-    ).toMatchObject({ priority: 'HIGH', version: 2 });
-    race.mockRestore();
-    await processor.process(job(next.id));
+    ).toMatchObject({ priority: Priority.HIGH, version: 3 });
     expect(
       await prisma.message.count({ where: { inboundEventId: next.id } }),
     ).toBe(1);
+    await expect(
+      prisma.$transaction((tx) =>
+        repository.updateConversation(tx, primary.conversationId, 1, {
+          priority: Priority.LOW,
+          version: { increment: 1 },
+        }),
+      ),
+    ).rejects.toThrow('OCC Conflict');
+    expect(
+      (
+        await prisma.conversation.findUniqueOrThrow({
+          where: { id: primary.conversationId },
+        })
+      ).priority,
+    ).toBe(Priority.HIGH);
   });
 
   async function withQueue(
@@ -433,21 +493,33 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
       queue: Queue<InboundEventJobPayload>,
       queueEvents: QueueEvents,
     ) => Promise<void>,
+    run: (queued: Job<InboundEventJobPayload>) => Promise<void> = (queued) =>
+      processor.process(queued),
   ) {
     const prefix = `${schema}_${randomUUID().replaceAll('-', '')}`;
+    // Pass plain connection options across the BullMQ/ioredis package boundary.
+    // Each BullMQ owner closes its own connection in the teardown below.
+    const connection = {
+      host: redis.options.host,
+      port: redis.options.port,
+      username: redis.options.username,
+      password: redis.options.password,
+      db: redis.options.db,
+      tls: redis.options.tls,
+      maxRetriesPerRequest: null,
+    };
     const queue = new Queue<InboundEventJobPayload>('inbound-events', {
-      connection: redis,
+      connection,
       prefix,
     });
     const queueEvents = new QueueEvents('inbound-events', {
-      connection: redis,
+      connection,
       prefix,
     });
-    const worker = new Worker<InboundEventJobPayload>(
-      'inbound-events',
-      (queued) => processor.process(queued),
-      { connection: redis, prefix },
-    );
+    const worker = new Worker<InboundEventJobPayload>('inbound-events', run, {
+      connection,
+      prefix,
+    });
     try {
       await Promise.all([
         queueEvents.waitUntilReady(),
@@ -465,8 +537,8 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
   function payload(id: string): InboundEventJobPayload {
     return {
       inboundEventId: id,
-      provider: 'EMAIL',
-      eventType: 'EMAIL_RECEIVED',
+      provider: InboundProvider.EMAIL,
+      eventType: InboundEventType.EMAIL_RECEIVED,
       dedupKey: 'test',
     };
   }
@@ -487,7 +559,7 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     });
     expect(
       await prisma.inboundEvent.findUniqueOrThrow({ where: { id: event.id } }),
-    ).toMatchObject({ normalizedStatus: 'PROCESSED' });
+    ).toMatchObject({ normalizedStatus: InboundEventStatus.PROCESSED });
   });
 
   it('retries unfinished work if reconciliation resets the lease during normalization', async () => {
@@ -496,7 +568,10 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     jest.spyOn(email, 'normalize').mockImplementationOnce(async (input) => {
       await prisma.inboundEvent.update({
         where: { id: input.id },
-        data: { normalizedStatus: 'PENDING', processingStartedAt: null },
+        data: {
+          normalizedStatus: InboundEventStatus.PENDING,
+          processingStartedAt: null,
+        },
       });
       return original(input);
     });
@@ -511,7 +586,7 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     });
     expect(
       await prisma.inboundEvent.findUniqueOrThrow({ where: { id: event.id } }),
-    ).toMatchObject({ normalizedStatus: 'PROCESSED' });
+    ).toMatchObject({ normalizedStatus: InboundEventStatus.PROCESSED });
     expect(
       await prisma.message.count({ where: { inboundEventId: event.id } }),
     ).toBe(1);
@@ -538,7 +613,7 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
         await prisma.inboundEvent.findUniqueOrThrow({
           where: { id: event.id },
         }),
-      ).toMatchObject({ normalizedStatus: 'FAILED' });
+      ).toMatchObject({ normalizedStatus: InboundEventStatus.FAILED });
       await prisma.inboundEvent.update({
         where: { id: event.id },
         data: { rawPayload: event.rawPayload as Prisma.InputJsonValue },
@@ -550,5 +625,826 @@ describe('inbound transactions, concurrency and BullMQ recovery (real services)'
     expect(
       await prisma.message.count({ where: { inboundEventId: event.id } }),
     ).toBe(1);
+  });
+  function apiRepository() {
+    return new ConversationsRepository(
+      prisma as never,
+      new OutboxService(prisma as never),
+      { trigger: jest.fn() } as never,
+    );
+  }
+  async function aggregate() {
+    const key = randomUUID();
+    const thread = {
+      mailbox: `${key}@support.test`,
+      fromEmail: `${key}@customer.test`,
+      threadId: key,
+    };
+    const first = await emailEvent({
+      ...thread,
+      receivedAt: new Date(Date.now() - 3600000).toISOString(),
+    });
+    await processor.process(job(first.id));
+    const message = await prisma.message.findFirstOrThrow({
+      where: { inboundEventId: first.id },
+    });
+    const conversation = await prisma.conversation.findUniqueOrThrow({
+      where: { id: message.conversationId },
+      include: { ticket: true },
+    });
+    return { conversation, thread, first };
+  }
+
+  it('resumes SLA from normalized customer time once, and duplicate delivery preserves version', async () => {
+    const { conversation, thread } = await aggregate();
+    const api = apiRepository();
+    await api.updateStatus(
+      conversation.id,
+      ConversationStatus.WAITING_CUSTOMER,
+      conversation.version,
+    );
+    const waiting = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+      include: { ticket: true },
+    });
+    const receivedAt = new Date(waiting.ticket!.slaPausedAt!.getTime() + 60000);
+    const next = await emailEvent({
+      ...thread,
+      receivedAt: receivedAt.toISOString(),
+      messageId: randomUUID(),
+    });
+    await processor.process(job(next.id));
+    const resumed = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+      include: { ticket: true },
+    });
+    expect(resumed.status).toBe(ConversationStatus.IN_PROGRESS);
+    expect(resumed.version).toBe(waiting.version + 1);
+    expect(resumed.ticket!.slaDueAt!.getTime()).toBe(
+      waiting.ticket!.slaDueAt!.getTime() + 60000,
+    );
+    expect(resumed.ticket!.slaPausedAt).toBeNull();
+    const duplicate = await emailEvent({
+      ...thread,
+      receivedAt: receivedAt.toISOString(),
+      messageId: (next.rawPayload as Record<string, unknown>).messageId,
+    });
+    await processor.process(job(duplicate.id));
+    expect(
+      (
+        await prisma.conversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })
+      ).version,
+    ).toBe(resumed.version);
+    await expect(
+      api.updateStatus(
+        conversation.id,
+        ConversationStatus.RESOLVED,
+        waiting.version,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('serializes an API status change racing customer inbound without losing a version', async () => {
+    const { conversation, thread } = await aggregate();
+    const incoming = await emailEvent({
+      ...thread,
+      receivedAt: new Date().toISOString(),
+    });
+    const outcomes = await Promise.allSettled([
+      apiRepository().updateStatus(
+        conversation.id,
+        ConversationStatus.RESOLVED,
+        conversation.version,
+      ),
+      processor.process(job(incoming.id)),
+    ]);
+    expect(outcomes[1].status).toBe('fulfilled');
+    const after = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+    });
+    if (outcomes[0].status === 'rejected') {
+      expect(outcomes[0].reason).toMatchObject({ status: 409 });
+      expect(after.version).toBe(conversation.version + 1);
+    } else {
+      expect(after.version).toBe(conversation.version + 2);
+      expect(after.status).toBe(ConversationStatus.IN_PROGRESS);
+    }
+    expect(
+      await prisma.message.count({ where: { inboundEventId: incoming.id } }),
+    ).toBe(1);
+  });
+
+  it('skips a locked SLA candidate then reconciles exactly once using processing time', async () => {
+    const { conversation } = await aggregate();
+    await prisma.ticket.update({
+      where: { conversationId: conversation.id },
+      data: { slaDueAt: new Date(Date.now() - 1000), isOverdue: false },
+    });
+    const sla = new SlaCheckProcessor(prisma, publisher as never);
+    let release!: () => void;
+    let locked!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const transaction = prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${conversation.id}::uuid FOR UPDATE`;
+      locked();
+      await hold;
+    });
+    await ready;
+    try {
+      await sla.process({ data: { requestedAt: '2000-01-01' } } as never);
+      expect(
+        (
+          await prisma.ticket.findUniqueOrThrow({
+            where: { conversationId: conversation.id },
+          })
+        ).isOverdue,
+      ).toBe(false);
+    } finally {
+      release();
+      await transaction;
+    }
+    await sla.process({ data: { requestedAt: '2000-01-01' } } as never);
+    await sla.process({ data: { requestedAt: '2000-01-01' } } as never);
+    expect(
+      (
+        await prisma.conversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })
+      ).version,
+    ).toBe(conversation.version + 1);
+    expect(
+      (
+        await prisma.ticket.findUniqueOrThrow({
+          where: { conversationId: conversation.id },
+        })
+      ).isOverdue,
+    ).toBe(true);
+  });
+
+  it('protects a reopened conversation from auto-close and versions a real close once', async () => {
+    const { conversation } = await aggregate();
+    const old = new Date(Date.now() - 4 * 86400000);
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { status: ConversationStatus.RESOLVED, resolvedAt: old },
+    });
+    const close = new AutoCloseProcessor(prisma);
+    const lookup = jest.spyOn(candidateQueries(), 'findMany');
+    lookup.mockImplementationOnce(async () => {
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { status: ConversationStatus.IN_PROGRESS, resolvedAt: null },
+      });
+      return [{ id: conversation.id }];
+    });
+    await close.process({ data: { requestedAt: '2000-01-01' } } as never);
+    expect(
+      (
+        await prisma.conversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })
+      ).status,
+    ).toBe(ConversationStatus.IN_PROGRESS);
+    lookup.mockRestore();
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { status: ConversationStatus.RESOLVED, resolvedAt: old },
+    });
+    await close.process({ data: { requestedAt: '2000-01-01' } } as never);
+    await close.process({ data: { requestedAt: '2000-01-01' } } as never);
+    expect(
+      (
+        await prisma.conversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })
+      ).version,
+    ).toBe(conversation.version + 1);
+    expect(
+      await prisma.outboxEvent.count({
+        where: {
+          aggregateId: conversation.id,
+          type: 'CONVERSATION_STATUS_CHANGED',
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('finalizes a checkpointed outbound once, preserves CLOSED and advances the aggregate version', async () => {
+    const { conversation } = await aggregate();
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { status: ConversationStatus.CLOSED },
+    });
+    const agent = await prisma.user.create({
+      data: {
+        email: `${randomUUID()}@agent.test`,
+        name: 'Test agent',
+        passwordHash: 'test-only',
+        role: UserRole.AGENT,
+      },
+    });
+    const outgoing = await prisma.outboundMessage.create({
+      data: {
+        conversationId: conversation.id,
+        channelType: ChannelType.EMAIL,
+        provider: OutboundProvider.EMAIL,
+        content: 'Reply',
+        createdBy: agent.id,
+        status: OutboundMessageStatus.SENDING,
+        externalMessageId: randomUUID(),
+        sentAt: new Date(),
+      },
+    });
+    const outbound = new OutboundMessagesProcessor(
+      prisma,
+      {} as never,
+      publisher as never,
+    );
+    const work = {
+      data: { outboundMessageId: outgoing.id },
+      opts: { attempts: 3 },
+      attemptsMade: 0,
+    } as never;
+    await Promise.all([outbound.process(work), outbound.process(work)]);
+    const after = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+    });
+    expect(after.status).toBe(ConversationStatus.CLOSED);
+    expect(after.version).toBe(conversation.version + 1);
+    expect(
+      await prisma.message.count({
+        where: {
+          conversationId: conversation.id,
+          direction: MessageDirection.OUTBOUND,
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('applies per-session PostgreSQL limits and bounds the connection pool', async () => {
+    const settings = await prisma.$queryRaw<
+      { application: string; lock: string; statement: string; idle: string }[]
+    >`SELECT current_setting('application_name') AS application, current_setting('lock_timeout') AS lock, current_setting('statement_timeout') AS statement, current_setting('idle_in_transaction_session_timeout') AS idle`;
+    expect(settings[0]).toMatchObject({
+      application: expect.stringContaining('omnidesk-worker:'),
+      lock: '1s',
+      statement: '5s',
+      idle: '10s',
+    });
+    await Promise.all(
+      Array.from(
+        { length: 12 },
+        () => prisma.$queryRaw`SELECT 1::int AS value FROM pg_sleep(0.02)`,
+      ),
+    );
+    const [count] = await prisma.$queryRaw<
+      { count: number }[]
+    >`SELECT count(*)::int AS count FROM pg_stat_activity WHERE application_name = current_setting('application_name') AND datname = current_database()`;
+    // The admin uses a distinct instance label; this count is the Worker pool only.
+    expect(count.count).toBeLessThanOrEqual(5);
+  });
+
+  it('fails lock waits within the session limit and rolls back timed-out transactions', async () => {
+    const { conversation } = await aggregate();
+    let ready!: () => void;
+    let release!: () => void;
+    const acquired = new Promise<void>((resolve) => {
+      ready = resolve;
+    });
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const owner = prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${conversation.id}::uuid FOR UPDATE`;
+      ready();
+      await hold;
+    });
+    await acquired;
+    const started = Date.now();
+    try {
+      await expect(
+        prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${conversation.id}::uuid FOR UPDATE`;
+        }),
+      ).rejects.toThrow();
+      expect(Date.now() - started).toBeLessThan(3000);
+    } finally {
+      release();
+      await owner;
+    }
+    await expect(
+      prisma.$transaction(
+        async (tx) => {
+          await tx.conversation.update({
+            where: { id: conversation.id },
+            data: { subject: 'Must roll back' },
+          });
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          await tx.conversation.findUnique({ where: { id: conversation.id } });
+        },
+        { timeout: 100 },
+      ),
+    ).rejects.toThrow();
+    expect(
+      (
+        await prisma.conversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })
+      ).subject,
+    ).not.toBe('Must roll back');
+  });
+  it('cancels a statement that exceeds the per-session statement timeout', async () => {
+    const started = Date.now();
+    await expect(
+      prisma.$queryRaw`SELECT 1::int AS value FROM pg_sleep(6)`,
+    ).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(6500);
+    await expect(prisma.$queryRaw`SELECT 1::int AS value`).resolves.toEqual([
+      { value: 1 },
+    ]);
+  });
+
+  function gate() {
+    let release!: () => void;
+    const promise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { promise, release };
+  }
+
+  function candidateQueries() {
+    const queries: {
+      findMany(
+        args?: Prisma.ConversationFindManyArgs,
+      ): Promise<{ id: string }[]>;
+    } = prisma.conversation;
+    return queries;
+  }
+
+  async function waitForBlockedSession() {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const [row] = await admin.$queryRaw<{ count: number }[]>`
+        SELECT count(*)::int AS count FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock'
+          AND application_name = ${`omnidesk-worker:${process.env.INSTANCE_ID ?? process.env.HOSTNAME ?? 'local'}`}`;
+      if (row.count > 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error('Expected an actual PostgreSQL lock waiter');
+  }
+
+  // Hold a real API transaction after writing its outbox, before COMMIT.
+  function gatedApi() {
+    const entered = gate();
+    const finish = gate();
+    const outbox = new OutboxService(prisma as never);
+    const writer: {
+      createEvent(
+        ...args: Parameters<OutboxService['createEvent']>
+      ): Promise<Awaited<ReturnType<OutboxService['createEvent']>>>;
+    } = outbox;
+    const write = writer.createEvent.bind(writer);
+    jest.spyOn(writer, 'createEvent').mockImplementation(async (...args) => {
+      const event = await write(...args);
+      entered.release();
+      await finish.promise;
+      return event;
+    });
+    return {
+      entered,
+      finish,
+      api: new ConversationsRepository(prisma as never, outbox, {
+        trigger: jest.fn(),
+      } as never),
+    };
+  }
+
+  it('commits API pause before a blocked inbound resumes from customer time', async () => {
+    const { conversation, thread } = await aggregate();
+    const control = gatedApi();
+    const pause = control.api.updateStatus(
+      conversation.id,
+      ConversationStatus.WAITING_CUSTOMER,
+      conversation.version,
+    );
+    await control.entered.promise;
+    const incoming = await emailEvent({
+      ...thread,
+      receivedAt: new Date(Date.now() + 60000).toISOString(),
+    });
+    const resume = processor.process(job(incoming.id));
+    try {
+      await waitForBlockedSession();
+    } finally {
+      control.finish.release();
+    }
+    const waiting = await pause;
+    await resume;
+    const after = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+      include: { ticket: true },
+    });
+    expect(after.status).toBe(ConversationStatus.IN_PROGRESS);
+    expect(after.version).toBe(conversation.version + 2);
+    expect(after.ticket!.slaPausedAt).toBeNull();
+    const received = new Date(
+      (incoming.rawPayload as { receivedAt: string }).receivedAt,
+    );
+    expect(after.ticket!.slaDueAt!.getTime()).toBe(
+      waiting.ticket!.slaDueAt!.getTime() +
+        received.getTime() -
+        waiting.ticket!.slaPausedAt!.getTime(),
+    );
+  });
+
+  it('rejects a stale API pause when inbound commits first', async () => {
+    const { conversation, thread } = await aggregate();
+    const entered = gate();
+    const finish = gate();
+    const update = repository.updateConversation.bind(repository);
+    jest
+      .spyOn(repository, 'updateConversation')
+      .mockImplementation(async (...args) => {
+        await update(...args);
+        entered.release();
+        await finish.promise;
+      });
+    const incoming = await emailEvent({
+      ...thread,
+      receivedAt: new Date().toISOString(),
+    });
+    const inbound = processor.process(job(incoming.id));
+    await entered.promise;
+    const pause = apiRepository().updateStatus(
+      conversation.id,
+      ConversationStatus.WAITING_CUSTOMER,
+      conversation.version,
+    );
+    const rejected = expect(pause).rejects.toMatchObject({ status: 409 });
+    try {
+      await waitForBlockedSession();
+    } finally {
+      finish.release();
+    }
+    await Promise.all([inbound, rejected]);
+    const after = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+      include: { ticket: true },
+    });
+    expect(after.status).toBe(ConversationStatus.NEW);
+    expect(after.version).toBe(conversation.version + 1);
+    expect(after.ticket!.slaPausedAt).toBeNull();
+  });
+
+  it.each([
+    ConversationStatus.WAITING_CUSTOMER,
+    ConversationStatus.IN_PROGRESS,
+    ConversationStatus.RESOLVED,
+  ] as const)(
+    'rechecks a stale SLA candidate after an API transition to %s',
+    async (status) => {
+      const { conversation } = await aggregate();
+      await prisma.ticket.update({
+        where: { conversationId: conversation.id },
+        data: {
+          slaDueAt: new Date(Date.now() - 60000),
+          slaPausedAt:
+            status === ConversationStatus.IN_PROGRESS
+              ? new Date(Date.now() - 3600000)
+              : null,
+          isOverdue: true,
+        },
+      });
+      if (status === ConversationStatus.IN_PROGRESS)
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { status: ConversationStatus.WAITING_CUSTOMER },
+        });
+      const selected = gate();
+      const proceed = gate();
+      const scan = jest
+        .spyOn(candidateQueries(), 'findMany')
+        .mockImplementationOnce(async () => {
+          selected.release();
+          await proceed.promise;
+          return [{ id: conversation.id }];
+        });
+      const check = new SlaCheckProcessor(prisma, publisher as never).process({
+        data: { requestedAt: '2000-01-01' },
+      } as never);
+      await selected.promise;
+      try {
+        await apiRepository().updateStatus(
+          conversation.id,
+          status,
+          conversation.version,
+        );
+      } finally {
+        proceed.release();
+      }
+      await check;
+      scan.mockRestore();
+      const after = await prisma.conversation.findUniqueOrThrow({
+        where: { id: conversation.id },
+        include: { ticket: true },
+      });
+      expect(after.status).toBe(status);
+      expect(after.ticket!.isOverdue).toBe(false);
+      expect(after.version).toBe(conversation.version + 1);
+    },
+  );
+
+  async function checkpointedOutbound(conversationId: string) {
+    const agent = await prisma.user.create({
+      data: {
+        email: `${randomUUID()}@agent.test`,
+        name: 'Test agent',
+        passwordHash: 'test-only',
+        role: UserRole.AGENT,
+      },
+    });
+    return prisma.outboundMessage.create({
+      data: {
+        conversationId,
+        channelType: ChannelType.EMAIL,
+        provider: OutboundProvider.EMAIL,
+        content: 'Reply',
+        createdBy: agent.id,
+        status: OutboundMessageStatus.SENDING,
+        externalMessageId: randomUUID(),
+        sentAt: new Date(),
+      },
+    });
+  }
+
+  it('preserves agent resolution while outbound finalization waits for the API lock', async () => {
+    const { conversation } = await aggregate();
+    const outgoing = await checkpointedOutbound(conversation.id);
+    const control = gatedApi();
+    const resolve = control.api.updateStatus(
+      conversation.id,
+      ConversationStatus.RESOLVED,
+      conversation.version,
+    );
+    await control.entered.promise;
+    const finalize = new OutboundMessagesProcessor(
+      prisma,
+      {} as never,
+      publisher as never,
+    ).process({
+      data: { outboundMessageId: outgoing.id },
+      opts: { attempts: 3 },
+      attemptsMade: 0,
+    } as never);
+    try {
+      await waitForBlockedSession();
+    } finally {
+      control.finish.release();
+    }
+    await Promise.all([resolve, finalize]);
+    const after = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+      include: { ticket: true },
+    });
+    expect(after.status).toBe(ConversationStatus.RESOLVED);
+    expect(after.resolvedAt).not.toBeNull();
+    expect(after.ticket!.isOverdue).toBe(false);
+    expect(after.version).toBe(conversation.version + 2);
+    expect(
+      await prisma.message.count({
+        where: {
+          conversationId: conversation.id,
+          direction: MessageDirection.OUTBOUND,
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('does not auto-close a stale candidate that the agent has just resolved again', async () => {
+    const { conversation } = await aggregate();
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        status: ConversationStatus.RESOLVED,
+        resolvedAt: new Date(Date.now() - 4 * 86400000),
+      },
+    });
+    const selected = gate();
+    const proceed = gate();
+    const queries = candidateQueries();
+    const find = queries.findMany.bind(queries);
+    jest.spyOn(queries, 'findMany').mockImplementationOnce(async (...args) => {
+      const candidates = await find(...args);
+      expect(
+        candidates.some((candidate) => candidate.id === conversation.id),
+      ).toBe(true);
+      selected.release();
+      await proceed.promise;
+      return candidates;
+    });
+    const close = new AutoCloseProcessor(prisma).process({
+      data: { requestedAt: '2000-01-01' },
+    } as never);
+    await selected.promise;
+    try {
+      await apiRepository().updateStatus(
+        conversation.id,
+        ConversationStatus.IN_PROGRESS,
+        conversation.version,
+      );
+      await apiRepository().updateStatus(
+        conversation.id,
+        ConversationStatus.RESOLVED,
+        conversation.version + 1,
+      );
+    } finally {
+      proceed.release();
+    }
+    await close;
+    const after = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+    });
+    expect(after.status).toBe(ConversationStatus.RESOLVED);
+    expect(after.version).toBe(conversation.version + 2);
+    expect(
+      await prisma.outboxEvent.count({
+        where: {
+          aggregateId: conversation.id,
+          type: 'CONVERSATION_STATUS_CHANGED',
+        },
+      }),
+    ).toBe(2);
+  });
+
+  it('classifies a real lock timeout and retries ingestion through BullMQ without partial writes', async () => {
+    const { conversation, thread } = await aggregate();
+    const incoming = await emailEvent({
+      ...thread,
+      receivedAt: new Date().toISOString(),
+    });
+    const acquired = gate();
+    const finish = gate();
+    const owner = prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${conversation.id}::uuid FOR UPDATE`;
+      acquired.release();
+      await finish.promise;
+    });
+    await acquired.promise;
+    const failures: string[] = [];
+    const failedAt: number[] = [];
+    const attempts: number[] = [];
+    try {
+      await withQueue(
+        async (queue, queueEvents) => {
+          const queued = await queue.add(
+            'process-inbound-event',
+            payload(incoming.id),
+            { attempts: 3, backoff: { type: 'exponential', delay: 100 } },
+          );
+          await queued.waitUntilFinished(queueEvents, 10000);
+          expect((await queue.getJob(queued.id!))?.attemptsMade).toBe(2);
+        },
+        async (queued) => {
+          attempts.push(Date.now());
+          try {
+            await processor.process(queued);
+          } catch (error) {
+            failures.push(classifyDatabaseError(error));
+            expect(
+              await prisma.message.count({
+                where: { inboundEventId: incoming.id },
+              }),
+            ).toBe(0);
+            expect(
+              (
+                await prisma.conversation.findUniqueOrThrow({
+                  where: { id: conversation.id },
+                })
+              ).version,
+            ).toBe(conversation.version);
+            failedAt.push(Date.now());
+            finish.release();
+            await owner;
+            throw error;
+          }
+        },
+      );
+    } finally {
+      finish.release();
+      await owner;
+    }
+    expect(failures).toEqual(['lock_timeout']);
+    expect(attempts[1] - failedAt[0]).toBeGreaterThanOrEqual(90);
+    expect(
+      await prisma.message.count({ where: { inboundEventId: incoming.id } }),
+    ).toBe(1);
+    expect(
+      (
+        await prisma.conversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })
+      ).version,
+    ).toBe(conversation.version + 1);
+    expect(
+      (
+        await prisma.inboundEvent.findUniqueOrThrow({
+          where: { id: incoming.id },
+        })
+      ).normalizedStatus,
+    ).toBe(InboundEventStatus.PROCESSED);
+  });
+
+  it('bounds a one-slot pool, classifies exhaustion and retries the actual Worker after release', async () => {
+    const incoming = await emailEvent();
+    const previous = { ...process.env };
+    let tiny: PrismaService;
+    try {
+      process.env.WORKER_DB_POOL_SIZE = '1';
+      process.env.DB_POOL_TIMEOUT_SECONDS = '1';
+      process.env.INSTANCE_ID = `tiny-${randomUUID().slice(0, 8)}`;
+      tiny = new PrismaService({
+        datasourceUrl: new URL(
+          `?schema=${schema}`,
+          process.env.INBOUND_TEST_DATABASE_URL,
+        ).toString(),
+      });
+    } finally {
+      for (const key of [
+        'WORKER_DB_POOL_SIZE',
+        'DB_POOL_TIMEOUT_SECONDS',
+        'INSTANCE_ID',
+      ]) {
+        if (previous[key] === undefined) delete process.env[key];
+        else process.env[key] = previous[key];
+      }
+    }
+    const tinyEvents = new InboundEventRepository(tiny);
+    const smallProcessor = new InboundEventsProcessor(
+      tinyEvents,
+      registry,
+      new InboundIngestionService(tiny, repository, tinyEvents),
+      new InboundNotificationsService(publisher as never),
+    );
+    const acquired = gate();
+    const finish = gate();
+    const owner = tiny.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1`;
+      acquired.release();
+      await finish.promise;
+    });
+    await acquired.promise;
+    const failures: string[] = [];
+    const attempts: number[] = [];
+    const failedAt: number[] = [];
+    try {
+      await withQueue(
+        async (queue, queueEvents) => {
+          const queued = await queue.add(
+            'process-inbound-event',
+            payload(incoming.id),
+            { attempts: 3, backoff: { type: 'exponential', delay: 100 } },
+          );
+          await queued.waitUntilFinished(queueEvents, 10000);
+          expect((await queue.getJob(queued.id!))?.attemptsMade).toBe(2);
+        },
+        async (queued) => {
+          attempts.push(Date.now());
+          try {
+            await smallProcessor.process(queued);
+          } catch (error) {
+            failures.push(classifyDatabaseError(error));
+            const [row] = await admin.$queryRaw<
+              { count: number }[]
+            >`SELECT count(*)::int AS count FROM pg_stat_activity WHERE application_name LIKE 'omnidesk-worker:tiny-%' AND datname = current_database()`;
+            expect(row.count).toBe(1);
+            expect(
+              await prisma.message.count({
+                where: { inboundEventId: incoming.id },
+              }),
+            ).toBe(0);
+            failedAt.push(Date.now());
+            finish.release();
+            await owner;
+            throw error;
+          }
+        },
+      );
+      expect(failures).toEqual(['pool_timeout']);
+      expect(attempts[1] - failedAt[0]).toBeGreaterThanOrEqual(90);
+      expect(
+        await prisma.message.count({ where: { inboundEventId: incoming.id } }),
+      ).toBe(1);
+    } finally {
+      finish.release();
+      await owner;
+      await tiny.$disconnect();
+    }
   });
 });

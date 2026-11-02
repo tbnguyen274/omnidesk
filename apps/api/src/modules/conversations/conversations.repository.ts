@@ -1,9 +1,12 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { evaluateConversationChange } from '@omnidesk/domain';
+import { observeDatabaseOperation } from '@omnidesk/shared';
+import { Injectable, ConflictException, Logger } from '@nestjs/common';
 import {
   ConversationStatus,
   MessageDirection,
   Prisma,
   Priority,
+  ChannelType,
 } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
@@ -11,6 +14,18 @@ import { OutboxDispatcherService } from '../../common/outbox/outbox-dispatcher.s
 
 @Injectable()
 export class ConversationsRepository {
+  private readonly logger = new Logger(ConversationsRepository.name);
+
+  private runTransaction<T>(
+    work: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return observeDatabaseOperation(
+      'api.conversation.write',
+      () => this.prisma.$transaction(work),
+      (record) => this.logger.log(JSON.stringify(record)),
+    );
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
@@ -113,7 +128,8 @@ export class ConversationsRepository {
   }
 
   async updateStatus(id: string, status: ConversationStatus, version: number) {
-    const result = await this.prisma.$transaction(async (tx) => {
+    const result = await this.runTransaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${id}::uuid FOR UPDATE`;
       const conversation = await tx.conversation.findUnique({
         where: { id },
         include: { ticket: true },
@@ -123,61 +139,30 @@ export class ConversationsRepository {
         throw new Error('Conversation not found');
       }
 
-      const previousStatus = conversation.status;
-      const now = new Date();
-      const isWaitingCustomer = status === ConversationStatus.WAITING_CUSTOMER;
-      const isResolved = status === ConversationStatus.RESOLVED;
-      const isClosed = status === ConversationStatus.CLOSED;
-
-      let newSlaDueAt = conversation.ticket?.slaDueAt;
-      let newSlaPausedAt = conversation.ticket?.slaPausedAt;
-
-      if (isWaitingCustomer && !conversation.ticket?.slaPausedAt) {
-        newSlaPausedAt = now;
-      } else if (
-        !isWaitingCustomer &&
-        conversation.ticket?.slaPausedAt &&
-        conversation.ticket?.slaDueAt
-      ) {
-        // Unpause SLA: calculate how long it was paused and add it to the due date
-        const pauseDurationMs =
-          now.getTime() - conversation.ticket.slaPausedAt.getTime();
-        newSlaDueAt = new Date(
-          conversation.ticket.slaDueAt.getTime() + pauseDurationMs,
-        );
-        newSlaPausedAt = null;
-      }
-
-      const result = await tx.conversation.updateMany({
-        where: { id, version },
-        data: {
-          status,
-          version: { increment: 1 },
-          resolvedAt: isResolved
-            ? now
-            : isClosed
-              ? conversation.resolvedAt
-              : null,
-        },
-      });
-
-      if (result.count === 0) {
+      if (conversation.version !== version) {
         throw new ConflictException(
           'Data was modified by another agent. Please refresh.',
         );
       }
-
-      if (
-        conversation.ticket &&
-        (newSlaDueAt !== conversation.ticket.slaDueAt ||
-          newSlaPausedAt !== conversation.ticket.slaPausedAt)
-      ) {
+      const previousStatus = conversation.status;
+      const policy = evaluateConversationChange(
+        conversation,
+        { type: 'AGENT_SET_STATUS', status },
+        { now: new Date() },
+      );
+      if (!policy.changed) return conversation;
+      const result = await tx.conversation.updateMany({
+        where: { id, version },
+        data: { ...policy.conversationPatch, version: { increment: 1 } },
+      });
+      if (!result.count)
+        throw new ConflictException(
+          'Data was modified by another agent. Please refresh.',
+        );
+      if (conversation.ticket && Object.keys(policy.ticketPatch).length) {
         await tx.ticket.update({
           where: { id: conversation.ticket.id },
-          data: {
-            slaDueAt: newSlaDueAt,
-            slaPausedAt: newSlaPausedAt,
-          },
+          data: policy.ticketPatch,
         });
       }
 
@@ -187,7 +172,7 @@ export class ConversationsRepository {
       });
 
       let externalMessageId: string | null = null;
-      if (updated.channelType === 'EMAIL') {
+      if (updated.channelType === ChannelType.EMAIL) {
         const latestMsg = await tx.message.findFirst({
           where: {
             conversationId: updated.id,
@@ -200,20 +185,22 @@ export class ConversationsRepository {
         externalMessageId = latestMsg?.externalMessageId ?? null;
       }
 
-      await this.outbox.createEvent(
-        tx,
-        'CONVERSATION_STATUS_CHANGED',
-        updated.id,
-        {
-          conversationId: updated.id,
-          conversationVersion: updated.version,
-          previousStatus,
-          newStatus: updated.status,
-          channelType: updated.channelType,
-          channelAccountId: updated.channelAccountId,
-          externalMessageId,
-        },
-      );
+      if (previousStatus !== updated.status) {
+        await this.outbox.createEvent(
+          tx,
+          'CONVERSATION_STATUS_CHANGED',
+          updated.id,
+          {
+            conversationId: updated.id,
+            conversationVersion: updated.version,
+            previousStatus,
+            newStatus: updated.status,
+            channelType: updated.channelType,
+            channelAccountId: updated.channelAccountId,
+            externalMessageId,
+          },
+        );
+      }
 
       return updated;
     });
@@ -223,16 +210,31 @@ export class ConversationsRepository {
   }
 
   async updatePriority(id: string, priority: Priority, version: number) {
-    const result = await this.prisma.$transaction(async (tx) => {
+    const result = await this.runTransaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${id}::uuid FOR UPDATE`;
       const current = await tx.conversation.findUnique({
         where: { id },
-        select: { priority: true, channelType: true, channelAccountId: true },
+        select: {
+          priority: true,
+          version: true,
+          channelType: true,
+          channelAccountId: true,
+        },
       });
 
       if (!current) {
         throw new Error('Conversation not found');
       }
 
+      if (current.version !== version)
+        throw new ConflictException(
+          'Data was modified by another agent. Please refresh.',
+        );
+      if (current.priority === priority)
+        return tx.conversation.findUniqueOrThrow({
+          where: { id },
+          include: { ticket: true },
+        });
       const previousPriority = current.priority;
 
       const result = await tx.conversation.updateMany({
@@ -252,7 +254,7 @@ export class ConversationsRepository {
       });
 
       let externalMessageId: string | null = null;
-      if (conversation.channelType === 'EMAIL') {
+      if (conversation.channelType === ChannelType.EMAIL) {
         const latestMsg = await tx.message.findFirst({
           where: {
             conversationId: conversation.id,
@@ -292,7 +294,21 @@ export class ConversationsRepository {
     assignedAgentId: string | null,
     version: number,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.runTransaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${id}::uuid FOR UPDATE`;
+      const current = await tx.conversation.findUniqueOrThrow({
+        where: { id },
+        include: {
+          assignedAgent: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+        },
+      });
+      if (current.version !== version)
+        throw new ConflictException(
+          'Data was modified by another agent. Please refresh.',
+        );
+      if (current.assignedAgentId === assignedAgentId) return current;
       const result = await tx.conversation.updateMany({
         where: { id, version },
         data: {
@@ -324,7 +340,15 @@ export class ConversationsRepository {
   }
 
   async updateReadStatus(id: string, isRead: boolean, version: number) {
-    const result = await this.prisma.$transaction(async (tx) => {
+    const result = await this.runTransaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM "conversations" WHERE "id" = ${id}::uuid FOR UPDATE`;
+      const current = await tx.conversation.findUnique({ where: { id } });
+      if (!current) throw new Error('Conversation not found');
+      if (current.version !== version)
+        throw new ConflictException(
+          'Data was modified by another agent. Please refresh.',
+        );
+      if (current.isRead === isRead) return current;
       const result = await tx.conversation.updateMany({
         where: { id, version },
         data: {
@@ -344,7 +368,7 @@ export class ConversationsRepository {
       });
 
       let externalMessageId: string | null = null;
-      if (conversation.channelType === 'EMAIL') {
+      if (conversation.channelType === ChannelType.EMAIL) {
         const latestMsg = await tx.message.findFirst({
           where: {
             conversationId: conversation.id,

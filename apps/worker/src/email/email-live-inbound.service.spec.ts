@@ -3,6 +3,7 @@ import {
   InboundEventType,
   InboundProvider,
   Prisma,
+  MessageContentType,
 } from '@prisma/client';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -141,7 +142,7 @@ describe('EmailLiveInboundService', () => {
         rawPayload: expect.objectContaining({
           fromEmail: 'customer@example.com',
           subject: 'Need help',
-          contentType: 'HTML',
+          contentType: MessageContentType.HTML,
           threadId: 'thread-1@example.com',
           references: ['thread-1@example.com'],
         }),

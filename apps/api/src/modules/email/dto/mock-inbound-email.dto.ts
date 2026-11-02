@@ -46,7 +46,7 @@ export class MockInboundEmailDto {
 
   @IsOptional()
   @IsIn([MessageContentType.TEXT, MessageContentType.HTML])
-  contentType?: Extract<MessageContentType, 'TEXT' | 'HTML'>;
+  contentType?: typeof MessageContentType.TEXT | typeof MessageContentType.HTML;
 
   @IsOptional()
   @IsISO8601()

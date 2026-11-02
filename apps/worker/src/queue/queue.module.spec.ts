@@ -4,6 +4,7 @@ import { QueueService } from './queue.service';
 import { PrismaService } from '../database/prisma.service';
 import { RealtimeEventsPublisher } from '../realtime/realtime-events.publisher';
 import { InboundAdapterRegistry } from '../inbound/adapters/inbound-adapter.registry';
+import { InboundEventType, InboundProvider } from '@prisma/client';
 
 describe('Worker wiring and graceful shutdown', () => {
   it('wires adapters through DI and keeps DB/realtime alive until jobs drain', async () => {
@@ -27,12 +28,17 @@ describe('Worker wiring and graceful shutdown', () => {
       .compile();
     const registry = module.get(InboundAdapterRegistry);
     expect(
-      registry.find({ provider: 'EMAIL', eventType: 'EMAIL_RECEIVED' })
-        ?.provider,
-    ).toBe('EMAIL');
+      registry.find({
+        provider: InboundProvider.EMAIL,
+        eventType: InboundEventType.EMAIL_RECEIVED,
+      })?.provider,
+    ).toBe(InboundProvider.EMAIL);
     expect(
-      registry.find({ provider: 'FACEBOOK', eventType: 'COMMENT' })?.provider,
-    ).toBe('FACEBOOK');
+      registry.find({
+        provider: InboundProvider.FACEBOOK,
+        eventType: InboundEventType.COMMENT,
+      })?.provider,
+    ).toBe(InboundProvider.FACEBOOK);
     const disconnect = jest
       .spyOn(module.get(PrismaService), '$disconnect')
       .mockResolvedValue(undefined);

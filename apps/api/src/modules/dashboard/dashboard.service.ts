@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ConversationStatus } from '@prisma/client';
+import { ConversationStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../common/database/prisma.service';
 
 @Injectable()
@@ -21,10 +21,11 @@ export class DashboardService {
         }),
         this.prisma.ticket.count({
           where: {
-            isOverdue: true,
+            slaDueAt: { lt: new Date() },
+            slaPausedAt: null,
             conversation: {
               status: {
-                notIn: [ConversationStatus.RESOLVED, ConversationStatus.CLOSED],
+                in: [ConversationStatus.NEW, ConversationStatus.IN_PROGRESS],
               },
             },
           },
@@ -58,7 +59,7 @@ export class DashboardService {
 
   async getAgentPerformance() {
     const agents = await this.prisma.user.findMany({
-      where: { role: 'AGENT' },
+      where: { role: UserRole.AGENT },
       select: {
         id: true,
         name: true,

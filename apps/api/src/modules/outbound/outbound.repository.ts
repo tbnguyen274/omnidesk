@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { observeDatabaseOperation } from '@omnidesk/shared';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ChannelType,
   MessageContentType,
@@ -29,6 +30,7 @@ export type CreateAttachmentInput = {
 
 @Injectable()
 export class OutboundRepository {
+  private readonly logger = new Logger(OutboundRepository.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly outbox: OutboxService,
@@ -81,47 +83,52 @@ export class OutboundRepository {
     idempotencyKey?: string,
     requestHash?: string,
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      const outboundMessage = await tx.outboundMessage.create({
-        data: {
-          conversationId: input.conversationId,
-          channelType: input.channelType,
-          provider: input.provider,
-          recipientExternalId: input.recipientExternalId,
-          replyToMessageId: input.replyToMessageId,
-          content: input.content,
-          status: OutboundMessageStatus.PENDING,
-          idempotencyKey,
-          requestHash,
-          createdBy,
-        },
-      });
+    return observeDatabaseOperation(
+      'outbound.request',
+      () =>
+        this.prisma.$transaction(async (tx) => {
+          const outboundMessage = await tx.outboundMessage.create({
+            data: {
+              conversationId: input.conversationId,
+              channelType: input.channelType,
+              provider: input.provider,
+              recipientExternalId: input.recipientExternalId,
+              replyToMessageId: input.replyToMessageId,
+              content: input.content,
+              status: OutboundMessageStatus.PENDING,
+              idempotencyKey,
+              requestHash,
+              createdBy,
+            },
+          });
 
-      if (attachments.length > 0) {
-        await tx.attachment.createMany({
-          data: attachments.map((attachment) => ({
-            messageId: null,
-            storageKey: `pending:${outboundMessage.id}:${attachment.key}`,
-            url: attachment.url,
-            fileName: attachment.fileName,
-            mimeType: attachment.mimeType,
-            sizeBytes: attachment.sizeBytes,
-          })),
-        });
-      }
+          if (attachments.length > 0) {
+            await tx.attachment.createMany({
+              data: attachments.map((attachment) => ({
+                messageId: null,
+                storageKey: `pending:${outboundMessage.id}:${attachment.key}`,
+                url: attachment.url,
+                fileName: attachment.fileName,
+                mimeType: attachment.mimeType,
+                sizeBytes: attachment.sizeBytes,
+              })),
+            });
+          }
 
-      await this.outbox.createEvent(
-        tx,
-        'OUTBOUND_MESSAGE_SEND_REQUESTED',
-        outboundMessage.id,
-        {
-          outboundMessageId: outboundMessage.id,
-          conversationId: outboundMessage.conversationId,
-          provider: outboundMessage.provider,
-        },
-      );
+          await this.outbox.createEvent(
+            tx,
+            'OUTBOUND_MESSAGE_SEND_REQUESTED',
+            outboundMessage.id,
+            {
+              outboundMessageId: outboundMessage.id,
+              conversationId: outboundMessage.conversationId,
+              provider: outboundMessage.provider,
+            },
+          );
 
-      return outboundMessage;
-    });
+          return outboundMessage;
+        }),
+      (record) => this.logger.log(JSON.stringify(record)),
+    );
   }
 }

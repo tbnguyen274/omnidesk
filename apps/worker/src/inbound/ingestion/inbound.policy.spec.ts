@@ -3,6 +3,7 @@ import {
   initialTicketDeadline,
 } from './inbound.policy';
 import { inboundSubject } from '../presentation';
+import { ConversationStatus, Priority } from '@prisma/client';
 
 describe('pure inbound policies', () => {
   it('preserves creation and lifecycle decisions independently of provider', () => {
@@ -10,15 +11,19 @@ describe('pure inbound policies', () => {
       createNew: true,
       reopen: false,
     });
-    expect(decideInboundConversation('CLOSED')).toEqual({
+    expect(decideInboundConversation(ConversationStatus.CLOSED)).toEqual({
       createNew: true,
       reopen: false,
     });
-    expect(decideInboundConversation('RESOLVED')).toEqual({
+    expect(decideInboundConversation(ConversationStatus.RESOLVED)).toEqual({
       createNew: false,
       reopen: true,
     });
-    for (const status of ['NEW', 'IN_PROGRESS', 'WAITING_CUSTOMER'] as const) {
+    for (const status of [
+      ConversationStatus.NEW,
+      ConversationStatus.IN_PROGRESS,
+      ConversationStatus.WAITING_CUSTOMER,
+    ] as const) {
       expect(decideInboundConversation(status)).toEqual({
         createNew: false,
         reopen: false,
@@ -26,7 +31,7 @@ describe('pure inbound policies', () => {
     }
   });
   it('does not reset an existing ticket deadline', () => {
-    expect(initialTicketDeadline(true, 'URGENT', new Date())).toBeNull();
+    expect(initialTicketDeadline(true, Priority.URGENT, new Date())).toBeNull();
   });
   it('preserves channel subject compatibility without involving lifecycle rules', () => {
     expect(

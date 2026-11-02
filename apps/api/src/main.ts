@@ -14,6 +14,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
   });
+  app.enableShutdownHooks();
   app.use(helmet());
   app.use(cookieParser());
   app.use(requestLoggerMiddleware);

@@ -32,3 +32,5 @@ apps/worker/.env
 apps/web/.env
 **/node_modules
 **/dist
+# Isolated compatibility checkout is never part of an application image.
+.compat-base/
