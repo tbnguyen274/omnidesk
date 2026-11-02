@@ -80,8 +80,12 @@ export class FacebookInboundAdapter implements InboundProviderAdapter {
             : undefined,
       },
     };
-    if (comment && payload.channelAccountId)
-      await this.profiles.enrich(normalized.customer, payload.channelAccountId);
+    if (!fromPage)
+      await this.profiles.enrich(
+        normalized.customer,
+        payload.channelAccountId,
+        payload.pageId,
+      );
     const displayName = normalized.customer.name || externalId;
     const preview =
       payload.text.length > 50

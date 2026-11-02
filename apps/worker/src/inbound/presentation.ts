@@ -9,6 +9,7 @@ export function inboundSubject(
     return current ?? presentation.subject;
   return !current ||
     current.startsWith('Facebook Messenger -') ||
+    current.startsWith('Facebook Comment -') ||
     current.startsWith('Comment from ') ||
     current.includes('Unknown Customer') ||
     current.includes('undefined')
